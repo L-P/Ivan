@@ -1,0 +1,70 @@
+# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200420212212-258d9bec320e
+## explicit
+github.com/go-gl/glfw/v3.3/glfw
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/glad
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/mingw
+github.com/go-gl/glfw/v3.3/glfw/glfw/deps/vs2008
+github.com/go-gl/glfw/v3.3/glfw/glfw/include/GLFW
+github.com/go-gl/glfw/v3.3/glfw/glfw/src
+# github.com/hajimehoshi/ebiten v1.11.2
+## explicit
+github.com/hajimehoshi/ebiten
+github.com/hajimehoshi/ebiten/ebitenutil
+github.com/hajimehoshi/ebiten/ebitenutil/internal/assets
+github.com/hajimehoshi/ebiten/internal/affine
+github.com/hajimehoshi/ebiten/internal/buffered
+github.com/hajimehoshi/ebiten/internal/clock
+github.com/hajimehoshi/ebiten/internal/devicescale
+github.com/hajimehoshi/ebiten/internal/driver
+github.com/hajimehoshi/ebiten/internal/glfw
+github.com/hajimehoshi/ebiten/internal/graphics
+github.com/hajimehoshi/ebiten/internal/graphicscommand
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ca
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/mtl
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ns
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl
+github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl/gl
+github.com/hajimehoshi/ebiten/internal/hooks
+github.com/hajimehoshi/ebiten/internal/jsutil
+github.com/hajimehoshi/ebiten/internal/mipmap
+github.com/hajimehoshi/ebiten/internal/packing
+github.com/hajimehoshi/ebiten/internal/png
+github.com/hajimehoshi/ebiten/internal/restorable
+github.com/hajimehoshi/ebiten/internal/shareable
+github.com/hajimehoshi/ebiten/internal/thread
+github.com/hajimehoshi/ebiten/internal/uidriver/glfw
+github.com/hajimehoshi/ebiten/internal/uidriver/js
+github.com/hajimehoshi/ebiten/internal/uidriver/mobile
+github.com/hajimehoshi/ebiten/internal/web
+# golang.org/x/exp v0.0.0-20200513190911-00229845015e
+## explicit
+golang.org/x/exp/shiny/driver/gldriver
+golang.org/x/exp/shiny/driver/internal/drawer
+golang.org/x/exp/shiny/driver/internal/errscreen
+golang.org/x/exp/shiny/driver/internal/event
+golang.org/x/exp/shiny/driver/internal/lifecycler
+golang.org/x/exp/shiny/driver/internal/win32
+golang.org/x/exp/shiny/driver/internal/x11key
+golang.org/x/exp/shiny/screen
+# golang.org/x/image v0.0.0-20200618115811-c13761719519
+## explicit
+golang.org/x/image/math/f64
+# golang.org/x/mobile v0.0.0-20200329125638-4c31acba0007
+## explicit
+golang.org/x/mobile/app
+golang.org/x/mobile/app/internal/callfn
+golang.org/x/mobile/event/key
+golang.org/x/mobile/event/lifecycle
+golang.org/x/mobile/event/mouse
+golang.org/x/mobile/event/paint
+golang.org/x/mobile/event/size
+golang.org/x/mobile/event/touch
+golang.org/x/mobile/geom
+golang.org/x/mobile/gl
+golang.org/x/mobile/internal/mobileinit
+# golang.org/x/sys v0.0.0-20200620081246-981b61492c35
+## explicit
+golang.org/x/sys/internal/unsafeheader
+golang.org/x/sys/windows
