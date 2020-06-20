@@ -3,26 +3,45 @@ package tracker
 import (
 	"encoding/json"
 	"image"
+	"image/color"
+	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 
+	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
+	"github.com/hajimehoshi/ebiten/text"
+	"golang.org/x/image/font"
 )
 
 type Tracker struct {
-	items []Item
+	Origin image.Point
 
+	items         []Item
+	font          font.Face
 	sheetDisabled *ebiten.Image
 	sheetEnabled  *ebiten.Image
 }
+
+const capacityFontSize = 20
 
 func New(path string) (*Tracker, error) {
 	items, err := loadItems(path)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("loaded %d items", len(items))
+
+	fontBin, err := ioutil.ReadFile("assets/Inconsolata-Regular.ttf")
+	if err != nil {
+		return nil, err
+	}
+
+	ttf, err := truetype.Parse(fontBin)
+	if err != nil {
+		return nil, err
+	}
 
 	sheetDisabled, _, err := ebitenutil.NewImageFromFile("assets/items-disabled.png", ebiten.FilterDefault)
 	if err != nil {
@@ -34,16 +53,22 @@ func New(path string) (*Tracker, error) {
 		return nil, err
 	}
 
-	return &Tracker{
+	tracker := &Tracker{
 		items:         items,
 		sheetDisabled: sheetDisabled,
 		sheetEnabled:  sheetEnabled,
-	}, nil
+		font: truetype.NewFace(ttf, &truetype.Options{
+			Size:    capacityFontSize,
+			Hinting: font.HintingFull,
+		}),
+	}
+
+	return tracker, nil
 }
 
-// getItemIndex returns the index of the item at the given position or -1 if
+// getItemIndexByPos returns the index of the item at the given position or -1 if
 // there is no item under the given pixel.
-func (tracker *Tracker) getItemIndex(x, y int) int {
+func (tracker *Tracker) getItemIndexByPos(x, y int) int {
 	for k := range tracker.items {
 		if (image.Point{x, y}).In(tracker.items[k].Rect()) {
 			return k
@@ -55,8 +80,13 @@ func (tracker *Tracker) getItemIndex(x, y int) int {
 
 // Upgrade upgrades the item under the given point.
 func (tracker *Tracker) Upgrade(x, y int) {
-	i := tracker.getItemIndex(x, y)
+	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
+		return
+	}
+
+	if tracker.items[i].IsMedallion() || tracker.items[i].IsSong() {
+		tracker.items[i].Toggle()
 		return
 	}
 
@@ -65,7 +95,7 @@ func (tracker *Tracker) Upgrade(x, y int) {
 
 // Downgrade downgrades the item under the given point.
 func (tracker *Tracker) Downgrade(x, y int) {
-	i := tracker.getItemIndex(x, y)
+	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
 		return
 	}
@@ -82,11 +112,9 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 				continue
 			}
 
+			pos := tracker.items[k].Rect().Min.Add(tracker.Origin)
 			op.GeoM.Reset()
-			op.GeoM.Translate(
-				float64(tracker.items[k].X),
-				float64(tracker.items[k].Y),
-			)
+			op.GeoM.Translate(float64(pos.X), float64(pos.Y))
 
 			if err := screen.DrawImage(
 				sheet.SubImage(tracker.items[k].SheetRect()).(*ebiten.Image),
@@ -100,6 +128,36 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	// Do two loops to avoid texture switches.
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
+	tracker.drawCapacities(screen)
+}
+
+func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
+	for k := range tracker.items {
+		var count int
+		switch {
+		case tracker.items[k].HasCapacity():
+			count = tracker.items[k].Capacity()
+		case tracker.items[k].IsCountable():
+			count = tracker.items[k].Count()
+		default:
+			continue
+		}
+
+		if !tracker.items[k].Enabled {
+			continue
+		}
+
+		rect := tracker.items[k].Rect()
+		x, y := rect.Min.X, rect.Max.Y
+
+		// HACK, display skull count on the right
+		if tracker.items[k].Name == "Golden Skulltulas" {
+			x, y = rect.Min.X+gridSize+marginLeft, rect.Min.Y+marginTop+(gridSize/2)
+		}
+
+		str := strconv.Itoa(count)
+		text.Draw(screen, str, tracker.font, x, y, color.White)
+	}
 }
 
 func loadItems(path string) ([]Item, error) {

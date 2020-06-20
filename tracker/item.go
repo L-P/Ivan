@@ -1,6 +1,9 @@
 package tracker
 
-import "image"
+import (
+	"image"
+	"strings"
+)
 
 type Item struct {
 	Name string
@@ -13,30 +16,46 @@ type Item struct {
 	ItemProgression     []Item `json:",omitempty"`
 
 	// Index of the current item/capacity upgrade, 0 means disabled
-	UpgradeIndex int  `json:"-"`
-	Enabled      bool `json:",omitempty"`
+	upgradeIndex int
+
+	Enabled bool `json:",omitempty"`
+
+	// For countable items.
+	CountMax, CountStep, count int
 }
 
 // Capacity returns the currently selected capacity of the item or -1 if it has
 // no capacity to display.
 func (item Item) Capacity() int {
-	if len(item.CapacityProgression) == 0 {
+	if !item.HasCapacity() {
 		return -1
 	}
 
-	return item.CapacityProgression[item.UpgradeIndex]
+	// HACK, use the index as a direct count.
+	if item.IsCountable() {
+		return item.upgradeIndex
+	}
+
+	return item.CapacityProgression[item.upgradeIndex]
 }
 
 const (
+	gridSize         = 42
 	itemSpriteWidth  = 34
 	itemSpriteHeight = itemSpriteWidth
+
+	// Item X/Y origin is 0, 0 adjusted by these margins.
+	marginTop  = (gridSize - itemSpriteHeight) / 2
+	marginLeft = (gridSize - itemSpriteWidth) / 2
 )
 
 // Rect returns the position of the item relative to the background origin.
 func (item Item) Rect() image.Rectangle {
 	return image.Rect(
-		item.X, item.Y,
-		item.X+itemSpriteWidth, item.Y+itemSpriteHeight,
+		marginLeft+item.X,
+		marginTop+item.Y,
+		marginLeft+item.X+itemSpriteWidth,
+		marginTop+item.Y+itemSpriteHeight,
 	)
 }
 
@@ -46,8 +65,8 @@ func (item Item) SheetRect() image.Rectangle {
 
 	if len(item.ItemProgression) > 0 {
 		if item.Enabled {
-			x = item.ItemProgression[item.UpgradeIndex].SheetX
-			y = item.ItemProgression[item.UpgradeIndex].SheetY
+			x = item.ItemProgression[item.upgradeIndex].SheetX
+			y = item.ItemProgression[item.upgradeIndex].SheetY
 		} else {
 			x = item.ItemProgression[0].SheetX
 			y = item.ItemProgression[0].SheetY
@@ -68,6 +87,11 @@ func (item *Item) Upgrade() {
 		return
 	}
 
+	if item.IsCountable() {
+		item.countUp()
+		return
+	}
+
 	var max int
 	if len(item.ItemProgression) > 0 {
 		max = len(item.ItemProgression)
@@ -75,17 +99,26 @@ func (item *Item) Upgrade() {
 		max = len(item.CapacityProgression)
 	}
 
-	if max == 0 || ((item.UpgradeIndex + 1) >= max) {
+	if max == 0 || ((item.upgradeIndex + 1) >= max) {
 		return // not upgradable, skip
 	}
 
-	item.UpgradeIndex = (item.UpgradeIndex + 1) % max
+	item.upgradeIndex = (item.upgradeIndex + 1) % max
+}
+
+func (item *Item) Toggle() {
+	item.Enabled = !item.Enabled
 }
 
 // Downgrades downgrades the item to the previous upgrade.
 // It does not wrap around once the disabled state is reached.
 func (item *Item) Downgrade() {
 	if !item.Enabled {
+		return
+	}
+
+	if item.IsCountable() {
+		item.countDown()
 		return
 	}
 
@@ -101,10 +134,58 @@ func (item *Item) Downgrade() {
 		return
 	}
 
-	if (item.UpgradeIndex - 1) < 0 {
+	if (item.upgradeIndex - 1) < 0 {
 		item.Enabled = false
 		return
 	}
 
-	item.UpgradeIndex = (item.UpgradeIndex - 1) % max
+	item.upgradeIndex = (item.upgradeIndex - 1) % max
+}
+
+func (item *Item) countDown() {
+	item.count -= item.CountStep
+	if item.count < 0 {
+		item.count = 0
+		item.Enabled = false
+	}
+}
+
+func (item *Item) countUp() {
+	item.count += item.CountStep
+	if item.count > item.CountMax {
+		item.count = item.CountMax
+	}
+}
+
+func (item *Item) Count() int {
+	return item.count
+}
+
+func (item *Item) IsMedallion() bool {
+	switch item.Name {
+	case "Kokiri's Emerald", "Goron's Ruby", "Zora's Sapphire":
+		return true
+	default:
+		return strings.HasSuffix(item.Name, "Medallion")
+	}
+}
+
+func (item *Item) IsSong() bool {
+	switch item.Name {
+	case "Zelda's Lullaby", "Epona's Song", "Saria's Song", "Sun's Song",
+		"Song of Time", "Song of Storms", "Minuet of Forest", "Bolero of Fire",
+		"Serenade of Water", "Requiem of Spirit", "Nocturne of Shadow",
+		"Prelude of Light":
+		return true
+	default:
+		return false
+	}
+}
+
+func (item *Item) HasCapacity() bool {
+	return len(item.CapacityProgression) > 0
+}
+
+func (item *Item) IsCountable() bool {
+	return item.Name == "Golden Skulltulas" || item.Name == "Heart Piece"
 }

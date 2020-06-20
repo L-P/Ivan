@@ -1,8 +1,8 @@
 [
     {
         "Name": "Deku Stick",
-        "X": 6,
-        "Y": 8,
+        "X": 0,
+        "Y": 0,
         "SheetX": 0,
         "SheetY": 0,
         "CapacityProgression": [
@@ -13,8 +13,8 @@
     },
     {
         "Name": "Deku Nut",
-        "X": 47,
-        "Y": 8,
+        "X": 42,
+        "Y": 0,
         "SheetX": 35,
         "SheetY": 0,
         "CapacityProgression": [
@@ -25,8 +25,8 @@
     },
     {
         "Name": "Bomb",
-        "X": 88,
-        "Y": 8,
+        "X": 84,
+        "Y": 0,
         "SheetX": 70,
         "SheetY": 0,
         "CapacityProgression": [
@@ -37,8 +37,8 @@
     },
     {
         "Name": "Bow",
-        "X": 129,
-        "Y": 8,
+        "X": 126,
+        "Y": 0,
         "SheetX": 105,
         "SheetY": 0,
         "CapacityProgression": [
@@ -49,22 +49,22 @@
     },
     {
         "Name": "Fire Arrow",
-        "X": 170,
-        "Y": 8,
+        "X": 168,
+        "Y": 0,
         "SheetX": 140,
         "SheetY": 0
     },
     {
         "Name": "Din's Fire",
-        "X": 212,
-        "Y": 8,
+        "X": 210,
+        "Y": 0,
         "SheetX": 175,
         "SheetY": 0
     },
     {
         "Name": "Fairy Slingshot",
-        "X": 6,
-        "Y": 48,
+        "X": 0,
+        "Y": 42,
         "SheetX": 210,
         "SheetY": 0,
         "CapacityProgression": [
@@ -75,8 +75,8 @@
     },
     {
         "Name": "Ocarina",
-        "X": 47,
-        "Y": 48,
+        "X": 42,
+        "Y": 42,
         "ItemProgression": [
             {
                 "Name": "Fairy Ocarina",
@@ -92,15 +92,15 @@
     },
     {
         "Name": "Bombchu",
-        "X": 88,
-        "Y": 48,
+        "X": 84,
+        "Y": 42,
         "SheetX": 315,
         "SheetY": 0
     },
     {
         "Name": "Hookshot",
-        "X": 129,
-        "Y": 48,
+        "X": 126,
+        "Y": 42,
         "ItemProgression": [
             {
                 "Name": "Hookshot",
@@ -116,64 +116,64 @@
     },
     {
         "Name": "Ice Arrow",
-        "X": 170,
-        "Y": 48,
+        "X": 168,
+        "Y": 42,
         "SheetX": 0,
         "SheetY": 35
     },
     {
         "Name": "Farore's Wind",
-        "X": 212,
-        "Y": 48,
+        "X": 210,
+        "Y": 42,
         "SheetX": 35,
         "SheetY": 35
     },
     {
         "Name": "Boomerang",
-        "X": 6,
-        "Y": 88,
+        "X": 0,
+        "Y": 84,
         "SheetX": 70,
         "SheetY": 35
     },
     {
         "Name": "Lens of Truth",
-        "X": 47,
-        "Y": 88,
+        "X": 42,
+        "Y": 84,
         "SheetX": 105,
         "SheetY": 35
     },
     {
         "Name": "Magic Bean",
-        "X": 88,
-        "Y": 88,
+        "X": 84,
+        "Y": 84,
         "SheetX": 140,
         "SheetY": 35
     },
     {
         "Name": "Megaton Hammer",
-        "X": 129,
-        "Y": 88,
+        "X": 126,
+        "Y": 84,
         "SheetX": 175,
         "SheetY": 35
     },
     {
         "Name": "Light Arrow",
-        "X": 170,
-        "Y": 88,
+        "X": 168,
+        "Y": 84,
         "SheetX": 210,
         "SheetY": 35
     },
     {
         "Name": "Nayru's Love",
-        "X": 212,
-        "Y": 88,
+        "X": 210,
+        "Y": 84,
         "SheetX": 245,
         "SheetY": 35
     },
     {
         "Name": "Bottle",
-        "X": 6,
-        "Y": 128,
+        "X": 0,
+        "Y": 126,
         "ItemProgression": [
             {
                 "Name": "Empty Bottle",
@@ -244,8 +244,8 @@
     },
     {
         "Name": "Bottle",
-        "X": 47,
-        "Y": 128,
+        "X": 42,
+        "Y": 126,
         "ItemProgression": [
             {
                 "Name": "Empty Bottle",
@@ -316,8 +316,8 @@
     },
     {
         "Name": "Bottle",
-        "X": 88,
-        "Y": 128,
+        "X": 84,
+        "Y": 126,
         "ItemProgression": [
             {
                 "Name": "Empty Bottle",
@@ -388,8 +388,8 @@
     },
     {
         "Name": "Bottle",
-        "X": 129,
-        "Y": 128,
+        "X": 126,
+        "Y": 126,
         "ItemProgression": [
             {
                 "Name": "Empty Bottle",
@@ -460,11 +460,11 @@
     },
     {
         "Name": "Mask Trade Sequence",
-        "X": 212,
-        "Y": 128,
+        "X": 210,
+        "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Egg",
+                "Name": "Weird Egg",
                 "SheetX": 315,
                 "SheetY": 70
             },
@@ -526,17 +526,17 @@
         ]
     },
     {
-        "Name": "Egg",
-        "X": 170,
-        "Y": 128,
+        "Name": "Pocket Egg",
+        "X": 168,
+        "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Weird Egg",
+                "Name": "Pocket Egg",
                 "SheetX": 315,
                 "SheetY": 105
             },
             {
-                "Name": "Cucco",
+                "Name": "Pocket Cucco",
                 "SheetX": 350,
                 "SheetY": 105
             },
@@ -589,122 +589,125 @@
     },
     {
         "Name": "Kokiri's Sword",
-        "X": 6,
-        "Y": 176,
+        "X": 0,
+        "Y": 168,
         "SheetX": 280,
         "SheetY": 140
     },
     {
         "Name": "Master Sword",
-        "X": 47,
-        "Y": 176,
+        "X": 42,
+        "Y": 168,
         "SheetX": 315,
         "SheetY": 140
     },
     {
         "Name": "Biggoron's Sword",
-        "X": 88,
-        "Y": 176,
+        "X": 84,
+        "Y": 168,
         "SheetX": 350,
         "SheetY": 140
     },
     {
         "Name": "Deku Shiel",
-        "X": 6,
-        "Y": 216,
+        "X": 0,
+        "Y": 210,
         "SheetX": 385,
         "SheetY": 140
     },
     {
         "Name": "Hylian Shield",
-        "X": 47,
-        "Y": 216,
+        "X": 42,
+        "Y": 210,
         "SheetX": 0,
         "SheetY": 175
     },
     {
         "Name": "Mirror Shield",
-        "X": 88,
-        "Y": 216,
+        "X": 84,
+        "Y": 210,
         "SheetX": 35,
         "SheetY": 175
     },
     {
         "Name": "Kokiri's Tunic",
-        "X": 6,
-        "Y": 256,
+        "X": 0,
+        "Y": 252,
         "SheetX": 70,
         "SheetY": 175,
         "Enabled": true
     },
     {
         "Name": "Goron's Tunic",
-        "X": 47,
-        "Y": 256,
+        "X": 42,
+        "Y": 252,
         "SheetX": 105,
         "SheetY": 175
     },
     {
         "Name": "Zora's Tunic",
-        "X": 88,
-        "Y": 256,
+        "X": 84,
+        "Y": 252,
         "SheetX": 140,
         "SheetY": 175
     },
     {
         "Name": "Kokiri's Boots",
-        "X": 6,
-        "Y": 298,
+        "X": 0,
+        "Y": 294,
         "SheetX": 175,
         "SheetY": 175,
         "Enabled": true
     },
     {
         "Name": "Iron Boots",
-        "X": 47,
-        "Y": 298,
+        "X": 42,
+        "Y": 294,
         "SheetX": 210,
         "SheetY": 175
     },
     {
         "Name": "Hover Boots",
-        "X": 88,
-        "Y": 298,
+        "X": 84,
+        "Y": 294,
         "SheetX": 245,
         "SheetY": 175
     },
     {
         "Name": "Golden Skulltulas",
-        "X": 170,
-        "Y": 174,
+        "X": 168,
+        "Y": 168,
         "SheetX": 35,
-        "SheetY": 245
+        "SheetY": 245,
+        "Enabled": true,
+        "CountMax": 100,
+        "CountStep": 5
     },
     {
         "Name": "Kokiri's Emerald",
-        "X": 129,
-        "Y": 298,
+        "X": 126,
+        "Y": 294,
         "SheetX": 140,
         "SheetY": 245
     },
     {
         "Name": "Goron's Ruby",
-        "X": 170,
-        "Y": 298,
+        "X": 168,
+        "Y": 294,
         "SheetX": 175,
         "SheetY": 245
     },
     {
         "Name": "Zora's Sapphire",
-        "X": 212,
-        "Y": 298,
+        "X": 210,
+        "Y": 294,
         "SheetX": 210,
         "SheetY": 245
     },
     {
         "Name": "Magic",
-        "X": 129,
-        "Y": 216,
+        "X": 126,
+        "Y": 210,
         "ItemProgression": [
             {
                 "Name": "Magic I",
@@ -720,15 +723,15 @@
     },
     {
         "Name": "Stone of Agony",
-        "X": 129,
-        "Y": 256,
+        "X": 126,
+        "Y": 252,
         "SheetX": 35,
         "SheetY": 315
     },
     {
         "Name": "Scale",
-        "X": 170,
-        "Y": 256,
+        "X": 168,
+        "Y": 252,
         "ItemProgression": [
             {
                 "Name": "Silver Scale",
@@ -744,8 +747,8 @@
     },
     {
         "Name": "Force",
-        "X": 212,
-        "Y": 256,
+        "X": 210,
+        "Y": 252,
         "ItemProgression": [
             {
                 "Name": "Goron's Bracelet",
@@ -766,8 +769,8 @@
     },
     {
         "Name": "Wallet",
-        "X": 170,
-        "Y": 216,
+        "X": 168,
+        "Y": 210,
         "CapacityProgression": [
             200,
             500,
@@ -793,147 +796,135 @@
     },
     {
         "Name": "Gerudo Card",
-        "X": 212,
-        "Y": 216,
+        "X": 210,
+        "Y": 210,
         "SheetX": 0,
         "SheetY": 245
     },
     {
         "Name": "Forest Medallion",
-        "X": 6,
-        "Y": 345,
+        "X": 0,
+        "Y": 336,
         "SheetX": 245,
         "SheetY": 245
     },
     {
         "Name": "Fire Medallion",
-        "X": 47,
-        "Y": 345,
+        "X": 42,
+        "Y": 336,
         "SheetX": 280,
         "SheetY": 245
     },
     {
         "Name": "Water Medallion",
-        "X": 88,
-        "Y": 345,
+        "X": 84,
+        "Y": 336,
         "SheetX": 315,
         "SheetY": 245
     },
     {
         "Name": "Shadow Medallion",
-        "X": 129,
-        "Y": 345,
+        "X": 126,
+        "Y": 336,
         "SheetX": 350,
         "SheetY": 245
     },
     {
         "Name": "Spirit Medallion",
-        "X": 170,
-        "Y": 345,
+        "X": 168,
+        "Y": 336,
         "SheetX": 385,
         "SheetY": 245
     },
     {
         "Name": "Light Medallion",
-        "X": 212,
-        "Y": 345,
+        "X": 210,
+        "Y": 336,
         "SheetX": 0,
         "SheetY": 280
     },
     {
         "Name": "Zelda's Lullaby",
-        "X": 256,
-        "Y": 6,
+        "X": 252,
+        "Y": -4,
         "SheetX": 35,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Epona's Song",
-        "X": 256,
-        "Y": 38,
+        "X": 252,
+        "Y": 26,
         "SheetX": 70,
-        "SheetY": 280,
-        "Song": true
-    },
-    {
-        "Name": "Sun's Song",
-        "X": 256,
-        "Y": 70,
-        "SheetX": 105,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Saria's Song",
-        "X": 256,
-        "Y": 102,
+        "X": 252,
+        "Y": 56,
+        "SheetX": 105,
+        "SheetY": 280
+    },
+    {
+        "Name": "Sun's Song",
+        "X": 252,
+        "Y": 86,
         "SheetX": 140,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Song of Time",
-        "X": 256,
-        "Y": 134,
+        "X": 252,
+        "Y": 116,
         "SheetX": 175,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Song of Storms",
-        "X": 256,
-        "Y": 166,
+        "X": 252,
+        "Y": 146,
         "SheetX": 210,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Minuet of Forest",
-        "X": 256,
-        "Y": 196,
+        "X": 252,
+        "Y": 184,
         "SheetX": 245,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Bolero of Fire",
-        "X": 256,
-        "Y": 227,
+        "X": 252,
+        "Y": 214,
         "SheetX": 280,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Serenade of Water",
-        "X": 256,
-        "Y": 258,
+        "X": 252,
+        "Y": 244,
         "SheetX": 315,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Requiem of Spirit",
-        "X": 256,
-        "Y": 289,
+        "X": 252,
+        "Y": 274,
         "SheetX": 350,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Nocturne of Shadow",
-        "X": 256,
-        "Y": 320,
+        "X": 252,
+        "Y": 304,
         "SheetX": 385,
-        "SheetY": 280,
-        "Song": true
+        "SheetY": 280
     },
     {
         "Name": "Prelude of Light",
-        "X": 256,
-        "Y": 351,
+        "X": 252,
+        "Y": 334,
         "SheetX": 0,
-        "SheetY": 315,
-        "Song": true
+        "SheetY": 315
     }
 ]

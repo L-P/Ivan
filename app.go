@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	width  = 296
-	height = 393
+	width  = 294
+	height = 378
 )
 
 var errCloseApp = errors.New("user requested app close")
