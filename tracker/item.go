@@ -14,7 +14,7 @@ type Item struct {
 
 	// Index of the current item/capacity upgrade, 0 means disabled
 	UpgradeIndex int  `json:"-"`
-	Enabled      bool `json:"-"`
+	Enabled      bool `json:",omitempty"`
 }
 
 // Capacity returns the currently selected capacity of the item or -1 if it has

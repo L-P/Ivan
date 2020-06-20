@@ -634,7 +634,8 @@
         "X": 6,
         "Y": 256,
         "SheetX": 70,
-        "SheetY": 175
+        "SheetY": 175,
+        "Enabled": true
     },
     {
         "Name": "Goron's Tunic",
@@ -655,7 +656,8 @@
         "X": 6,
         "Y": 298,
         "SheetX": 175,
-        "SheetY": 175
+        "SheetY": 175,
+        "Enabled": true
     },
     {
         "Name": "Iron Boots",
