@@ -7,7 +7,11 @@ all: $(EXEC)
 $(EXEC):
 	go build $(BUILDFLAGS)
 
-.PHONY: $(EXEC) vendor upgrade lint test coverage
+.PHONY: $(EXEC) vendor upgrade lint test coverage debian-deps
+
+debian-deps:
+	# Ebiten
+	sudo apt install libc6-dev libglu1-mesa-dev libgl1-mesa-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxxf86vm-dev libasound2-dev pkg-config
 
 coverage:
 	go test -tags docker,api -covermode=count -coverprofile=coverage.cov --timeout=30s ./...
