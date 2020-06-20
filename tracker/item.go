@@ -68,8 +68,8 @@ func (item Item) SheetRect() image.Rectangle {
 			x = item.ItemProgression[item.upgradeIndex].SheetX
 			y = item.ItemProgression[item.upgradeIndex].SheetY
 		} else {
-			x = item.ItemProgression[0].SheetX
-			y = item.ItemProgression[0].SheetY
+			x = item.ItemProgression[len(item.ItemProgression)-1].SheetX
+			y = item.ItemProgression[len(item.ItemProgression)-1].SheetY
 		}
 	}
 

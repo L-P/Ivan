@@ -176,9 +176,9 @@
         "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Empty Bottle",
-                "SheetX": 280,
-                "SheetY": 35
+                "Name": "Ruto's Letter",
+                "SheetX": 105,
+                "SheetY": 70
             },
             {
                 "Name": "Red Potion",
@@ -211,11 +211,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Ruto's Letter",
-                "SheetX": 105,
-                "SheetY": 70
-            },
-            {
                 "Name": "Blue Fire",
                 "SheetX": 140,
                 "SheetY": 70
@@ -239,6 +234,11 @@
                 "Name": "Poe",
                 "SheetX": 280,
                 "SheetY": 70
+            },
+            {
+                "Name": "Empty Bottle",
+                "SheetX": 280,
+                "SheetY": 35
             }
         ]
     },
@@ -248,9 +248,9 @@
         "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Empty Bottle",
-                "SheetX": 280,
-                "SheetY": 35
+                "Name": "Ruto's Letter",
+                "SheetX": 105,
+                "SheetY": 70
             },
             {
                 "Name": "Red Potion",
@@ -283,11 +283,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Ruto's Letter",
-                "SheetX": 105,
-                "SheetY": 70
-            },
-            {
                 "Name": "Blue Fire",
                 "SheetX": 140,
                 "SheetY": 70
@@ -311,6 +306,11 @@
                 "Name": "Poe",
                 "SheetX": 280,
                 "SheetY": 70
+            },
+            {
+                "Name": "Empty Bottle",
+                "SheetX": 280,
+                "SheetY": 35
             }
         ]
     },
@@ -320,9 +320,9 @@
         "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Empty Bottle",
-                "SheetX": 280,
-                "SheetY": 35
+                "Name": "Ruto's Letter",
+                "SheetX": 105,
+                "SheetY": 70
             },
             {
                 "Name": "Red Potion",
@@ -355,11 +355,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Ruto's Letter",
-                "SheetX": 105,
-                "SheetY": 70
-            },
-            {
                 "Name": "Blue Fire",
                 "SheetX": 140,
                 "SheetY": 70
@@ -383,6 +378,11 @@
                 "Name": "Poe",
                 "SheetX": 280,
                 "SheetY": 70
+            },
+            {
+                "Name": "Empty Bottle",
+                "SheetX": 280,
+                "SheetY": 35
             }
         ]
     },
@@ -392,9 +392,9 @@
         "Y": 126,
         "ItemProgression": [
             {
-                "Name": "Empty Bottle",
-                "SheetX": 280,
-                "SheetY": 35
+                "Name": "Ruto's Letter",
+                "SheetX": 105,
+                "SheetY": 70
             },
             {
                 "Name": "Red Potion",
@@ -427,11 +427,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Ruto's Letter",
-                "SheetX": 105,
-                "SheetY": 70
-            },
-            {
                 "Name": "Blue Fire",
                 "SheetX": 140,
                 "SheetY": 70
@@ -455,6 +450,11 @@
                 "Name": "Poe",
                 "SheetX": 280,
                 "SheetY": 70
+            },
+            {
+                "Name": "Empty Bottle",
+                "SheetX": 280,
+                "SheetY": 35
             }
         ]
     },
