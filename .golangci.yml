@@ -3,4 +3,5 @@ linters:
   enable-all: true
   disable:
     - godox
+    - gomnd
     - wsl

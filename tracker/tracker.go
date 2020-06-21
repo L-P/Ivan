@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"image"
 	"image/color"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
@@ -14,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"github.com/hajimehoshi/ebiten/text"
 	"golang.org/x/image/font"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 type Tracker struct {
@@ -21,11 +21,15 @@ type Tracker struct {
 
 	items         []Item
 	font          font.Face
+	fontSmall     font.Face
 	sheetDisabled *ebiten.Image
 	sheetEnabled  *ebiten.Image
 }
 
-const capacityFontSize = 20
+const (
+	capacityFontSize = 20
+	templeFontSize   = 13
+)
 
 func New(path string) (*Tracker, error) {
 	items, err := loadItems(path)
@@ -33,12 +37,7 @@ func New(path string) (*Tracker, error) {
 		return nil, err
 	}
 
-	fontBin, err := ioutil.ReadFile("assets/Inconsolata-Regular.ttf")
-	if err != nil {
-		return nil, err
-	}
-
-	ttf, err := truetype.Parse(fontBin)
+	ttf, err := truetype.Parse(goregular.TTF)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +58,10 @@ func New(path string) (*Tracker, error) {
 		sheetEnabled:  sheetEnabled,
 		font: truetype.NewFace(ttf, &truetype.Options{
 			Size:    capacityFontSize,
+			Hinting: font.HintingFull,
+		}),
+		fontSmall: truetype.NewFace(ttf, &truetype.Options{
+			Size:    templeFontSize,
 			Hinting: font.HintingFull,
 		}),
 	}
@@ -102,6 +105,7 @@ func (tracker *Tracker) Downgrade(x, y int) {
 
 	switch {
 	case tracker.items[i].IsMedallion:
+		tracker.items[i].CycleTemple()
 	case tracker.items[i].IsSong:
 		tracker.items[i].ToggleMark()
 	default:
@@ -135,6 +139,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
 	tracker.drawMarks(screen)
+	tracker.drawTemples(screen)
 	tracker.drawCapacities(screen)
 }
 
@@ -147,6 +152,18 @@ func (tracker *Tracker) drawMarks(screen *ebiten.Image) {
 		rect := tracker.items[k].Rect()
 		x, y := rect.Max.X-3*marginLeft, rect.Min.Y+4*marginTop
 		text.Draw(screen, "×", tracker.font, x, y, color.RGBA{0x2F, 0xE6, 0x46, 0xFF})
+	}
+}
+
+func (tracker *Tracker) drawTemples(screen *ebiten.Image) {
+	for k := range tracker.items {
+		if !tracker.items[k].IsMedallion {
+			continue
+		}
+
+		rect := tracker.items[k].Rect()
+		x, y := rect.Min.X, rect.Max.Y
+		text.Draw(screen, tracker.items[k].TempleText(), tracker.fontSmall, x, y, color.White)
 	}
 }
 
@@ -169,9 +186,14 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		rect := tracker.items[k].Rect()
 		x, y := rect.Min.X, rect.Max.Y
 
-		// HACK, display skull count on the right
+		// HACK, display skull count centered on the right slot
 		if tracker.items[k].Name == "Golden Skulltulas" {
 			x, y = rect.Min.X+gridSize+marginLeft, rect.Min.Y+marginTop+(gridSize/2)
+			if count == 100 {
+				x -= 5
+			} else if count < 10 {
+				x += 5
+			}
 		}
 
 		str := strconv.Itoa(count)

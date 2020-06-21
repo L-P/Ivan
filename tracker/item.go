@@ -170,3 +170,19 @@ func (item *Item) IsCountable() bool {
 func (item *Item) ToggleMark() {
 	item.IsMarked = !item.IsMarked
 }
+
+// nolint:gochecknoglobals
+var temples = []string{
+	"", "Free",
+	"Deku", "DC", "Jabu",
+	"Forest", "Fire", "Water",
+	"Spirit", "Shdw",
+}
+
+func (item *Item) CycleTemple() {
+	item.templeIndex = (item.templeIndex + 1) % len(temples)
+}
+
+func (item *Item) TempleText() string {
+	return temples[item.templeIndex]
+}
