@@ -19,7 +19,7 @@ type Item struct {
 	// For countable items.
 	CountMax, CountStep, count int
 
-	IsMedallion, IsSong, Enabled, IsMarked bool `json:",omitempty"`
+	IsMedallion, IsSong, Enabled bool `json:",omitempty"`
 }
 
 // Capacity returns the currently selected capacity of the item or -1 if it has
@@ -105,10 +105,6 @@ func (item *Item) Upgrade() {
 	item.upgradeIndex = (item.upgradeIndex + 1) % max
 }
 
-func (item *Item) Toggle() {
-	item.Enabled = !item.Enabled
-}
-
 // Downgrades downgrades the item to the previous upgrade.
 // It does not wrap around.
 func (item *Item) Downgrade() {
@@ -166,10 +162,6 @@ func (item *Item) HasCapacity() bool {
 
 func (item *Item) IsCountable() bool {
 	return item.Name == "Golden Skulltulas" || item.Name == "Heart Piece"
-}
-
-func (item *Item) ToggleMark() {
-	item.IsMarked = !item.IsMarked
 }
 
 // nolint:gochecknoglobals
