@@ -1,2 +1,2 @@
-- `Inconsolata-Regular.ttf`: [SIL Open Font License (OFL)](https://scripts.sil.org/cms/scripts/page.php?site_id=nrsi&id=OFL)
 - `items-disabled.png`, `items.png`: Copyright Nintendo.
+- `items.json`: Initial busywork by LinSoraK.
