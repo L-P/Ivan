@@ -79,6 +79,7 @@ func (item Item) SheetRect() image.Rectangle {
 
 // Upgrade upgrades the item to the next capacity or item upgrade (or both).
 // If the item was disabled it does not upgrade it but enables it.
+// It does not wrap around.
 func (item *Item) Upgrade() {
 	if !item.Enabled {
 		item.Enabled = true
@@ -109,7 +110,7 @@ func (item *Item) Toggle() {
 }
 
 // Downgrades downgrades the item to the previous upgrade.
-// It does not wrap around once the disabled state is reached.
+// It does not wrap around.
 func (item *Item) Downgrade() {
 	if !item.Enabled {
 		return
@@ -179,8 +180,21 @@ var temples = []string{
 	"Spirit", "Shdw",
 }
 
-func (item *Item) CycleTemple() {
-	item.templeIndex = (item.templeIndex + 1) % len(temples)
+func (item *Item) CycleTempleUp() {
+}
+
+func (item *Item) CycleTemple(up bool) {
+	if up {
+		item.templeIndex = (item.templeIndex + 1) % len(temples)
+		return
+	}
+
+	if item.templeIndex-1 < 0 {
+		item.templeIndex = len(temples) - 1
+		return
+	}
+
+	item.templeIndex--
 }
 
 func (item *Item) TempleText() string {

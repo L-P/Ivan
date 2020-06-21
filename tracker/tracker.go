@@ -84,14 +84,14 @@ func (tracker *Tracker) getItemIndexByPos(x, y int) int {
 	return -1
 }
 
-// Upgrade upgrades the item under the given point.
-func (tracker *Tracker) Upgrade(x, y int) {
+// ClickLeft upgrades the item under the given point.
+func (tracker *Tracker) ClickLeft(x, y int) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
 		return
 	}
 
-	if tracker.items[i].IsMedallion || tracker.items[i].IsSong {
+	if tracker.items[i].IsSong {
 		tracker.items[i].Toggle()
 		return
 	}
@@ -99,8 +99,22 @@ func (tracker *Tracker) Upgrade(x, y int) {
 	tracker.items[i].Upgrade()
 }
 
-// Downgrade downgrades the item under the given point.
-func (tracker *Tracker) Downgrade(x, y int) {
+// ClickRight downgrades the item under the given point.
+func (tracker *Tracker) ClickRight(x, y int) {
+	i := tracker.getItemIndexByPos(x, y)
+	if i < 0 {
+		return
+	}
+
+	if tracker.items[i].IsSong {
+		tracker.items[i].ToggleMark()
+		return
+	}
+
+	tracker.items[i].Downgrade()
+}
+
+func (tracker *Tracker) Wheel(x, y int, up bool) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
 		return
@@ -108,11 +122,15 @@ func (tracker *Tracker) Downgrade(x, y int) {
 
 	switch {
 	case tracker.items[i].IsMedallion:
-		tracker.items[i].CycleTemple()
+		tracker.items[i].CycleTemple(up)
 	case tracker.items[i].IsSong:
-		tracker.items[i].ToggleMark()
+		return
 	default:
-		tracker.items[i].Downgrade()
+		if up {
+			tracker.ClickLeft(x, y)
+		} else {
+			tracker.ClickRight(x, y)
+		}
 	}
 }
 

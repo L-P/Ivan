@@ -49,6 +49,8 @@ func NewApp() (*App, error) {
 }
 
 func (app *App) Update(screen *ebiten.Image) error {
+	_, wheel := ebiten.Wheel()
+
 	switch {
 	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
 		if !app.timer.IsRunning() {
@@ -59,9 +61,12 @@ func (app *App) Update(screen *ebiten.Image) error {
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
 		app.timer.Reset()
 	case inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft):
-		app.tracker.Upgrade(ebiten.CursorPosition())
+		app.tracker.ClickLeft(ebiten.CursorPosition())
 	case inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight):
-		app.tracker.Downgrade(ebiten.CursorPosition())
+		app.tracker.ClickRight(ebiten.CursorPosition())
+	case wheel != 0:
+		x, y := ebiten.CursorPosition()
+		app.tracker.Wheel(x, y, wheel > 0)
 	default:
 		return nil
 	}
