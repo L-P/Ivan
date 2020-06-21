@@ -16,6 +16,7 @@ func main() {
 	log.Printf("ivan %s\n", Version)
 
 	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowPosition(1920-width, 0)
 	ebiten.SetWindowTitle("Ivan")
 	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetWindowDecorated(false)
