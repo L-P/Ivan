@@ -17,7 +17,6 @@ package opengl
 import (
 	"fmt"
 
-	"github.com/hajimehoshi/ebiten/internal/affine"
 	"github.com/hajimehoshi/ebiten/internal/driver"
 	"github.com/hajimehoshi/ebiten/internal/graphics"
 	"github.com/hajimehoshi/ebiten/internal/web"
@@ -133,18 +132,9 @@ type openGLState struct {
 	// programs is OpenGL's program for rendering a texture.
 	programs map[programKey]program
 
-	lastProgram                program
-	lastViewportWidth          int
-	lastViewportHeight         int
-	lastColorMatrix            []float32
-	lastColorMatrixTranslation []float32
-	lastSourceWidth            int
-	lastSourceHeight           int
-	lastFilter                 *driver.Filter
-	lastAddress                *driver.Address
-
-	source      *Image
-	destination *Image
+	lastProgram       program
+	lastUniforms      map[string]interface{}
+	lastActiveTexture int
 }
 
 var (
@@ -159,14 +149,7 @@ func (s *openGLState) reset(context *context) error {
 	}
 
 	s.lastProgram = zeroProgram
-	s.lastViewportWidth = 0
-	s.lastViewportHeight = 0
-	s.lastColorMatrix = nil
-	s.lastColorMatrixTranslation = nil
-	s.lastSourceWidth = 0
-	s.lastSourceHeight = 0
-	s.lastFilter = nil
-	s.lastAddress = nil
+	s.lastUniforms = map[string]interface{}{}
 
 	// When context lost happens, deleting programs or buffers is not necessary.
 	// However, it is not assumed that reset is called only when context lost happens.
@@ -254,90 +237,56 @@ func areSameFloat32Array(a, b []float32) bool {
 	return true
 }
 
+type uniformVariable struct {
+	name         string
+	value        interface{}
+	textureIndex int
+}
+
 // useProgram uses the program (programTexture).
-func (d *Driver) useProgram(mode driver.CompositeMode, colorM *affine.ColorM, filter driver.Filter, address driver.Address) error {
-	destination := d.state.destination
-	if destination == nil {
-		panic("destination image is not set")
-	}
-	source := d.state.source
-	if source == nil {
-		panic("source image is not set")
-	}
-
-	if err := destination.setViewport(); err != nil {
-		return err
-	}
-	dstW := destination.width
-	srcW, srcH := source.width, source.height
-
-	d.context.blendFunc(mode)
-
-	program := d.state.programs[programKey{
-		useColorM: colorM != nil,
-		filter:    filter,
-		address:   address,
-	}]
-	if !d.state.lastProgram.equal(program) {
-		d.context.useProgram(program)
-		if d.state.lastProgram.equal(zeroProgram) {
-			theArrayBufferLayout.enable(&d.context, program)
-			d.context.bindBuffer(arrayBuffer, d.state.arrayBuffer)
-			d.context.bindBuffer(elementArrayBuffer, d.state.elementArrayBuffer)
-			d.context.uniformInt(program, "texture", 0)
+func (g *Graphics) useProgram(program program, uniforms []uniformVariable) error {
+	if !g.state.lastProgram.equal(program) {
+		g.context.useProgram(program)
+		if g.state.lastProgram.equal(zeroProgram) {
+			theArrayBufferLayout.enable(&g.context, program)
+			g.context.bindBuffer(arrayBuffer, g.state.arrayBuffer)
+			g.context.bindBuffer(elementArrayBuffer, g.state.elementArrayBuffer)
 		}
 
-		d.state.lastProgram = program
-		d.state.lastViewportWidth = 0
-		d.state.lastViewportHeight = 0
-		d.state.lastColorMatrix = nil
-		d.state.lastColorMatrixTranslation = nil
-		d.state.lastSourceWidth = 0
-		d.state.lastSourceHeight = 0
+		g.state.lastProgram = program
+		g.state.lastUniforms = map[string]interface{}{}
+		g.state.lastActiveTexture = 0
+		g.context.activeTexture(0)
 	}
 
-	vw := destination.framebuffer.width
-	vh := destination.framebuffer.height
-	if d.state.lastViewportWidth != vw || d.state.lastViewportHeight != vh {
-		d.context.uniformFloats(program, "viewport_size", []float32{float32(vw), float32(vh)})
-		d.state.lastViewportWidth = vw
-		d.state.lastViewportHeight = vh
-	}
-
-	if colorM != nil {
-		esBody, esTranslate := colorM.UnsafeElements()
-		if !areSameFloat32Array(d.state.lastColorMatrix, esBody) {
-			d.context.uniformFloats(program, "color_matrix_body", esBody)
-			// ColorM's elements are immutable. It's OK to hold the reference without copying.
-			d.state.lastColorMatrix = esBody
-		}
-		if !areSameFloat32Array(d.state.lastColorMatrixTranslation, esTranslate) {
-			d.context.uniformFloats(program, "color_matrix_translation", esTranslate)
-			// ColorM's elements are immutable. It's OK to hold the reference without copying.
-			d.state.lastColorMatrixTranslation = esTranslate
-		}
-	}
-
-	if filter != driver.FilterNearest {
-		sw := graphics.InternalImageSize(srcW)
-		sh := graphics.InternalImageSize(srcH)
-		if d.state.lastSourceWidth != sw || d.state.lastSourceHeight != sh {
-			d.context.uniformFloats(program, "source_size", []float32{float32(sw), float32(sh)})
-			d.state.lastSourceWidth = sw
-			d.state.lastSourceHeight = sh
+	for _, u := range uniforms {
+		switch v := u.value.(type) {
+		case float32:
+			cached, ok := g.state.lastUniforms[u.name].(float32)
+			if ok && cached == v {
+				continue
+			}
+			// TODO: Remember whether the location is available or not.
+			g.context.uniformFloat(program, u.name, v)
+			g.state.lastUniforms[u.name] = v
+		case []float32:
+			cached, ok := g.state.lastUniforms[u.name].([]float32)
+			if ok && areSameFloat32Array(cached, v) {
+				continue
+			}
+			g.context.uniformFloats(program, u.name, v)
+			g.state.lastUniforms[u.name] = v
+		case textureNative:
+			// Apparently, a texture must be bound every time. The cache is not used here.
+			g.context.uniformInt(program, u.name, u.textureIndex)
+			if g.state.lastActiveTexture != u.textureIndex {
+				g.context.activeTexture(u.textureIndex)
+				g.state.lastActiveTexture = u.textureIndex
+			}
+			g.context.bindTexture(v)
+		default:
+			return fmt.Errorf("opengl: unexpected uniform value: %v", u.value)
 		}
 	}
-
-	if filter == driver.FilterScreen {
-		scale := float32(dstW) / float32(srcW)
-		d.context.uniformFloat(program, "scale", scale)
-	}
-
-	// We don't have to call gl.ActiveTexture here: GL_TEXTURE0 is the default active texture
-	// See also: https://www.opengl.org/sdk/docs/man2/xhtml/glActiveTexture.xml
-	d.context.bindTexture(source.textureNative)
-
-	d.state.source = nil
-	d.state.destination = nil
 	return nil
 }

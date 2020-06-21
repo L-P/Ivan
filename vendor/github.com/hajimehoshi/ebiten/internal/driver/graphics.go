@@ -15,7 +15,10 @@
 package driver
 
 import (
+	"errors"
+
 	"github.com/hajimehoshi/ebiten/internal/affine"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 	"github.com/hajimehoshi/ebiten/internal/thread"
 )
 
@@ -28,23 +31,35 @@ type Graphics interface {
 	NewImage(width, height int) (Image, error)
 	NewScreenFramebufferImage(width, height int) (Image, error)
 	Reset() error
-	Draw(indexLen int, indexOffset int, mode CompositeMode, colorM *affine.ColorM, filter Filter, address Address) error
+	Draw(dst, src ImageID, indexLen int, indexOffset int, mode CompositeMode, colorM *affine.ColorM, filter Filter, address Address) error
 	SetVsyncEnabled(enabled bool)
-	VDirection() VDirection
+	FramebufferYDirection() YDirection
 	NeedsRestoring() bool
 	IsGL() bool
 	HasHighPrecisionFloat() bool
 	MaxImageSize() int
+
+	NewShader(program *shaderir.Program) (Shader, error)
+
+	// DrawShader draws the shader.
+	//
+	// uniforms represents a colletion of uniform variables. The values must be one of these types:
+	// float32, []float32, or ImageID.
+	DrawShader(dst ImageID, shader ShaderID, indexLen int, indexOffset int, mode CompositeMode, uniforms []interface{}) error
 }
 
+// GraphicsNotReady represents that the graphics driver is not ready for recovering from the context lost.
+var GraphicsNotReady = errors.New("graphics not ready")
+
 type Image interface {
+	ID() ImageID
 	Dispose()
 	IsInvalidated() bool
 	Pixels() ([]byte, error)
-	SetAsDestination()
-	SetAsSource()
 	ReplacePixels(args []*ReplacePixelsArgs)
 }
+
+type ImageID int
 
 type ReplacePixelsArgs struct {
 	Pixels []byte
@@ -54,9 +69,16 @@ type ReplacePixelsArgs struct {
 	Height int
 }
 
-type VDirection int
+type YDirection int
 
 const (
-	VUpward VDirection = iota
-	VDownward
+	Upward YDirection = iota
+	Downward
 )
+
+type Shader interface {
+	ID() ShaderID
+	Dispose()
+}
+
+type ShaderID int

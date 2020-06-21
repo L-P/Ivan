@@ -76,6 +76,8 @@ type drawTrianglesHistoryItem struct {
 	mode     driver.CompositeMode
 	filter   driver.Filter
 	address  driver.Address
+	shader   *Shader
+	uniforms []interface{}
 }
 
 // Image represents an image that can be restored when GL context is lost.
@@ -247,13 +249,16 @@ func fillImage(i *graphicscommand.Image, clr color.RGBA) {
 		compositemode = driver.CompositeModeCopy
 	}
 
-	// TODO: Integrate with clearColor
+	// This needs to use 'InternalSize' to render the whole region, or edges are unexpectedly cleared on some
+	// devices.
+	//
+	// TODO: Can we unexport InternalSize()?
 	dw, dh := i.InternalSize()
 	sw, sh := emptyImage.image.InternalSize()
 	vs := quadVertices(0, 0, float32(dw), float32(dh), 0, 0, float32(sw), float32(sh), rf, gf, bf, af)
 	is := graphics.QuadIndices()
 
-	i.DrawTriangles(emptyImage.image, vs, is, nil, compositemode, driver.FilterNearest, driver.AddressClampToZero)
+	i.DrawTriangles(emptyImage.image, vs, is, nil, compositemode, driver.FilterNearest, driver.AddressClampToZero, nil, nil)
 }
 
 // BasePixelsForTesting returns the image's basePixels for testing.
@@ -340,6 +345,20 @@ func (i *Image) ReplacePixels(pixels []byte, x, y, width, height int) {
 	}
 }
 
+// convertUniformVariables converts the uniform variables for the lower layer (graphicscommand).
+func convertUniformVariables(uniforms []interface{}) []interface{} {
+	us := make([]interface{}, len(uniforms))
+	for k, v := range uniforms {
+		switch v := v.(type) {
+		case *Image:
+			us[k] = v.image
+		default:
+			us[k] = v
+		}
+	}
+	return us
+}
+
 // DrawTriangles draws triangles with the given image.
 //
 // The vertex floats are:
@@ -356,7 +375,7 @@ func (i *Image) ReplacePixels(pixels []byte, x, y, width, height int) {
 //   9:  Color G
 //   10: Color B
 //   11: Color Y
-func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address) {
+func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, shader *Shader, uniforms []interface{}) {
 	if i.priority {
 		panic("restorable: DrawTriangles cannot be called on a priority image")
 	}
@@ -365,16 +384,24 @@ func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, 
 	}
 	theImages.makeStaleIfDependingOn(i)
 
-	if img.stale || img.volatile || i.screen || !needsRestoring() || i.volatile {
+	if (img != nil && (img.stale || img.volatile)) || i.screen || !needsRestoring() || i.volatile {
 		i.makeStale()
 	} else {
-		i.appendDrawTrianglesHistory(img, vertices, indices, colorm, mode, filter, address)
+		i.appendDrawTrianglesHistory(img, vertices, indices, colorm, mode, filter, address, shader, uniforms)
 	}
-	i.image.DrawTriangles(img.image, vertices, indices, colorm, mode, filter, address)
+	var s *graphicscommand.Shader
+	if shader != nil {
+		s = shader.shader
+	}
+	var gimg *graphicscommand.Image
+	if img != nil {
+		gimg = img.image
+	}
+	i.image.DrawTriangles(gimg, vertices, indices, colorm, mode, filter, address, s, convertUniformVariables(uniforms))
 }
 
 // appendDrawTrianglesHistory appends a draw-image history item to the image.
-func (i *Image) appendDrawTrianglesHistory(image *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address) {
+func (i *Image) appendDrawTrianglesHistory(image *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, shader *Shader, uniforms []interface{}) {
 	if i.stale || i.volatile || i.screen {
 		return
 	}
@@ -391,6 +418,7 @@ func (i *Image) appendDrawTrianglesHistory(image *Image, vertices []float32, ind
 	copy(vs, vertices)
 	is := make([]uint16, len(indices))
 	copy(is, indices)
+
 	item := &drawTrianglesHistoryItem{
 		image:    image,
 		vertices: vs,
@@ -399,6 +427,8 @@ func (i *Image) appendDrawTrianglesHistory(image *Image, vertices []float32, ind
 		mode:     mode,
 		filter:   filter,
 		address:  address,
+		shader:   shader,
+		uniforms: uniforms,
 	}
 	i.drawTrianglesHistory = append(i.drawTrianglesHistory, item)
 }
@@ -443,6 +473,16 @@ func (i *Image) makeStaleIfDependingOn(target *Image) {
 	}
 }
 
+// makeStaleIfDependingOnShader makes the image stale if the image depends on shader.
+func (i *Image) makeStaleIfDependingOnShader(shader *Shader) {
+	if i.stale {
+		return
+	}
+	if i.dependsOnShader(shader) {
+		i.makeStale()
+	}
+}
+
 // readPixelsFromGPU reads the pixels from GPU and resolves the image's 'stale' state.
 func (i *Image) readPixelsFromGPU() error {
 	pix, err := i.image.Pixels()
@@ -474,10 +514,25 @@ func (i *Image) resolveStale() error {
 	return i.readPixelsFromGPU()
 }
 
-// dependsOn returns a boolean value indicating whether the image depends on target.
+// dependsOn reports whether the image depends on target.
 func (i *Image) dependsOn(target *Image) bool {
 	for _, c := range i.drawTrianglesHistory {
 		if c.image == target {
+			return true
+		}
+		for _, v := range c.uniforms {
+			if img, ok := v.(*Image); ok && img == target {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// dependsOnShader reports whether the image depends on shader.
+func (i *Image) dependsOnShader(shader *Shader) bool {
+	for _, c := range i.drawTrianglesHistory {
+		if c.shader == shader {
 			return true
 		}
 	}
@@ -488,7 +543,14 @@ func (i *Image) dependsOn(target *Image) bool {
 func (i *Image) dependingImages() map[*Image]struct{} {
 	r := map[*Image]struct{}{}
 	for _, c := range i.drawTrianglesHistory {
-		r[c.image] = struct{}{}
+		if c.image != nil {
+			r[c.image] = struct{}{}
+		}
+		for _, v := range c.uniforms {
+			if img, ok := v.(*Image); ok {
+				r[img] = struct{}{}
+			}
+		}
 	}
 	return r
 }
@@ -534,10 +596,19 @@ func (i *Image) restore() error {
 	i.basePixels.Apply(gimg)
 
 	for _, c := range i.drawTrianglesHistory {
-		if c.image.hasDependency() {
+		if c.image != nil && c.image.hasDependency() {
 			panic("restorable: all dependencies must be already resolved but not")
 		}
-		gimg.DrawTriangles(c.image.image, c.vertices, c.indices, c.colorm, c.mode, c.filter, c.address)
+		// TODO: Check the uniform variable's images.
+		var img *graphicscommand.Image
+		if c.image != nil {
+			img = c.image.image
+		}
+		var s *graphicscommand.Shader
+		if c.shader != nil {
+			s = c.shader.shader
+		}
+		gimg.DrawTriangles(img, c.vertices, c.indices, c.colorm, c.mode, c.filter, c.address, s, convertUniformVariables(c.uniforms))
 	}
 
 	if len(i.drawTrianglesHistory) > 0 {

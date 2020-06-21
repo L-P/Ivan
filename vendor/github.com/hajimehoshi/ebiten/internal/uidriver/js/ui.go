@@ -27,6 +27,7 @@ import (
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl"
 	"github.com/hajimehoshi/ebiten/internal/hooks"
 	"github.com/hajimehoshi/ebiten/internal/jsutil"
+	"github.com/hajimehoshi/ebiten/internal/restorable"
 )
 
 type UserInterface struct {
@@ -167,9 +168,10 @@ func (u *UserInterface) update() error {
 
 	u.input.UpdateGamepads()
 	u.updateSize()
-	if err := u.context.Update(func() {
-		u.updateSize()
-	}); err != nil {
+	if err := u.context.Update(); err != nil {
+		return err
+	}
+	if err := u.context.Draw(); err != nil {
 		return err
 	}
 	return nil
@@ -202,10 +204,11 @@ func (u *UserInterface) loop(context driver.UIContext) <-chan error {
 		} else {
 			setTimeout.Invoke(cf, 0)
 		}
-		return
 	}
+
 	// TODO: Should cf be released after the game ends?
 	cf = js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// f can be blocked but callbacks must not be blocked. Create a goroutine (#1161).
 		go f()
 		return nil
 	})
@@ -398,6 +401,7 @@ func init() {
 		e := args[0]
 		e.Call("preventDefault")
 		theUI.contextLost = true
+		restorable.OnContextLost()
 		return nil
 	}))
 	canvas.Call("addEventListener", "webglcontextrestored", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
@@ -456,6 +460,11 @@ func (u *UserInterface) SetScreenTransparent(transparent bool) {
 func (u *UserInterface) IsScreenTransparent() bool {
 	bodyStyle := document.Get("body").Get("style")
 	return bodyStyle.Get("backgroundColor").String() == "transparent"
+}
+
+func (u *UserInterface) ResetForFrame() {
+	u.updateSize()
+	u.input.resetForFrame()
 }
 
 func (u *UserInterface) Input() driver.Input {

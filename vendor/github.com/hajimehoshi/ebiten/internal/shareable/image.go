@@ -214,7 +214,7 @@ func (i *Image) ensureNotShared() {
 		dx1, dy1, sx1, sy1, sx0, sy0, sx1, sy1, 1, 1, 1, 1,
 	}
 	is := graphics.QuadIndices()
-	newImg.DrawTriangles(i.backend.restorable, vs, is, nil, driver.CompositeModeCopy, driver.FilterNearest, driver.AddressClampToZero)
+	newImg.DrawTriangles(i.backend.restorable, vs, is, nil, driver.CompositeModeCopy, driver.FilterNearest, driver.AddressClampToZero, nil, nil)
 
 	i.dispose(false)
 	i.backend = &backend{
@@ -282,7 +282,7 @@ func (i *Image) region() (x, y, width, height int) {
 //   9:  Color G
 //   10: Color B
 //   11: Color Y
-func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address) {
+func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, shader *Shader, uniforms []interface{}) {
 	backendsM.Lock()
 	// Do not use defer for performance.
 
@@ -316,7 +316,34 @@ func (i *Image) DrawTriangles(img *Image, vertices []float32, indices []uint16, 
 		vertices[i*graphics.VertexFloatNum+7] += oyf
 	}
 
-	i.backend.restorable.DrawTriangles(img.backend.restorable, vertices, indices, colorm, mode, filter, address)
+	var s *restorable.Shader
+	if shader != nil {
+		s = shader.shader
+	}
+
+	firstImage := true
+	us := make([]interface{}, len(uniforms))
+	for i := 0; i < len(uniforms); i++ {
+		switch v := uniforms[i].(type) {
+		case *Image:
+			us[i] = v.backend.restorable
+			if !firstImage {
+				i++
+				region := uniforms[i].([]float32)
+				us[i] = []float32{
+					region[0] + oxf,
+					region[1] + oyf,
+					region[2] + oxf,
+					region[3] + oyf,
+				}
+			}
+			firstImage = false
+		default:
+			us[i] = v
+		}
+	}
+
+	i.backend.restorable.DrawTriangles(img.backend.restorable, vertices, indices, colorm, mode, filter, address, s, us)
 
 	i.nonUpdatedCount = 0
 	delete(imagesToMakeShared, i)
@@ -376,11 +403,26 @@ func (i *Image) replacePixels(p []byte) {
 	i.backend.restorable.ReplacePixels(p, x, y, w, h)
 }
 
-func (i *Image) At(x, y int) (byte, byte, byte, byte, error) {
+func (img *Image) Pixels(x, y, width, height int) ([]byte, error) {
 	backendsM.Lock()
-	r, g, b, a, err := i.at(x, y)
-	backendsM.Unlock()
-	return r, g, b, a, err
+	defer backendsM.Unlock()
+
+	bs := make([]byte, 4*width*height)
+	idx := 0
+	for j := y; j < y+height; j++ {
+		for i := x; i < x+width; i++ {
+			r, g, b, a, err := img.at(i, j)
+			if err != nil {
+				return nil, err
+			}
+			bs[4*idx] = r
+			bs[4*idx+1] = g
+			bs[4*idx+2] = b
+			bs[4*idx+3] = a
+			idx++
+		}
+	}
+	return bs, nil
 }
 
 func (i *Image) at(x, y int) (byte, byte, byte, byte, error) {
@@ -402,7 +444,6 @@ func (i *Image) at(x, y int) (byte, byte, byte, byte, error) {
 // A function from finalizer must not be blocked, but disposing operation can be blocked.
 // Defer this operation until it becomes safe. (#913)
 func (i *Image) MarkDisposed() {
-	// deferred doesn't have to be, and should not be protected by a mutex.
 	deferredM.Lock()
 	deferred = append(deferred, func() {
 		i.dispose(true)

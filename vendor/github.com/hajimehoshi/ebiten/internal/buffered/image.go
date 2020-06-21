@@ -22,6 +22,7 @@ import (
 	"github.com/hajimehoshi/ebiten/internal/affine"
 	"github.com/hajimehoshi/ebiten/internal/driver"
 	"github.com/hajimehoshi/ebiten/internal/mipmap"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 )
 
 type Image struct {
@@ -142,17 +143,26 @@ func (i *Image) At(x, y int) (r, g, b, a byte, err error) {
 		panic("buffered: the command queue is not available yet at At")
 	}
 
+	if x < 0 || y < 0 || x >= i.width || y >= i.height {
+		return 0, 0, 0, 0, nil
+	}
+
 	// If there are pixels or pending fillling that needs to be resolved, use this rather than resolving.
 	// Resolving them needs to access GPU and is expensive (#1137).
 	if i.hasFill {
 		return i.fillColor.R, i.fillColor.G, i.fillColor.B, i.fillColor.A, nil
 	}
-	if i.pixels != nil {
-		idx := i.width*y + x
-		return i.pixels[4*idx], i.pixels[4*idx+1], i.pixels[4*idx+2], i.pixels[4*idx+3], nil
+
+	if i.pixels == nil {
+		pix, err := i.img.Pixels(0, 0, i.width, i.height)
+		if err != nil {
+			return 0, 0, 0, 0, err
+		}
+		i.pixels = pix
 	}
-	i.resolvePendingPixels(true)
-	return i.img.At(x, y)
+
+	idx := i.width*y + x
+	return i.pixels[4*idx], i.pixels[4*idx+1], i.pixels[4*idx+2], i.pixels[4*idx+3], nil
 }
 
 func (i *Image) Dump(name string, blackbg bool) error {
@@ -187,6 +197,19 @@ func (i *Image) ReplacePixels(pix []byte, x, y, width, height int) error {
 		panic(fmt.Sprintf("buffered: len(pix) was %d but must be %d", len(pix), l))
 	}
 
+	// This is an optimization to avoid mutex for the case when ReplacePixels is called very often (e.g., Set).
+	// If i.pixels is not nil, delayed commands have already been flushed.
+	// needsToDelayCommands should be false, but we don't check it because this is out of the mutex lock.
+	// (#1137)
+	if i.pixels != nil {
+		// If the region is the whole image, don't use this optimization, or more memory is consumed by
+		// keeping pixels.
+		if !(x == 0 && y == 0 && width == i.width && height == i.height) {
+			i.replacePendingPixels(pix, x, y, width, height)
+			return nil
+		}
+	}
+
 	delayedCommandsM.Lock()
 	defer delayedCommandsM.Unlock()
 
@@ -210,30 +233,21 @@ func (i *Image) ReplacePixels(pix []byte, x, y, width, height int) error {
 
 	// TODO: Can we use (*restorable.Image).ReplacePixels?
 	if i.pixels == nil {
-		pix := make([]byte, 4*i.width*i.height)
-		idx := 0
-		img := i.img
-		sw, sh := i.width, i.height
-		for j := 0; j < sh; j++ {
-			for i := 0; i < sw; i++ {
-				r, g, b, a, err := img.At(i, j)
-				if err != nil {
-					return err
-				}
-				pix[4*idx] = r
-				pix[4*idx+1] = g
-				pix[4*idx+2] = b
-				pix[4*idx+3] = a
-				idx++
-			}
+		pix, err := i.img.Pixels(0, 0, i.width, i.height)
+		if err != nil {
+			return err
 		}
 		i.pixels = pix
 	}
+	i.replacePendingPixels(pix, x, y, width, height)
+	return nil
+}
+
+func (i *Image) replacePendingPixels(pix []byte, x, y, width, height int) {
 	for j := 0; j < height; j++ {
 		copy(i.pixels[4*((j+y)*i.width+x):], pix[4*j*width:4*(j+1)*width])
 	}
 	i.needsToResolvePixels = true
-	return nil
 }
 
 func (i *Image) DrawImage(src *Image, bounds image.Rectangle, a, b, c, d, tx, ty float32, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter) {
@@ -273,7 +287,7 @@ func (i *Image) drawImage(src *Image, bounds image.Rectangle, g mipmap.GeoM, col
 // DrawTriangles draws the src image with the given vertices.
 //
 // Copying vertices and indices is the caller's responsibility.
-func (i *Image) DrawTriangles(src *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address) {
+func (i *Image) DrawTriangles(src *Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, shader *Shader, uniforms []interface{}) {
 	if i == src {
 		panic("buffered: Image.DrawTriangles: src must be different from the receiver")
 	}
@@ -284,7 +298,7 @@ func (i *Image) DrawTriangles(src *Image, vertices []float32, indices []uint16, 
 	if needsToDelayCommands {
 		delayedCommands = append(delayedCommands, func() error {
 			// Arguments are not copied. Copying is the caller's responsibility.
-			i.DrawTriangles(src, vertices, indices, colorm, mode, filter, address)
+			i.DrawTriangles(src, vertices, indices, colorm, mode, filter, address, shader, uniforms)
 			return nil
 		})
 		return
@@ -292,5 +306,36 @@ func (i *Image) DrawTriangles(src *Image, vertices []float32, indices []uint16, 
 
 	src.resolvePendingPixels(true)
 	i.resolvePendingPixels(false)
-	i.img.DrawTriangles(src.img, vertices, indices, colorm, mode, filter, address)
+
+	var s *mipmap.Shader
+	if shader != nil {
+		s = shader.shader
+	}
+	us := make([]interface{}, len(uniforms))
+	for k, v := range uniforms {
+		switch v := v.(type) {
+		case *Image:
+			i.resolvePendingPixels(true)
+			us[k] = v.img
+		default:
+			us[k] = v
+		}
+	}
+
+	i.img.DrawTriangles(src.img, vertices, indices, colorm, mode, filter, address, s, us)
+}
+
+type Shader struct {
+	shader *mipmap.Shader
+}
+
+func NewShader(program *shaderir.Program) *Shader {
+	return &Shader{
+		shader: mipmap.NewShader(program),
+	}
+}
+
+func (s *Shader) MarkDisposed() {
+	s.shader.MarkDisposed()
+	s.shader = nil
 }

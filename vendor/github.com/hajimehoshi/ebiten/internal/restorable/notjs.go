@@ -1,4 +1,4 @@
-// Copyright 2018 The Ebiten Authors
+// Copyright 2020 The Ebiten Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,14 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build android ios
+// +build !js
 
-package opengl
+package restorable
 
-import (
-	"golang.org/x/mobile/gl"
-)
+const needsDisposingWhenRestoring = true
 
-func (d *Driver) SetMobileGLContext(context gl.Context) {
-	d.context.gl = context
-}
+const canDetectContextLostExplicitly = false

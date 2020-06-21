@@ -3,9 +3,9 @@
 [![Build Status](https://travis-ci.org/hajimehoshi/ebiten.svg?branch=master)](https://travis-ci.org/hajimehoshi/ebiten)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hajimehoshi/ebiten)](https://goreportcard.com/report/github.com/hajimehoshi/ebiten)
 
-**A dead simple 2D game library in Go**
+**A dead simple 2D game library for Go**
 
-Ebiten is an open-source game library, with which you can develop 2D games with simple API for multi platforms in the Go programming language.
+Ebiten is an open source game library for the Go programming language. Ebiten's simple API allows you to quickly and easily develop 2D games that can be deployed across multiple platforms.
 
 * [Website (ebiten.org)](https://ebiten.org)
 * [API Reference](https://pkg.go.dev/github.com/hajimehoshi/ebiten)
@@ -15,15 +15,15 @@ Ebiten is an open-source game library, with which you can develop 2D games with 
 
 ## Platforms
 
-* Windows (No Cgo!)
-* macOS
-* Linux
-* FreeBSD
-* Android
-* iOS
+* [Windows](https://ebiten.org/documents/install.html?os=windows) (No Cgo!)
+* [macOS](https://ebiten.org/documents/install.html?os=darwin)
+* [Linux](https://ebiten.org/documents/install.html?os=linux)
+* [FreeBSD](https://ebiten.org/documents/install.html?os=freebsd)
+* [Android](https://ebiten.org/documents/mobile.html)
+* [iOS](https://ebiten.org/documents/mobile.html)
 * Web browsers (Chrome, Firefox, Safari and Edge)
-  * [GopherJS](https://github.com/hajimehoshi/ebiten/wiki/GopherJS)
-  * [WebAssembly](https://github.com/hajimehoshi/ebiten/wiki/WebAssembly) (Experimental)
+  * [WebAssembly](https://ebiten.org/documents/webassembly.html)
+  * [GopherJS](https://ebiten.org/documents/gopherjs.html)
 
 Note: Gamepad and keyboard are not available on Android/iOS.
 

@@ -27,6 +27,9 @@ type Tracker struct {
 }
 
 const (
+	Width  = 7 * 42
+	Height = 9 * 42
+
 	capacityFontSize = 20
 	templeFontSize   = 13
 )
@@ -81,23 +84,27 @@ func (tracker *Tracker) getItemIndexByPos(x, y int) int {
 	return -1
 }
 
-// Upgrade upgrades the item under the given point.
-func (tracker *Tracker) Upgrade(x, y int) {
+// ClickLeft upgrades the item under the given point.
+func (tracker *Tracker) ClickLeft(x, y int) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
-		return
-	}
-
-	if tracker.items[i].IsMedallion || tracker.items[i].IsSong {
-		tracker.items[i].Toggle()
 		return
 	}
 
 	tracker.items[i].Upgrade()
 }
 
-// Downgrade downgrades the item under the given point.
-func (tracker *Tracker) Downgrade(x, y int) {
+// ClickRight downgrades the item under the given point.
+func (tracker *Tracker) ClickRight(x, y int) {
+	i := tracker.getItemIndexByPos(x, y)
+	if i < 0 {
+		return
+	}
+
+	tracker.items[i].Downgrade()
+}
+
+func (tracker *Tracker) Wheel(x, y int, up bool) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
 		return
@@ -105,11 +112,13 @@ func (tracker *Tracker) Downgrade(x, y int) {
 
 	switch {
 	case tracker.items[i].IsMedallion:
-		tracker.items[i].CycleTemple()
-	case tracker.items[i].IsSong:
-		tracker.items[i].ToggleMark()
+		tracker.items[i].CycleTemple(up)
 	default:
-		tracker.items[i].Downgrade()
+		if up {
+			tracker.ClickLeft(x, y)
+		} else {
+			tracker.ClickRight(x, y)
+		}
 	}
 }
 
@@ -138,21 +147,8 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	// Do two loops to avoid texture switches.
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
-	tracker.drawMarks(screen)
 	tracker.drawTemples(screen)
 	tracker.drawCapacities(screen)
-}
-
-func (tracker *Tracker) drawMarks(screen *ebiten.Image) {
-	for k := range tracker.items {
-		if !tracker.items[k].IsMarked {
-			continue
-		}
-
-		rect := tracker.items[k].Rect()
-		x, y := rect.Max.X-3*marginLeft, rect.Min.Y+4*marginTop
-		text.Draw(screen, "×", tracker.font, x, y, color.RGBA{0x2F, 0xE6, 0x46, 0xFF})
-	}
 }
 
 func (tracker *Tracker) drawTemples(screen *ebiten.Image) {
