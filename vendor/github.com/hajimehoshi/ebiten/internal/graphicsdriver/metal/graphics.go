@@ -26,6 +26,7 @@ import (
 	"github.com/hajimehoshi/ebiten/internal/graphics"
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ca"
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/mtl"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 	"github.com/hajimehoshi/ebiten/internal/thread"
 )
 
@@ -76,13 +77,12 @@ vertex VertexOut VertexShader(
 ) {
   float4x4 projectionMatrix = float4x4(
     float4(2.0 / viewport_size.x, 0, 0, 0),
-    float4(0, -2.0 / viewport_size.y, 0, 0),
+    float4(0, 2.0 / viewport_size.y, 0, 0),
     float4(0, 0, 1, 0),
-    float4(-1, 1, 0, 1)
+    float4(-1, -1, 0, 1)
   );
 
   VertexIn in = vertices[vid];
-
   VertexOut out = {
     .position = projectionMatrix * float4(in.position, 0, 1),
     .tex = in.tex,
@@ -283,7 +283,7 @@ type rpsKey struct {
 	screen        bool
 }
 
-type Driver struct {
+type Graphics struct {
 	view view
 
 	screenRPS mtl.RenderPipelineState
@@ -293,8 +293,12 @@ type Driver struct {
 
 	screenDrawable ca.MetalDrawable
 
-	vb  mtl.Buffer
-	ib  mtl.Buffer
+	vb mtl.Buffer
+	ib mtl.Buffer
+
+	images      map[driver.ImageID]*Image
+	nextImageID driver.ImageID
+
 	src *Image
 	dst *Image
 
@@ -307,91 +311,91 @@ type Driver struct {
 	pool unsafe.Pointer
 }
 
-var theDriver Driver
+var theGraphics Graphics
 
-func Get() *Driver {
-	return &theDriver
+func Get() *Graphics {
+	return &theGraphics
 }
 
-func (d *Driver) SetThread(thread *thread.Thread) {
-	d.t = thread
+func (g *Graphics) SetThread(thread *thread.Thread) {
+	g.t = thread
 }
 
-func (d *Driver) Begin() {
-	d.t.Call(func() error {
+func (g *Graphics) Begin() {
+	g.t.Call(func() error {
 		// NSAutoreleasePool is required to release drawable correctly (#847).
 		// https://developer.apple.com/library/archive/documentation/3DDrawing/Conceptual/MTLBestPracticesGuide/Drawables.html
-		d.pool = C.allocAutoreleasePool()
+		g.pool = C.allocAutoreleasePool()
 		return nil
 	})
 }
 
-func (d *Driver) End() {
-	d.flush(false, true)
-	d.t.Call(func() error {
-		d.screenDrawable = ca.MetalDrawable{}
-		C.releaseAutoreleasePool(d.pool)
-		d.pool = nil
+func (g *Graphics) End() {
+	g.flush(false, true)
+	g.t.Call(func() error {
+		g.screenDrawable = ca.MetalDrawable{}
+		C.releaseAutoreleasePool(g.pool)
+		g.pool = nil
 		return nil
 	})
 }
 
-func (d *Driver) SetWindow(window unsafe.Pointer) {
-	d.t.Call(func() error {
+func (g *Graphics) SetWindow(window unsafe.Pointer) {
+	g.t.Call(func() error {
 		// Note that [NSApp mainWindow] returns nil when the window is borderless.
 		// Then the window is needed to be given explicitly.
-		d.view.setWindow(window)
+		g.view.setWindow(window)
 		return nil
 	})
 }
 
-func (d *Driver) SetUIView(uiview uintptr) {
+func (g *Graphics) SetUIView(uiview uintptr) {
 	// TODO: Should this be called on the main thread?
-	d.view.setUIView(uiview)
+	g.view.setUIView(uiview)
 }
 
-func (d *Driver) SetVertices(vertices []float32, indices []uint16) {
-	d.t.Call(func() error {
-		if d.vb != (mtl.Buffer{}) {
-			d.vb.Release()
+func (g *Graphics) SetVertices(vertices []float32, indices []uint16) {
+	g.t.Call(func() error {
+		if g.vb != (mtl.Buffer{}) {
+			g.vb.Release()
 		}
-		if d.ib != (mtl.Buffer{}) {
-			d.ib.Release()
+		if g.ib != (mtl.Buffer{}) {
+			g.ib.Release()
 		}
-		d.vb = d.view.getMTLDevice().MakeBufferWithBytes(unsafe.Pointer(&vertices[0]), unsafe.Sizeof(vertices[0])*uintptr(len(vertices)), resourceStorageMode)
-		d.ib = d.view.getMTLDevice().MakeBufferWithBytes(unsafe.Pointer(&indices[0]), unsafe.Sizeof(indices[0])*uintptr(len(indices)), resourceStorageMode)
+		g.vb = g.view.getMTLDevice().MakeBufferWithBytes(unsafe.Pointer(&vertices[0]), unsafe.Sizeof(vertices[0])*uintptr(len(vertices)), resourceStorageMode)
+		g.ib = g.view.getMTLDevice().MakeBufferWithBytes(unsafe.Pointer(&indices[0]), unsafe.Sizeof(indices[0])*uintptr(len(indices)), resourceStorageMode)
 		return nil
 	})
 }
 
-func (d *Driver) flush(wait bool, present bool) {
-	d.t.Call(func() error {
-		if d.cb == (mtl.CommandBuffer{}) {
+func (g *Graphics) flush(wait bool, present bool) {
+	g.t.Call(func() error {
+		if g.cb == (mtl.CommandBuffer{}) {
 			return nil
 		}
 
-		if present && d.screenDrawable != (ca.MetalDrawable{}) {
-			d.cb.PresentDrawable(d.screenDrawable)
+		if present && g.screenDrawable != (ca.MetalDrawable{}) {
+			g.cb.PresentDrawable(g.screenDrawable)
 		}
-		d.cb.Commit()
+		g.cb.Commit()
 		if wait {
-			d.cb.WaitUntilCompleted()
+			g.cb.WaitUntilCompleted()
 		}
 
-		d.cb = mtl.CommandBuffer{}
+		g.cb = mtl.CommandBuffer{}
 
 		return nil
 	})
 }
 
-func (d *Driver) checkSize(width, height int) {
+func (g *Graphics) checkSize(width, height int) {
 	if width < 1 {
 		panic(fmt.Sprintf("metal: width (%d) must be equal or more than %d", width, 1))
 	}
 	if height < 1 {
 		panic(fmt.Sprintf("metal: height (%d) must be equal or more than %d", height, 1))
 	}
-	m := d.MaxImageSize()
+	m := g.MaxImageSize()
 	if width > m {
 		panic(fmt.Sprintf("metal: width (%d) must be less than or equal to %d", width, m))
 	}
@@ -400,8 +404,14 @@ func (d *Driver) checkSize(width, height int) {
 	}
 }
 
-func (d *Driver) NewImage(width, height int) (driver.Image, error) {
-	d.checkSize(width, height)
+func (g *Graphics) genNextImageID() driver.ImageID {
+	id := g.nextImageID
+	g.nextImageID++
+	return id
+}
+
+func (g *Graphics) NewImage(width, height int) (driver.Image, error) {
+	g.checkSize(width, height)
 	td := mtl.TextureDescriptor{
 		PixelFormat: mtl.PixelFormatRGBA8UNorm,
 		Width:       graphics.InternalImageSize(width),
@@ -410,52 +420,72 @@ func (d *Driver) NewImage(width, height int) (driver.Image, error) {
 		Usage:       textureUsage,
 	}
 	var t mtl.Texture
-	d.t.Call(func() error {
-		t = d.view.getMTLDevice().MakeTexture(td)
+	g.t.Call(func() error {
+		t = g.view.getMTLDevice().MakeTexture(td)
 		return nil
 	})
-	return &Image{
-		driver:  d,
-		width:   width,
-		height:  height,
-		texture: t,
-	}, nil
+	i := &Image{
+		id:       g.genNextImageID(),
+		graphics: g,
+		width:    width,
+		height:   height,
+		texture:  t,
+	}
+	g.addImage(i)
+	return i, nil
 }
 
-func (d *Driver) NewScreenFramebufferImage(width, height int) (driver.Image, error) {
-	d.t.Call(func() error {
-		d.view.setDrawableSize(width, height)
+func (g *Graphics) NewScreenFramebufferImage(width, height int) (driver.Image, error) {
+	g.t.Call(func() error {
+		g.view.setDrawableSize(width, height)
 		return nil
 	})
-	return &Image{
-		driver: d,
-		width:  width,
-		height: height,
-		screen: true,
-	}, nil
+	i := &Image{
+		id:       g.genNextImageID(),
+		graphics: g,
+		width:    width,
+		height:   height,
+		screen:   true,
+	}
+	g.addImage(i)
+	return i, nil
 }
 
-func (d *Driver) SetTransparent(transparent bool) {
-	d.transparent = transparent
+func (g *Graphics) addImage(img *Image) {
+	if g.images == nil {
+		g.images = map[driver.ImageID]*Image{}
+	}
+	if _, ok := g.images[img.id]; ok {
+		panic(fmt.Sprintf("opengl: image ID %d was already registered", img.id))
+	}
+	g.images[img.id] = img
 }
 
-func (d *Driver) Reset() error {
-	if err := d.t.Call(func() error {
-		if d.cq != (mtl.CommandQueue{}) {
-			d.cq.Release()
-			d.cq = mtl.CommandQueue{}
+func (g *Graphics) removeImage(img *Image) {
+	delete(g.images, img.id)
+}
+
+func (g *Graphics) SetTransparent(transparent bool) {
+	g.transparent = transparent
+}
+
+func (g *Graphics) Reset() error {
+	if err := g.t.Call(func() error {
+		if g.cq != (mtl.CommandQueue{}) {
+			g.cq.Release()
+			g.cq = mtl.CommandQueue{}
 		}
 
 		// TODO: Release existing rpss
-		if d.rpss == nil {
-			d.rpss = map[rpsKey]mtl.RenderPipelineState{}
+		if g.rpss == nil {
+			g.rpss = map[rpsKey]mtl.RenderPipelineState{}
 		}
 
-		if err := d.view.reset(); err != nil {
+		if err := g.view.reset(); err != nil {
 			return err
 		}
-		if d.transparent {
-			d.view.ml.SetOpaque(false)
+		if g.transparent {
+			g.view.ml.SetOpaque(false)
 		}
 
 		replaces := map[string]string{
@@ -470,7 +500,7 @@ func (d *Driver) Reset() error {
 			src = strings.Replace(src, k, v, -1)
 		}
 
-		lib, err := d.view.getMTLDevice().MakeLibrary(src, mtl.CompileOptions{})
+		lib, err := g.view.getMTLDevice().MakeLibrary(src, mtl.CompileOptions{})
 		if err != nil {
 			return err
 		}
@@ -487,17 +517,17 @@ func (d *Driver) Reset() error {
 			VertexFunction:   vs,
 			FragmentFunction: fs,
 		}
-		rpld.ColorAttachments[0].PixelFormat = d.view.colorPixelFormat()
+		rpld.ColorAttachments[0].PixelFormat = g.view.colorPixelFormat()
 		rpld.ColorAttachments[0].BlendingEnabled = true
 		rpld.ColorAttachments[0].DestinationAlphaBlendFactor = mtl.BlendFactorZero
 		rpld.ColorAttachments[0].DestinationRGBBlendFactor = mtl.BlendFactorZero
 		rpld.ColorAttachments[0].SourceAlphaBlendFactor = mtl.BlendFactorOne
 		rpld.ColorAttachments[0].SourceRGBBlendFactor = mtl.BlendFactorOne
-		rps, err := d.view.getMTLDevice().MakeRenderPipelineState(rpld)
+		rps, err := g.view.getMTLDevice().MakeRenderPipelineState(rpld)
 		if err != nil {
 			return err
 		}
-		d.screenRPS = rps
+		g.screenRPS = rps
 
 		conv := func(c driver.Operation) mtl.BlendFactor {
 			switch c {
@@ -544,7 +574,7 @@ func (d *Driver) Reset() error {
 
 							pix := mtl.PixelFormatRGBA8UNorm
 							if screen {
-								pix = d.view.colorPixelFormat()
+								pix = g.view.colorPixelFormat()
 							}
 							rpld.ColorAttachments[0].PixelFormat = pix
 							rpld.ColorAttachments[0].BlendingEnabled = true
@@ -554,11 +584,11 @@ func (d *Driver) Reset() error {
 							rpld.ColorAttachments[0].DestinationRGBBlendFactor = conv(dst)
 							rpld.ColorAttachments[0].SourceAlphaBlendFactor = conv(src)
 							rpld.ColorAttachments[0].SourceRGBBlendFactor = conv(src)
-							rps, err := d.view.getMTLDevice().MakeRenderPipelineState(rpld)
+							rps, err := g.view.getMTLDevice().MakeRenderPipelineState(rpld)
 							if err != nil {
 								return err
 							}
-							d.rpss[rpsKey{
+							g.rpss[rpsKey{
 								screen:        screen,
 								useColorM:     cm,
 								filter:        f,
@@ -571,7 +601,7 @@ func (d *Driver) Reset() error {
 			}
 		}
 
-		d.cq = d.view.getMTLDevice().MakeCommandQueue()
+		g.cq = g.view.getMTLDevice().MakeCommandQueue()
 		return nil
 	}); err != nil {
 		return err
@@ -580,11 +610,14 @@ func (d *Driver) Reset() error {
 	return nil
 }
 
-func (d *Driver) Draw(indexLen int, indexOffset int, mode driver.CompositeMode, colorM *affine.ColorM, filter driver.Filter, address driver.Address) error {
-	d.drawCalled = true
+func (g *Graphics) Draw(dstID, srcID driver.ImageID, indexLen int, indexOffset int, mode driver.CompositeMode, colorM *affine.ColorM, filter driver.Filter, address driver.Address) error {
+	dst := g.images[dstID]
+	src := g.images[srcID]
 
-	if err := d.t.Call(func() error {
-		d.view.update()
+	g.drawCalled = true
+
+	if err := g.t.Call(func() error {
+		g.view.update()
 
 		rpd := mtl.RenderPassDescriptor{}
 		// Even though the destination pixels are not used, mtl.LoadActionDontCare might cause glitches
@@ -593,55 +626,56 @@ func (d *Driver) Draw(indexLen int, indexOffset int, mode driver.CompositeMode, 
 		rpd.ColorAttachments[0].StoreAction = mtl.StoreActionStore
 
 		var t mtl.Texture
-		if d.dst.screen {
-			if d.screenDrawable == (ca.MetalDrawable{}) {
-				drawable := d.view.drawable()
+		if dst.screen {
+			if g.screenDrawable == (ca.MetalDrawable{}) {
+				drawable := g.view.drawable()
 				if drawable == (ca.MetalDrawable{}) {
 					return nil
 				}
-				d.screenDrawable = drawable
+				g.screenDrawable = drawable
 			}
-			t = d.screenDrawable.Texture()
+			t = g.screenDrawable.Texture()
 		} else {
-			t = d.dst.texture
+			t = dst.texture
 		}
 		rpd.ColorAttachments[0].Texture = t
 		rpd.ColorAttachments[0].ClearColor = mtl.ClearColor{}
 
-		w, h := d.dst.viewportSize()
-
-		if d.cb == (mtl.CommandBuffer{}) {
-			d.cb = d.cq.MakeCommandBuffer()
+		if g.cb == (mtl.CommandBuffer{}) {
+			g.cb = g.cq.MakeCommandBuffer()
 		}
-		rce := d.cb.MakeRenderCommandEncoder(rpd)
+		rce := g.cb.MakeRenderCommandEncoder(rpd)
 
-		if d.dst.screen && filter == driver.FilterScreen {
-			rce.SetRenderPipelineState(d.screenRPS)
+		if dst.screen && filter == driver.FilterScreen {
+			rce.SetRenderPipelineState(g.screenRPS)
 		} else {
-			rce.SetRenderPipelineState(d.rpss[rpsKey{
-				screen:        d.dst.screen,
+			rce.SetRenderPipelineState(g.rpss[rpsKey{
+				screen:        dst.screen,
 				useColorM:     colorM != nil,
 				filter:        filter,
 				address:       address,
 				compositeMode: mode,
 			}])
 		}
+		// In Metal, the NDC's Y direction (upward) and the framebuffer's Y direction (downward) don't
+		// match. Then, the Y direction must be inverted.
+		w, h := dst.viewportSize()
 		rce.SetViewport(mtl.Viewport{
 			OriginX: 0,
-			OriginY: 0,
+			OriginY: float64(h),
 			Width:   float64(w),
-			Height:  float64(h),
+			Height:  -float64(h),
 			ZNear:   -1,
 			ZFar:    1,
 		})
-		rce.SetVertexBuffer(d.vb, 0, 0)
+		rce.SetVertexBuffer(g.vb, 0, 0)
 
 		viewportSize := [...]float32{float32(w), float32(h)}
 		rce.SetVertexBytes(unsafe.Pointer(&viewportSize[0]), unsafe.Sizeof(viewportSize), 1)
 
 		sourceSize := [...]float32{
-			float32(graphics.InternalImageSize(d.src.width)),
-			float32(graphics.InternalImageSize(d.src.height)),
+			float32(graphics.InternalImageSize(src.width)),
+			float32(graphics.InternalImageSize(src.height)),
 		}
 		rce.SetFragmentBytes(unsafe.Pointer(&sourceSize[0]), unsafe.Sizeof(sourceSize), 2)
 
@@ -649,15 +683,15 @@ func (d *Driver) Draw(indexLen int, indexOffset int, mode driver.CompositeMode, 
 		rce.SetFragmentBytes(unsafe.Pointer(&esBody[0]), unsafe.Sizeof(esBody[0])*uintptr(len(esBody)), 3)
 		rce.SetFragmentBytes(unsafe.Pointer(&esTranslate[0]), unsafe.Sizeof(esTranslate[0])*uintptr(len(esTranslate)), 4)
 
-		scale := float32(d.dst.width) / float32(d.src.width)
+		scale := float32(dst.width) / float32(src.width)
 		rce.SetFragmentBytes(unsafe.Pointer(&scale), unsafe.Sizeof(scale), 5)
 
-		if d.src != nil {
-			rce.SetFragmentTexture(d.src.texture, 0)
+		if src != nil {
+			rce.SetFragmentTexture(src.texture, 0)
 		} else {
 			rce.SetFragmentTexture(mtl.Texture{}, 0)
 		}
-		rce.DrawIndexedPrimitives(mtl.PrimitiveTypeTriangle, indexLen, mtl.IndexTypeUInt16, d.ib, indexOffset*2)
+		rce.DrawIndexedPrimitives(mtl.PrimitiveTypeTriangle, indexLen, mtl.IndexTypeUInt16, g.ib, indexOffset*2)
 		rce.EndEncoding()
 
 		return nil
@@ -668,76 +702,82 @@ func (d *Driver) Draw(indexLen int, indexOffset int, mode driver.CompositeMode, 
 	return nil
 }
 
-func (d *Driver) ResetSource() {
-	d.t.Call(func() error {
-		d.src = nil
-		return nil
-	})
+func (g *Graphics) SetVsyncEnabled(enabled bool) {
+	g.view.setDisplaySyncEnabled(enabled)
 }
 
-func (d *Driver) SetVsyncEnabled(enabled bool) {
-	d.view.setDisplaySyncEnabled(enabled)
+func (g *Graphics) FramebufferYDirection() driver.YDirection {
+	return driver.Downward
 }
 
-func (d *Driver) VDirection() driver.VDirection {
-	return driver.VUpward
-}
-
-func (d *Driver) NeedsRestoring() bool {
+func (g *Graphics) NeedsRestoring() bool {
 	return false
 }
 
-func (d *Driver) IsGL() bool {
+func (g *Graphics) IsGL() bool {
 	return false
 }
 
-func (d *Driver) HasHighPrecisionFloat() bool {
+func (g *Graphics) HasHighPrecisionFloat() bool {
 	return true
 }
 
-func (d *Driver) MaxImageSize() int {
+func (g *Graphics) MaxImageSize() int {
 	m := 0
-	d.t.Call(func() error {
-		if d.maxImageSize == 0 {
-			d.maxImageSize = 4096
+	g.t.Call(func() error {
+		if g.maxImageSize == 0 {
+			g.maxImageSize = 4096
 			// https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
 			switch {
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily5_v1):
-				d.maxImageSize = 16384
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily4_v1):
-				d.maxImageSize = 16384
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily3_v1):
-				d.maxImageSize = 16384
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily2_v2):
-				d.maxImageSize = 8192
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily2_v1):
-				d.maxImageSize = 4096
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily1_v2):
-				d.maxImageSize = 8192
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily1_v1):
-				d.maxImageSize = 4096
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_tvOS_GPUFamily2_v1):
-				d.maxImageSize = 16384
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_tvOS_GPUFamily1_v1):
-				d.maxImageSize = 8192
-			case d.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_macOS_GPUFamily1_v1):
-				d.maxImageSize = 16384
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily5_v1):
+				g.maxImageSize = 16384
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily4_v1):
+				g.maxImageSize = 16384
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily3_v1):
+				g.maxImageSize = 16384
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily2_v2):
+				g.maxImageSize = 8192
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily2_v1):
+				g.maxImageSize = 4096
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily1_v2):
+				g.maxImageSize = 8192
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_iOS_GPUFamily1_v1):
+				g.maxImageSize = 4096
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_tvOS_GPUFamily2_v1):
+				g.maxImageSize = 16384
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_tvOS_GPUFamily1_v1):
+				g.maxImageSize = 8192
+			case g.view.getMTLDevice().SupportsFeatureSet(mtl.FeatureSet_macOS_GPUFamily1_v1):
+				g.maxImageSize = 16384
 			default:
 				panic("metal: there is no supported feature set")
 			}
 		}
-		m = d.maxImageSize
+		m = g.maxImageSize
 		return nil
 	})
 	return m
 }
 
+func (g *Graphics) NewShader(program *shaderir.Program) (driver.Shader, error) {
+	panic("metal: NewShader is not implemented")
+}
+
+func (g *Graphics) DrawShader(dst driver.ImageID, shader driver.ShaderID, indexLen int, indexOffset int, mode driver.CompositeMode, uniforms []interface{}) error {
+	panic("metal: DrawShader is not implemented")
+}
+
 type Image struct {
-	driver  *Driver
-	width   int
-	height  int
-	screen  bool
-	texture mtl.Texture
+	id       driver.ImageID
+	graphics *Graphics
+	width    int
+	height   int
+	screen   bool
+	texture  mtl.Texture
+}
+
+func (i *Image) ID() driver.ImageID {
+	return i.id
 }
 
 // viewportSize must be called from the main thread.
@@ -749,13 +789,14 @@ func (i *Image) viewportSize() (int, int) {
 }
 
 func (i *Image) Dispose() {
-	i.driver.t.Call(func() error {
+	i.graphics.t.Call(func() error {
 		if i.texture != (mtl.Texture{}) {
 			i.texture.Release()
 			i.texture = mtl.Texture{}
 		}
 		return nil
 	})
+	i.graphics.removeImage(i)
 }
 
 func (i *Image) IsInvalidated() bool {
@@ -766,12 +807,12 @@ func (i *Image) IsInvalidated() bool {
 }
 
 func (i *Image) syncTexture() {
-	i.driver.t.Call(func() error {
-		if i.driver.cb != (mtl.CommandBuffer{}) {
+	i.graphics.t.Call(func() error {
+		if i.graphics.cb != (mtl.CommandBuffer{}) {
 			panic("metal: command buffer must be empty at syncTexture: flush is not called yet?")
 		}
 
-		cb := i.driver.cq.MakeCommandBuffer()
+		cb := i.graphics.cq.MakeCommandBuffer()
 		bce := cb.MakeBlitCommandEncoder()
 		bce.SynchronizeTexture(i.texture, 0, 0)
 		bce.EndEncoding()
@@ -782,11 +823,11 @@ func (i *Image) syncTexture() {
 }
 
 func (i *Image) Pixels() ([]byte, error) {
-	i.driver.flush(true, false)
+	i.graphics.flush(true, false)
 	i.syncTexture()
 
 	b := make([]byte, 4*i.width*i.height)
-	i.driver.t.Call(func() error {
+	i.graphics.t.Call(func() error {
 		i.texture.GetBytes(&b[0], uintptr(4*i.width), mtl.Region{
 			Size: mtl.Size{Width: i.width, Height: i.height, Depth: 1},
 		}, 0)
@@ -795,28 +836,14 @@ func (i *Image) Pixels() ([]byte, error) {
 	return b, nil
 }
 
-func (i *Image) SetAsDestination() {
-	i.driver.t.Call(func() error {
-		i.driver.dst = i
-		return nil
-	})
-}
-
-func (i *Image) SetAsSource() {
-	i.driver.t.Call(func() error {
-		i.driver.src = i
-		return nil
-	})
-}
-
 func (i *Image) ReplacePixels(args []*driver.ReplacePixelsArgs) {
-	d := i.driver
-	if d.drawCalled {
-		d.flush(true, false)
-		d.drawCalled = false
+	g := i.graphics
+	if g.drawCalled {
+		g.flush(true, false)
+		g.drawCalled = false
 	}
 
-	d.t.Call(func() error {
+	g.t.Call(func() error {
 		for _, a := range args {
 			i.texture.ReplaceRegion(mtl.Region{
 				Origin: mtl.Origin{X: a.X, Y: a.Y, Z: 0},

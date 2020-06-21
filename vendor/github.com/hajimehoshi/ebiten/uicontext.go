@@ -50,6 +50,8 @@ type uiContext struct {
 	offscreen *Image
 	screen    *Image
 
+	updateCalled bool
+
 	// scaleForWindow is the scale of a window. This doesn't represent the scale on fullscreen. This value works
 	// only on desktops.
 	//
@@ -227,7 +229,7 @@ func (c *uiContext) offsets() (float64, float64) {
 	return (c.outsideWidth*d - width) / 2, (c.outsideHeight*d - height) / 2
 }
 
-func (c *uiContext) Update(afterFrameUpdate func()) error {
+func (c *uiContext) Update() error {
 	// TODO: If updateCount is 0 and vsync is disabled, swapping buffers can be skipped.
 
 	if err, ok := c.err.Load().(error); ok && err != nil {
@@ -236,64 +238,76 @@ func (c *uiContext) Update(afterFrameUpdate func()) error {
 	if err := buffered.BeginFrame(); err != nil {
 		return err
 	}
-	if err := c.update(afterFrameUpdate); err != nil {
+	if err := c.update(); err != nil {
 		return err
 	}
 	if err := buffered.EndFrame(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-func (c *uiContext) update(afterFrameUpdate func()) error {
+func (c *uiContext) Draw() error {
+	if err, ok := c.err.Load().(error); ok && err != nil {
+		return err
+	}
+	if err := buffered.BeginFrame(); err != nil {
+		return err
+	}
+	c.draw()
+	if err := buffered.EndFrame(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *uiContext) update() error {
+	_, hasDraw := c.game.(interface{ Draw(*Image) })
+
 	updateCount := clock.Update(MaxTPS())
 
-	if game, ok := c.game.(interface{ Draw(*Image) }); ok {
-		for i := 0; i < updateCount; i++ {
-			c.updateOffscreen()
-
-			// Rendering should be always skipped.
-			setDrawingSkipped(true)
-
-			if err := hooks.RunBeforeUpdateHooks(); err != nil {
-				return err
-			}
-
-			// Multiple successive Clear call should be integrated into one graphics command, then
-			// calling Clear on every Update should not affect the performance.
-			c.offscreen.Clear()
-			if err := c.game.Update(c.offscreen); err != nil {
-				return err
-			}
-			uiDriver().Input().ResetForFrame()
-			afterFrameUpdate()
-		}
-
-		c.offscreen.Clear()
-		game.Draw(c.offscreen)
-	} else {
-		for i := 0; i < updateCount; i++ {
-			c.updateOffscreen()
-
-			c.offscreen.Clear()
-
-			setDrawingSkipped(i < updateCount-1)
-
-			if err := hooks.RunBeforeUpdateHooks(); err != nil {
-				return err
-			}
-			if err := c.game.Update(c.offscreen); err != nil {
-				return err
-			}
-			uiDriver().Input().ResetForFrame()
-			afterFrameUpdate()
-		}
+	// Ensure that Update is called once before Draw so that Update can be used for initialization.
+	if !c.updateCalled && updateCount == 0 {
+		updateCount = 1
+		c.updateCalled = true
 	}
 
+	for i := 0; i < updateCount; i++ {
+		c.updateOffscreen()
+
+		// When the game's Draw exists, rendering should be always skipped.
+		//
+		// When the game's Draw does not exist, the last Update call should process drawing.
+		// This assumes that (*uiContext).Update and (*uiContext).Draw are called successively.
+		//
+		// TODO: Make (Game).Draw mandatory and remove this assumption when we can update the major version.
+		// Move the clock usage to the UI driver side.
+		setDrawingSkipped(hasDraw || i < updateCount-1)
+
+		if err := hooks.RunBeforeUpdateHooks(); err != nil {
+			return err
+		}
+
+		// Multiple successive Clear call should be integrated into one graphics command, then
+		// calling Clear on every Update should not affect the performance.
+		c.offscreen.Clear()
+		if err := c.game.Update(c.offscreen); err != nil {
+			return err
+		}
+		uiDriver().ResetForFrame()
+	}
+	return nil
+}
+
+func (c *uiContext) draw() {
 	// c.screen might be nil when updateCount is 0 in the initial state (#1039).
 	if c.screen == nil {
-		return nil
+		return
+	}
+
+	if game, ok := c.game.(interface{ Draw(*Image) }); ok {
+		c.offscreen.Clear()
+		game.Draw(c.offscreen)
 	}
 
 	// This clear is needed for fullscreen mode or some mobile platforms (#622).
@@ -302,14 +316,12 @@ func (c *uiContext) update(afterFrameUpdate func()) error {
 	op := &DrawImageOptions{}
 
 	s := c.screenScale()
-	switch vd := uiDriver().Graphics().VDirection(); vd {
-	case driver.VDownward:
-		// c.screen is special: its Y axis is down to up,
-		// and the origin point is lower left.
+	switch vd := uiDriver().Graphics().FramebufferYDirection(); vd {
+	case driver.Upward:
 		op.GeoM.Scale(s, -s)
 		_, h := c.offscreen.Size()
 		op.GeoM.Translate(0, float64(h)*s)
-	case driver.VUpward:
+	case driver.Downward:
 		op.GeoM.Scale(s, s)
 	default:
 		panic(fmt.Sprintf("ebiten: invalid v-direction: %d", vd))
@@ -326,7 +338,6 @@ func (c *uiContext) update(afterFrameUpdate func()) error {
 		op.Filter = FilterLinear
 	}
 	_ = c.screen.DrawImage(c.offscreen, op)
-	return nil
 }
 
 func (c *uiContext) AdjustPosition(x, y float64) (float64, float64) {

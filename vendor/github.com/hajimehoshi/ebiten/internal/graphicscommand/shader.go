@@ -1,4 +1,4 @@
-// Copyright 2016 Hajime Hoshi
+// Copyright 2020 The Ebiten Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,24 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build js
-
-package clock
+package graphicscommand
 
 import (
-	"syscall/js"
-	"time"
+	"github.com/hajimehoshi/ebiten/internal/driver"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 )
 
-var (
-	jsPerformance = js.Global().Get("performance")
-	jsNow         = jsPerformance.Get("now").Call("bind", jsPerformance)
-)
+type Shader struct {
+	shader driver.Shader
+}
 
-func now() int64 {
-	// time.Now() is not reliable until GopherJS supports performance.now().
-	//
-	// performance.now is monotonic:
-	// https://www.w3.org/TR/hr-time-2/#sec-monotonic-clock
-	return int64(jsNow.Invoke().Float() * float64(time.Millisecond))
+func NewShader(ir *shaderir.Program) *Shader {
+	s := &Shader{}
+	c := &newShaderCommand{
+		result: s,
+		ir:     ir,
+	}
+	theCommandQueue.Enqueue(c)
+	return s
+}
+
+func (s *Shader) Dispose() {
+	c := &disposeShaderCommand{
+		target: s,
+	}
+	theCommandQueue.Enqueue(c)
 }

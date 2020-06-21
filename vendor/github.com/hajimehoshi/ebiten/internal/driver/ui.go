@@ -20,7 +20,8 @@ import (
 )
 
 type UIContext interface {
-	Update(afterFrameUpdate func()) error
+	Update() error
+	Draw() error
 	Layout(outsideWidth, outsideHeight float64)
 	AdjustPosition(x, y float64) (float64, float64)
 }
@@ -35,18 +36,23 @@ type UI interface {
 	RunWithoutMainLoop(context UIContext)
 
 	DeviceScaleFactor() float64
-	CursorMode() CursorMode
-	IsFullscreen() bool
 	IsFocused() bool
-	IsRunnableOnUnfocused() bool
-	IsVsyncEnabled() bool
 	ScreenSizeInFullscreen() (int, int)
-	IsScreenTransparent() bool
+	ResetForFrame()
 
+	CursorMode() CursorMode
 	SetCursorMode(mode CursorMode)
+
+	IsFullscreen() bool
 	SetFullscreen(fullscreen bool)
+
+	IsRunnableOnUnfocused() bool
 	SetRunnableOnUnfocused(runnableOnUnfocused bool)
+
+	IsVsyncEnabled() bool
 	SetVsyncEnabled(enabled bool)
+
+	IsScreenTransparent() bool
 	SetScreenTransparent(transparent bool)
 
 	Input() Input

@@ -1,4 +1,4 @@
-// Copyright 2019 The Ebiten Authors
+// Copyright 2016 Hajime Hoshi
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,21 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package driver
+// +build !windows
 
-type Input interface {
-	CursorPosition() (x, y int)
-	GamepadSDLID(id int) string
-	GamepadName(id int) string
-	GamepadAxis(id int, axis int) float64
-	GamepadAxisNum(id int) int
-	GamepadButtonNum(id int) int
-	GamepadIDs() []int
-	IsGamepadButtonPressed(id int, button GamepadButton) bool
-	IsKeyPressed(key Key) bool
-	IsMouseButtonPressed(button MouseButton) bool
-	RuneBuffer() []rune
-	TouchIDs() []int
-	TouchPosition(id int) (x, y int)
-	Wheel() (xoff, yoff float64)
+package clock
+
+import (
+	"time"
+)
+
+var initTime = time.Now()
+
+func now() int64 {
+	// time.Since() returns monotonic timer difference (#875):
+	// https://golang.org/pkg/time/#hdr-Monotonic_Clocks
+	return int64(time.Since(initTime))
 }

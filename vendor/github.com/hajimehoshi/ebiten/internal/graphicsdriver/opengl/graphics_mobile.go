@@ -1,4 +1,4 @@
-// Copyright 2016 Hajime Hoshi
+// Copyright 2018 The Ebiten Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build !js
-// +build !windows
+// +build android ios
 
-package clock
+package opengl
 
 import (
-	"time"
+	"golang.org/x/mobile/gl"
 )
 
-var initTime = time.Now()
-
-func now() int64 {
-	// time.Since() returns monotonic timer difference (#875):
-	// https://golang.org/pkg/time/#hdr-Monotonic_Clocks
-	return int64(time.Since(initTime))
+func (g *Graphics) SetMobileGLContext(context gl.Context) {
+	g.context.gl = context
 }

@@ -11,11 +11,12 @@ github.com/go-gl/glfw/v3.3/glfw/glfw/src
 ## explicit
 github.com/golang/freetype/raster
 github.com/golang/freetype/truetype
-# github.com/hajimehoshi/ebiten v1.11.2
+# github.com/hajimehoshi/ebiten v1.12.0-alpha.2
 ## explicit
 github.com/hajimehoshi/ebiten
 github.com/hajimehoshi/ebiten/ebitenutil
 github.com/hajimehoshi/ebiten/ebitenutil/internal/assets
+github.com/hajimehoshi/ebiten/inpututil
 github.com/hajimehoshi/ebiten/internal/affine
 github.com/hajimehoshi/ebiten/internal/buffered
 github.com/hajimehoshi/ebiten/internal/clock
@@ -36,6 +37,7 @@ github.com/hajimehoshi/ebiten/internal/mipmap
 github.com/hajimehoshi/ebiten/internal/packing
 github.com/hajimehoshi/ebiten/internal/png
 github.com/hajimehoshi/ebiten/internal/restorable
+github.com/hajimehoshi/ebiten/internal/shaderir
 github.com/hajimehoshi/ebiten/internal/shareable
 github.com/hajimehoshi/ebiten/internal/thread
 github.com/hajimehoshi/ebiten/internal/uidriver/glfw
@@ -61,7 +63,6 @@ golang.org/x/image/font/gofont/goregular
 golang.org/x/image/math/f64
 golang.org/x/image/math/fixed
 # golang.org/x/mobile v0.0.0-20200329125638-4c31acba0007
-## explicit
 golang.org/x/mobile/app
 golang.org/x/mobile/app/internal/callfn
 golang.org/x/mobile/event/key
