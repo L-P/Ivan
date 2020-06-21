@@ -2,12 +2,10 @@ package tracker
 
 import (
 	"image"
-	"strings"
 )
 
 type Item struct {
-	Name string
-
+	Name           string
 	X, Y           int // position over the background
 	SheetX, SheetY int `json:",omitempty"` // origin in the spritesheet
 
@@ -15,13 +13,13 @@ type Item struct {
 	CapacityProgression []int  `json:",omitempty"`
 	ItemProgression     []Item `json:",omitempty"`
 
-	// Index of the current item/capacity upgrade, 0 means disabled
-	upgradeIndex int
-
-	Enabled bool `json:",omitempty"`
+	// Index of the current item/capacity and temple upgrade
+	upgradeIndex, templeIndex int
 
 	// For countable items.
 	CountMax, CountStep, count int
+
+	IsMedallion, IsSong, Enabled, IsMarked bool `json:",omitempty"`
 }
 
 // Capacity returns the currently selected capacity of the item or -1 if it has
@@ -161,31 +159,14 @@ func (item *Item) Count() int {
 	return item.count
 }
 
-func (item *Item) IsMedallion() bool {
-	switch item.Name {
-	case "Kokiri's Emerald", "Goron's Ruby", "Zora's Sapphire":
-		return true
-	default:
-		return strings.HasSuffix(item.Name, "Medallion")
-	}
-}
-
-func (item *Item) IsSong() bool {
-	switch item.Name {
-	case "Zelda's Lullaby", "Epona's Song", "Saria's Song", "Sun's Song",
-		"Song of Time", "Song of Storms", "Minuet of Forest", "Bolero of Fire",
-		"Serenade of Water", "Requiem of Spirit", "Nocturne of Shadow",
-		"Prelude of Light":
-		return true
-	default:
-		return false
-	}
-}
-
 func (item *Item) HasCapacity() bool {
 	return len(item.CapacityProgression) > 0
 }
 
 func (item *Item) IsCountable() bool {
 	return item.Name == "Golden Skulltulas" || item.Name == "Heart Piece"
+}
+
+func (item *Item) ToggleMark() {
+	item.IsMarked = !item.IsMarked
 }

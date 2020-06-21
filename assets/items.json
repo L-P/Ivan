@@ -685,6 +685,7 @@
     },
     {
         "Name": "Kokiri's Emerald",
+        "IsMedallion": true,
         "X": 126,
         "Y": 294,
         "SheetX": 140,
@@ -692,6 +693,7 @@
     },
     {
         "Name": "Goron's Ruby",
+        "IsMedallion": true,
         "X": 168,
         "Y": 294,
         "SheetX": 175,
@@ -699,6 +701,7 @@
     },
     {
         "Name": "Zora's Sapphire",
+        "IsMedallion": true,
         "X": 210,
         "Y": 294,
         "SheetX": 210,
@@ -803,6 +806,7 @@
     },
     {
         "Name": "Forest Medallion",
+        "IsMedallion": true,
         "X": 0,
         "Y": 336,
         "SheetX": 245,
@@ -810,6 +814,7 @@
     },
     {
         "Name": "Fire Medallion",
+        "IsMedallion": true,
         "X": 42,
         "Y": 336,
         "SheetX": 280,
@@ -817,6 +822,7 @@
     },
     {
         "Name": "Water Medallion",
+        "IsMedallion": true,
         "X": 84,
         "Y": 336,
         "SheetX": 315,
@@ -824,6 +830,7 @@
     },
     {
         "Name": "Shadow Medallion",
+        "IsMedallion": true,
         "X": 126,
         "Y": 336,
         "SheetX": 350,
@@ -831,6 +838,7 @@
     },
     {
         "Name": "Spirit Medallion",
+        "IsMedallion": true,
         "X": 168,
         "Y": 336,
         "SheetX": 385,
@@ -838,6 +846,7 @@
     },
     {
         "Name": "Light Medallion",
+        "IsMedallion": true,
         "X": 210,
         "Y": 336,
         "SheetX": 0,
@@ -845,6 +854,7 @@
     },
     {
         "Name": "Zelda's Lullaby",
+        "IsSong": true,
         "X": 252,
         "Y": -4,
         "SheetX": 35,
@@ -852,6 +862,7 @@
     },
     {
         "Name": "Epona's Song",
+        "IsSong": true,
         "X": 252,
         "Y": 26,
         "SheetX": 70,
@@ -859,6 +870,7 @@
     },
     {
         "Name": "Saria's Song",
+        "IsSong": true,
         "X": 252,
         "Y": 56,
         "SheetX": 105,
@@ -866,6 +878,7 @@
     },
     {
         "Name": "Sun's Song",
+        "IsSong": true,
         "X": 252,
         "Y": 86,
         "SheetX": 140,
@@ -873,6 +886,7 @@
     },
     {
         "Name": "Song of Time",
+        "IsSong": true,
         "X": 252,
         "Y": 116,
         "SheetX": 175,
@@ -880,6 +894,7 @@
     },
     {
         "Name": "Song of Storms",
+        "IsSong": true,
         "X": 252,
         "Y": 146,
         "SheetX": 210,
@@ -887,6 +902,7 @@
     },
     {
         "Name": "Minuet of Forest",
+        "IsSong": true,
         "X": 252,
         "Y": 184,
         "SheetX": 245,
@@ -894,6 +910,7 @@
     },
     {
         "Name": "Bolero of Fire",
+        "IsSong": true,
         "X": 252,
         "Y": 214,
         "SheetX": 280,
@@ -901,6 +918,7 @@
     },
     {
         "Name": "Serenade of Water",
+        "IsSong": true,
         "X": 252,
         "Y": 244,
         "SheetX": 315,
@@ -908,6 +926,7 @@
     },
     {
         "Name": "Requiem of Spirit",
+        "IsSong": true,
         "X": 252,
         "Y": 274,
         "SheetX": 350,
@@ -915,6 +934,7 @@
     },
     {
         "Name": "Nocturne of Shadow",
+        "IsSong": true,
         "X": 252,
         "Y": 304,
         "SheetX": 385,
@@ -922,6 +942,7 @@
     },
     {
         "Name": "Prelude of Light",
+        "IsSong": true,
         "X": 252,
         "Y": 334,
         "SheetX": 0,

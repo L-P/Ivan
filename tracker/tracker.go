@@ -85,7 +85,7 @@ func (tracker *Tracker) Upgrade(x, y int) {
 		return
 	}
 
-	if tracker.items[i].IsMedallion() || tracker.items[i].IsSong() {
+	if tracker.items[i].IsMedallion || tracker.items[i].IsSong {
 		tracker.items[i].Toggle()
 		return
 	}
@@ -100,7 +100,13 @@ func (tracker *Tracker) Downgrade(x, y int) {
 		return
 	}
 
-	tracker.items[i].Downgrade()
+	switch {
+	case tracker.items[i].IsMedallion:
+	case tracker.items[i].IsSong:
+		tracker.items[i].ToggleMark()
+	default:
+		tracker.items[i].Downgrade()
+	}
 }
 
 func (tracker *Tracker) Draw(screen *ebiten.Image) {
@@ -128,7 +134,20 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	// Do two loops to avoid texture switches.
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
+	tracker.drawMarks(screen)
 	tracker.drawCapacities(screen)
+}
+
+func (tracker *Tracker) drawMarks(screen *ebiten.Image) {
+	for k := range tracker.items {
+		if !tracker.items[k].IsMarked {
+			continue
+		}
+
+		rect := tracker.items[k].Rect()
+		x, y := rect.Max.X-3*marginLeft, rect.Min.Y+4*marginTop
+		text.Draw(screen, "×", tracker.font, x, y, color.RGBA{0x2F, 0xE6, 0x46, 0xFF})
+	}
 }
 
 func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
