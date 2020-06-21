@@ -27,6 +27,9 @@ type Tracker struct {
 }
 
 const (
+	Width  = 7 * 42
+	Height = 9 * 42
+
 	capacityFontSize = 20
 	templeFontSize   = 13
 )
