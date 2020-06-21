@@ -161,7 +161,7 @@ func (item *Item) HasCapacity() bool {
 }
 
 func (item *Item) IsCountable() bool {
-	return item.Name == "Golden Skulltulas" || item.Name == "Heart Piece"
+	return item.CountMax != 0
 }
 
 // nolint:gochecknoglobals

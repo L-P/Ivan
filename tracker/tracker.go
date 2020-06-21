@@ -19,22 +19,36 @@ import (
 type Tracker struct {
 	Origin image.Point
 
-	items         []Item
-	font          font.Face
-	fontSmall     font.Face
-	sheetDisabled *ebiten.Image
-	sheetEnabled  *ebiten.Image
+	background     *ebiten.Image
+	backgroundHelp *ebiten.Image
+	font           font.Face
+	fontSmall      font.Face
+	sheetDisabled  *ebiten.Image
+	sheetEnabled   *ebiten.Image
+
+	items []Item
+	input kbInput
 }
 
 const (
-	Width  = 7 * 42
-	Height = 9 * 42
+	Width  = 7 * gridSize
+	Height = 9 * gridSize
 
 	capacityFontSize = 20
 	templeFontSize   = 13
 )
 
 func New(path string) (*Tracker, error) {
+	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
+	if err != nil {
+		return nil, err
+	}
+
+	backgroundHelp, _, err := ebitenutil.NewImageFromFile("assets/background-help.png", ebiten.FilterDefault)
+	if err != nil {
+		return nil, err
+	}
+
 	items, err := loadItems(path)
 	if err != nil {
 		return nil, err
@@ -56,9 +70,11 @@ func New(path string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
-		items:         items,
-		sheetDisabled: sheetDisabled,
-		sheetEnabled:  sheetEnabled,
+		background:     background,
+		backgroundHelp: backgroundHelp,
+		items:          items,
+		sheetDisabled:  sheetDisabled,
+		sheetEnabled:   sheetEnabled,
 		font: truetype.NewFace(ttf, &truetype.Options{
 			Size:    capacityFontSize,
 			Hinting: font.HintingFull,
@@ -77,6 +93,16 @@ func New(path string) (*Tracker, error) {
 func (tracker *Tracker) getItemIndexByPos(x, y int) int {
 	for k := range tracker.items {
 		if (image.Point{x, y}).In(tracker.items[k].Rect()) {
+			return k
+		}
+	}
+
+	return -1
+}
+
+func (tracker *Tracker) getItemIndexByName(name string) int {
+	for k := range tracker.items {
+		if tracker.items[k].Name == name {
 			return k
 		}
 	}
@@ -124,7 +150,6 @@ func (tracker *Tracker) Wheel(x, y int, up bool) {
 
 func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	op := ebiten.DrawImageOptions{}
-
 	drawState := func(state bool, sheet *ebiten.Image) {
 		for k := range tracker.items {
 			if tracker.items[k].Enabled != state {
@@ -144,11 +169,55 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	if tracker.kbInputStateIsAny(inputStateItemKPZoneInput, inputStateItemInput) {
+		_ = screen.DrawImage(tracker.backgroundHelp, nil)
+		if tracker.input.activeKPZone > 0 {
+			tracker.drawActiveItemSlot(screen, tracker.input.activeKPZone)
+		}
+	} else {
+		_ = screen.DrawImage(tracker.background, nil)
+	}
+
 	// Do two loops to avoid texture switches.
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
+
 	tracker.drawTemples(screen)
 	tracker.drawCapacities(screen)
+	tracker.drawInputState(screen)
+}
+
+func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
+	if slot <= 0 || slot > 9 {
+		return
+	}
+
+	slot = []int{ // make maths ez
+		0,
+		6, 7, 8,
+		3, 4, 5,
+		0, 1, 2,
+	}[slot]
+
+	edge := gridSize * 3
+	pos := image.Point{
+		(slot % 3) * edge,
+		(slot / 3) * edge,
+	}
+	size := image.Point{126, 126}
+
+	if slot == 5 { // KP 6, TODO song input will be its own state
+		pos.Y = 0
+		size.X = gridSize
+		size.Y = Height
+	}
+
+	ebitenutil.DrawRect(
+		screen,
+		float64(pos.X), float64(pos.Y),
+		float64(size.X), float64(size.Y),
+		color.RGBA{0xFF, 0xFF, 0xFF, 0x50},
+	)
 }
 
 func (tracker *Tracker) drawTemples(screen *ebiten.Image) {
@@ -183,7 +252,7 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		x, y := rect.Min.X, rect.Max.Y
 
 		// HACK, display skull count centered on the right slot
-		if tracker.items[k].Name == "Golden Skulltulas" {
+		if tracker.items[k].Name == "Gold Skulltula Token" {
 			x, y = rect.Min.X+gridSize+marginLeft, rect.Min.Y+marginTop+(gridSize/2)
 			if count == 100 {
 				x -= 5

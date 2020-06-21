@@ -29,6 +29,4 @@ func main() {
 	if err := ebiten.RunGame(ivan); err != nil && err != errCloseApp {
 		log.Fatal(err)
 	}
-
-	log.Println("ivan closed")
 }
