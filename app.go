@@ -5,10 +5,8 @@ import (
 	"image"
 	"ivan/timer"
 	"ivan/tracker"
-	"log"
 
 	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"github.com/hajimehoshi/ebiten/inpututil"
 )
 
@@ -20,17 +18,11 @@ const (
 var errCloseApp = errors.New("user requested app close")
 
 type App struct {
-	background *ebiten.Image
-	tracker    *tracker.Tracker
-	timer      *timer.Timer
+	tracker *tracker.Tracker
+	timer   *timer.Timer
 }
 
 func NewApp() (*App, error) {
-	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
 	timer, err := timer.New(image.Point{0, tracker.Height})
 	if err != nil {
 		return nil, err
@@ -42,9 +34,8 @@ func NewApp() (*App, error) {
 	}
 
 	return &App{
-		background: background,
-		tracker:    tracker,
-		timer:      timer,
+		tracker: tracker,
+		timer:   timer,
 	}, nil
 }
 
@@ -68,17 +59,13 @@ func (app *App) Update(screen *ebiten.Image) error {
 		x, y := ebiten.CursorPosition()
 		app.tracker.Wheel(x, y, wheel > 0)
 	default:
-		return nil
+		app.tracker.Input(ebiten.InputChars())
 	}
 
 	return nil
 }
 
 func (app *App) Draw(screen *ebiten.Image) {
-	if err := screen.DrawImage(app.background, nil); err != nil {
-		log.Fatal(err)
-	}
-
 	app.tracker.Draw(screen)
 	app.timer.Draw(screen)
 }

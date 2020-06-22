@@ -24,7 +24,7 @@
         ]
     },
     {
-        "Name": "Bomb",
+        "Name": "Bomb Bag",
         "X": 84,
         "Y": 0,
         "SheetX": 70,
@@ -48,21 +48,21 @@
         ]
     },
     {
-        "Name": "Fire Arrow",
+        "Name": "Fire Arrows",
         "X": 168,
         "Y": 0,
         "SheetX": 140,
         "SheetY": 0
     },
     {
-        "Name": "Din's Fire",
+        "Name": "Dins Fire",
         "X": 210,
         "Y": 0,
         "SheetX": 175,
         "SheetY": 0
     },
     {
-        "Name": "Fairy Slingshot",
+        "Name": "Slingshot",
         "X": 0,
         "Y": 42,
         "SheetX": 210,
@@ -98,7 +98,7 @@
         "SheetY": 0
     },
     {
-        "Name": "Hookshot",
+        "Name": "Progressive Hookshot",
         "X": 126,
         "Y": 42,
         "ItemProgression": [
@@ -115,14 +115,14 @@
         ]
     },
     {
-        "Name": "Ice Arrow",
+        "Name": "Ice Arrows",
         "X": 168,
         "Y": 42,
         "SheetX": 0,
         "SheetY": 35
     },
     {
-        "Name": "Farore's Wind",
+        "Name": "Farores Wind",
         "X": 210,
         "Y": 42,
         "SheetX": 35,
@@ -150,28 +150,28 @@
         "SheetY": 35
     },
     {
-        "Name": "Megaton Hammer",
+        "Name": "Hammer",
         "X": 126,
         "Y": 84,
         "SheetX": 175,
         "SheetY": 35
     },
     {
-        "Name": "Light Arrow",
+        "Name": "Light Arrows",
         "X": 168,
         "Y": 84,
         "SheetX": 210,
         "SheetY": 35
     },
     {
-        "Name": "Nayru's Love",
+        "Name": "Nayrus Love",
         "X": 210,
         "Y": 84,
         "SheetX": 245,
         "SheetY": 35
     },
     {
-        "Name": "Bottle",
+        "Name": "Bottle 1",
         "X": 0,
         "Y": 126,
         "ItemProgression": [
@@ -181,6 +181,11 @@
                 "SheetY": 70
             },
             {
+                "Name": "Big Poe",
+                "SheetX": 210,
+                "SheetY": 70
+            },
+            {
                 "Name": "Red Potion",
                 "SheetX": 315,
                 "SheetY": 35
@@ -221,11 +226,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Big Poe",
-                "SheetX": 210,
-                "SheetY": 70
-            },
-            {
                 "Name": "Half Milk",
                 "SheetX": 245,
                 "SheetY": 70
@@ -243,7 +243,7 @@
         ]
     },
     {
-        "Name": "Bottle",
+        "Name": "Bottle 2",
         "X": 42,
         "Y": 126,
         "ItemProgression": [
@@ -253,6 +253,11 @@
                 "SheetY": 70
             },
             {
+                "Name": "Big Poe",
+                "SheetX": 210,
+                "SheetY": 70
+            },
+            {
                 "Name": "Red Potion",
                 "SheetX": 315,
                 "SheetY": 35
@@ -293,11 +298,6 @@
                 "SheetY": 70
             },
             {
-                "Name": "Big Poe",
-                "SheetX": 210,
-                "SheetY": 70
-            },
-            {
                 "Name": "Half Milk",
                 "SheetX": 245,
                 "SheetY": 70
@@ -315,7 +315,7 @@
         ]
     },
     {
-        "Name": "Bottle",
+        "Name": "Bottle 3",
         "X": 84,
         "Y": 126,
         "ItemProgression": [
@@ -325,6 +325,11 @@
                 "SheetY": 70
             },
             {
+                "Name": "Big Poe",
+                "SheetX": 210,
+                "SheetY": 70
+            },
+            {
                 "Name": "Red Potion",
                 "SheetX": 315,
                 "SheetY": 35
@@ -362,11 +367,6 @@
             {
                 "Name": "Bugs",
                 "SheetX": 175,
-                "SheetY": 70
-            },
-            {
-                "Name": "Big Poe",
-                "SheetX": 210,
                 "SheetY": 70
             },
             {
@@ -387,13 +387,18 @@
         ]
     },
     {
-        "Name": "Bottle",
+        "Name": "Bottle 4",
         "X": 126,
         "Y": 126,
         "ItemProgression": [
             {
                 "Name": "Ruto's Letter",
                 "SheetX": 105,
+                "SheetY": 70
+            },
+            {
+                "Name": "Big Poe",
+                "SheetX": 210,
                 "SheetY": 70
             },
             {
@@ -434,11 +439,6 @@
             {
                 "Name": "Bugs",
                 "SheetX": 175,
-                "SheetY": 70
-            },
-            {
-                "Name": "Big Poe",
-                "SheetX": 210,
                 "SheetY": 70
             },
             {
@@ -526,7 +526,7 @@
         ]
     },
     {
-        "Name": "Pocket Egg",
+        "Name": "Trade Sequence",
         "X": 168,
         "Y": 126,
         "ItemProgression": [
@@ -588,7 +588,7 @@
         ]
     },
     {
-        "Name": "Kokiri's Sword",
+        "Name": "Kokiri Sword",
         "X": 0,
         "Y": 168,
         "SheetX": 280,
@@ -602,14 +602,14 @@
         "SheetY": 140
     },
     {
-        "Name": "Biggoron's Sword",
+        "Name": "Biggoron Sword",
         "X": 84,
         "Y": 168,
         "SheetX": 350,
         "SheetY": 140
     },
     {
-        "Name": "Deku Shiel",
+        "Name": "Deku Shield",
         "X": 0,
         "Y": 210,
         "SheetX": 385,
@@ -630,7 +630,7 @@
         "SheetY": 175
     },
     {
-        "Name": "Kokiri's Tunic",
+        "Name": "Kokiri Tunic",
         "X": 0,
         "Y": 252,
         "SheetX": 70,
@@ -638,21 +638,21 @@
         "Enabled": true
     },
     {
-        "Name": "Goron's Tunic",
+        "Name": "Goron Tunic",
         "X": 42,
         "Y": 252,
         "SheetX": 105,
         "SheetY": 175
     },
     {
-        "Name": "Zora's Tunic",
+        "Name": "Zora Tunic",
         "X": 84,
         "Y": 252,
         "SheetX": 140,
         "SheetY": 175
     },
     {
-        "Name": "Kokiri's Boots",
+        "Name": "Kokiri Boots",
         "X": 0,
         "Y": 294,
         "SheetX": 175,
@@ -674,7 +674,7 @@
         "SheetY": 175
     },
     {
-        "Name": "Golden Skulltulas",
+        "Name": "Gold Skulltula Token",
         "X": 168,
         "Y": 168,
         "SheetX": 35,
@@ -684,7 +684,7 @@
         "CountStep": 5
     },
     {
-        "Name": "Kokiri's Emerald",
+        "Name": "Kokiri Emerald",
         "IsMedallion": true,
         "X": 126,
         "Y": 294,
@@ -692,7 +692,7 @@
         "SheetY": 245
     },
     {
-        "Name": "Goron's Ruby",
+        "Name": "Goron Ruby",
         "IsMedallion": true,
         "X": 168,
         "Y": 294,
@@ -700,7 +700,7 @@
         "SheetY": 245
     },
     {
-        "Name": "Zora's Sapphire",
+        "Name": "Zora Sapphire",
         "IsMedallion": true,
         "X": 210,
         "Y": 294,
@@ -708,7 +708,7 @@
         "SheetY": 245
     },
     {
-        "Name": "Magic",
+        "Name": "Magic Meter",
         "X": 126,
         "Y": 210,
         "ItemProgression": [
@@ -732,7 +732,7 @@
         "SheetY": 315
     },
     {
-        "Name": "Scale",
+        "Name": "Progressive Scale",
         "X": 168,
         "Y": 252,
         "ItemProgression": [
@@ -749,7 +749,7 @@
         ]
     },
     {
-        "Name": "Force",
+        "Name": "Progressive Force",
         "X": 210,
         "Y": 252,
         "ItemProgression": [
@@ -798,7 +798,7 @@
         ]
     },
     {
-        "Name": "Gerudo Card",
+        "Name": "Gerudo Membership Card",
         "X": 210,
         "Y": 210,
         "SheetX": 0,
@@ -831,7 +831,7 @@
     {
         "Name": "Shadow Medallion",
         "IsMedallion": true,
-        "X": 126,
+        "X": 168,
         "Y": 336,
         "SheetX": 350,
         "SheetY": 245
@@ -839,7 +839,7 @@
     {
         "Name": "Spirit Medallion",
         "IsMedallion": true,
-        "X": 168,
+        "X": 126,
         "Y": 336,
         "SheetX": 385,
         "SheetY": 245
@@ -853,7 +853,7 @@
         "SheetY": 280
     },
     {
-        "Name": "Zelda's Lullaby",
+        "Name": "Zeldas Lullaby",
         "IsSong": true,
         "X": 252,
         "Y": -4,
@@ -861,7 +861,7 @@
         "SheetY": 280
     },
     {
-        "Name": "Epona's Song",
+        "Name": "Eponas Song",
         "IsSong": true,
         "X": 252,
         "Y": 26,
@@ -869,7 +869,7 @@
         "SheetY": 280
     },
     {
-        "Name": "Saria's Song",
+        "Name": "Sarias Song",
         "IsSong": true,
         "X": 252,
         "Y": 56,
@@ -877,7 +877,7 @@
         "SheetY": 280
     },
     {
-        "Name": "Sun's Song",
+        "Name": "Suns Song",
         "IsSong": true,
         "X": 252,
         "Y": 86,

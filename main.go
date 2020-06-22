@@ -16,6 +16,7 @@ func main() {
 	log.Printf("ivan %s\n", Version)
 
 	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowPosition(1920-width, 0)
 	ebiten.SetWindowTitle("Ivan")
 	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetWindowDecorated(false)
@@ -28,6 +29,4 @@ func main() {
 	if err := ebiten.RunGame(ivan); err != nil && err != errCloseApp {
 		log.Fatal(err)
 	}
-
-	log.Println("ivan closed")
 }
