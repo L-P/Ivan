@@ -78,6 +78,10 @@ func (tracker *Tracker) inputAction(a action) {
 			actionBottomLeft, actionBottom:
 			tracker.input.activeKPZone = actionToKPZone(a)
 			tracker.input.state = inputStateItemInput
+		case actionRedo:
+			tracker.redo()
+		case actionUndo:
+			tracker.undo()
 		}
 
 	case inputStateItemKPZoneInput:
@@ -164,12 +168,7 @@ func (tracker *Tracker) inputKPZoneItem(zone, itemZone int) error {
 		return errors.New("item name misconfigured")
 	}
 
-	if tracker.input.downgradeNextItem {
-		tracker.items[index].Downgrade()
-	} else {
-		tracker.items[index].Upgrade()
-	}
-
+	tracker.changeItem(index, !tracker.input.downgradeNextItem)
 	tracker.input.reset()
 
 	return nil
@@ -220,6 +219,9 @@ const (
 	actionStartItemInput
 	actionDowngradeNext
 
+	actionUndo
+	actionRedo
+
 	actionTopLeft
 	actionTop
 	actionTopRight
@@ -240,6 +242,10 @@ func runeToAction(r rune) action {
 		return actionStartItemInput
 	case '.':
 		return actionDowngradeNext
+	case '-':
+		return actionUndo
+	case '+':
+		return actionRedo
 
 	case '7':
 		return actionTopLeft

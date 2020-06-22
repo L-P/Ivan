@@ -79,16 +79,16 @@ func (item Item) SheetRect() image.Rectangle {
 
 // Upgrade upgrades the item to the next capacity or item upgrade (or both).
 // If the item was disabled it does not upgrade it but enables it.
-// It does not wrap around.
-func (item *Item) Upgrade() {
+// It returns false if the item was not affected.
+func (item *Item) Upgrade() bool {
 	if !item.Enabled {
 		item.Enabled = true
-		return
+		return true
 	}
 
 	if item.IsCountable() {
 		item.countUp()
-		return
+		return true
 	}
 
 	var max int
@@ -99,22 +99,23 @@ func (item *Item) Upgrade() {
 	}
 
 	if max == 0 || ((item.upgradeIndex + 1) >= max) {
-		return // not upgradable, skip
+		return false // not upgradable, skip
 	}
 
 	item.upgradeIndex = (item.upgradeIndex + 1) % max
+	return true
 }
 
 // Downgrades downgrades the item to the previous upgrade.
-// It does not wrap around.
-func (item *Item) Downgrade() {
+// It returns false if the item was not affected.
+func (item *Item) Downgrade() bool {
 	if !item.Enabled {
-		return
+		return false
 	}
 
 	if item.IsCountable() {
 		item.countDown()
-		return
+		return true
 	}
 
 	var max int
@@ -124,17 +125,13 @@ func (item *Item) Downgrade() {
 		max = len(item.CapacityProgression)
 	}
 
-	if max == 0 {
+	if max == 0 || (item.upgradeIndex-1) < 0 {
 		item.Enabled = false
-		return
-	}
-
-	if (item.upgradeIndex - 1) < 0 {
-		item.Enabled = false
-		return
+		return true
 	}
 
 	item.upgradeIndex = (item.upgradeIndex - 1) % max
+	return true
 }
 
 func (item *Item) countDown() {

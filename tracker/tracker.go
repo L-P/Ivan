@@ -28,6 +28,15 @@ type Tracker struct {
 
 	items []Item
 	input kbInput
+
+	undoStack  []undoStackEntry
+	undoCursor int
+}
+
+// undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
+type undoStackEntry struct {
+	itemIndex int
+	isUpgrade bool
 }
 
 const (
@@ -117,7 +126,7 @@ func (tracker *Tracker) ClickLeft(x, y int) {
 		return
 	}
 
-	tracker.items[i].Upgrade()
+	tracker.changeItem(i, true)
 }
 
 // ClickRight downgrades the item under the given point.
@@ -127,7 +136,65 @@ func (tracker *Tracker) ClickRight(x, y int) {
 		return
 	}
 
-	tracker.items[i].Downgrade()
+	tracker.changeItem(i, false)
+}
+
+func (tracker *Tracker) changeItem(itemIndex int, isUpgrade bool) {
+	var fn func() bool
+	if isUpgrade {
+		fn = tracker.items[itemIndex].Upgrade
+	} else {
+		fn = tracker.items[itemIndex].Downgrade
+	}
+
+	if fn() {
+		tracker.appendToUndoStack(itemIndex, isUpgrade)
+	}
+}
+
+func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
+	// If we were back in time, discard and replace history.
+	if tracker.undoCursor > 0 && tracker.undoCursor != len(tracker.undoStack)-1 {
+		tracker.undoStack = tracker.undoStack[:tracker.undoCursor+1]
+	}
+
+	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
+		itemIndex: itemIndex,
+		isUpgrade: isUpgrade,
+	})
+	tracker.undoCursor = len(tracker.undoStack) - 1
+}
+
+func (tracker *Tracker) undo() {
+	if tracker.undoCursor < 0 || len(tracker.undoStack) == 0 {
+		log.Printf("no action to undo")
+		return
+	}
+
+	entry := tracker.undoStack[tracker.undoCursor]
+	if entry.isUpgrade {
+		tracker.items[entry.itemIndex].Downgrade()
+	} else {
+		tracker.items[entry.itemIndex].Upgrade()
+	}
+
+	tracker.undoCursor--
+}
+
+func (tracker *Tracker) redo() {
+	if tracker.undoCursor >= len(tracker.undoStack)-1 {
+		log.Printf("no action to redo")
+		return
+	}
+
+	entry := tracker.undoStack[tracker.undoCursor+1]
+	if entry.isUpgrade {
+		tracker.items[entry.itemIndex].Upgrade()
+	} else {
+		tracker.items[entry.itemIndex].Downgrade()
+	}
+
+	tracker.undoCursor++
 }
 
 func (tracker *Tracker) Wheel(x, y int, up bool) {
