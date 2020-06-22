@@ -73,9 +73,9 @@ func (tracker *Tracker) inputAction(a action) {
 		case actionDowngradeNext:
 			tracker.input.state = inputStateItemKPZoneInput
 			tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
-		case actionTopLeft, actionTop,
+		case actionTopLeft, actionTop, actionTopRight,
 			actionLeft, actionMiddle, actionRight,
-			actionBottomLeft, actionBottom:
+			actionBottomLeft, actionBottom, actionBottomRight:
 			tracker.input.activeKPZone = actionToKPZone(a)
 			tracker.input.state = inputStateItemInput
 		case actionRedo:
@@ -88,9 +88,9 @@ func (tracker *Tracker) inputAction(a action) {
 		switch a {
 		case actionDowngradeNext:
 			tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
-		case actionTopLeft, actionTop,
+		case actionTopLeft, actionTop, actionTopRight,
 			actionLeft, actionMiddle, actionRight,
-			actionBottomLeft, actionBottom:
+			actionBottomLeft, actionBottom, actionBottomRight:
 			tracker.input.activeKPZone = actionToKPZone(a)
 			tracker.input.state = inputStateItemInput
 		default:
@@ -124,7 +124,10 @@ var zoneItems = [10][10]string{ // nolint:gochecknoglobals
 		"Kokiri Emerald", "Goron Ruby", "Zora Sapphire",
 		"Stone of Agony", "Progressive Scale", "Progressive Force",
 	},
-	{"KP3"}, // KP3 does not exist
+	{"KP3", // Special case for songs, they are not in KP order but numerical order.
+		"Minuet of Forest", "Bolero of Fire", "Serenade of Water",
+		"Requiem of Spirit", "Nocturne of Shadow", "Prelude of Light",
+	},
 	{"KP4",
 		"Deku Shield", "Hylian Shield", "Mirror Shield",
 		"Kokiri Sword", "Master Sword", "Biggoron Sword",

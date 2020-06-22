@@ -273,10 +273,14 @@ func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 	}
 	size := image.Point{126, 126}
 
-	if slot == 5 { // KP 6, TODO song input will be its own state
+	if slot == 2 { // KP 9
 		pos.Y = 0
 		size.X = gridSize
-		size.Y = Height
+		size.Y = 4*gridSize + (gridSize / 2)
+	} else if slot == 8 { // KP 3
+		pos.Y = 4*gridSize + (gridSize / 2)
+		size.X = gridSize
+		size.Y = pos.Y
 	}
 
 	ebitenutil.DrawRect(
