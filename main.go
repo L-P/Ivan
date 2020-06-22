@@ -2,6 +2,9 @@ package main
 
 import (
 	"log"
+	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 
 	_ "image/png"
@@ -15,6 +18,8 @@ var Version = "unknown"
 
 func main() {
 	log.Printf("ivan %s\n", Version)
+
+	chdirToExecutableDir()
 
 	ebiten.SetWindowSize(width, height)
 	ebiten.SetWindowPosition(1920-width, 0)
@@ -32,6 +37,23 @@ func main() {
 	}
 
 	if err := ebiten.RunGame(ivan); err != nil && err != errCloseApp {
+		log.Fatal(err)
+	}
+}
+
+func chdirToExecutableDir() {
+	exec, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	solved, err := filepath.EvalSymlinks(exec)
+	if err != nil {
+		log.Printf("warning: %s", err)
+		solved = exec
+	}
+
+	if err := os.Chdir(path.Dir(solved)); err != nil {
 		log.Fatal(err)
 	}
 }
