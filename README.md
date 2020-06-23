@@ -15,6 +15,8 @@ gotta go fast.
   avoid accidentally closing the tracker.
 - `Home` resets the tracker and reloads its configuration from file, only works
   when the timer is stopped (not paused).
+- `-` to undo the last action.
+- `+` to redo the last undone action.
 
 ## Item tracker
 Basic usage:
@@ -34,8 +36,6 @@ zone, then `4` because _Requiem_ is the fourth song in the pause menu).
 Other keys:
 - `0` to display the region highlight or reset your selection.
 - `.` to _downgrade_ the next selected item instead of upgrading it.
-- `-` to undo the last action.
-- `+` to redo the last undone action.
 
 ### Mouse
 1. Left click to _upgrade_ an item.
