@@ -17,7 +17,8 @@ import (
 )
 
 type Tracker struct {
-	Origin image.Point
+	pos  image.Point
+	size image.Point
 
 	background     *ebiten.Image
 	backgroundHelp *ebiten.Image
@@ -26,10 +27,9 @@ type Tracker struct {
 	sheetDisabled  *ebiten.Image
 	sheetEnabled   *ebiten.Image
 
-	configPath string
-	config     Config
-	items      []Item
-	input      kbInput
+	items       []Item
+	zoneItemMap ZoneItemMap
+	input       kbInput
 
 	undoStack []undoStackEntry
 	redoStack []undoStackEntry
@@ -42,25 +42,19 @@ type undoStackEntry struct {
 }
 
 const (
-	Width  = 7 * gridSize
-	Height = 9 * gridSize
-
 	capacityFontSize = 20
 	templeFontSize   = 13
 )
 
-func New(path string) (*Tracker, error) {
+type ZoneItemMap [9][9]string
+
+func New(dimensions image.Rectangle, items []Item, zoneItemMap ZoneItemMap) (*Tracker, error) {
 	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
 	if err != nil {
 		return nil, err
 	}
 
 	backgroundHelp, _, err := ebitenutil.NewImageFromFile("assets/background-help.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := LoadConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +75,10 @@ func New(path string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
-		config:         conf,
-		configPath:     path,
-		items:          conf.Items, // we won't need the initial state: reuse slice.
+		pos:            dimensions.Min,
+		size:           dimensions.Size(),
+		items:          items,
+		zoneItemMap:    zoneItemMap,
 		background:     background,
 		backgroundHelp: backgroundHelp,
 		sheetDisabled:  sheetDisabled,
@@ -109,7 +104,7 @@ func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 		return "", errors.New("invalid itemKP, must be [1-9]")
 	}
 
-	name := tracker.config.ZoneItems[zoneKP-1][itemKP-1]
+	name := tracker.zoneItemMap[zoneKP-1][itemKP-1]
 	if name == "" {
 		return "", fmt.Errorf("no item defined for zone %d item %d", zoneKP, itemKP)
 	}
@@ -258,7 +253,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 				continue
 			}
 
-			pos := tracker.items[k].Rect().Min.Add(tracker.Origin)
+			pos := tracker.items[k].Rect().Min.Add(tracker.pos)
 			op.GeoM.Reset()
 			op.GeoM.Translate(float64(pos.X), float64(pos.Y))
 
@@ -372,14 +367,9 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 	}
 }
 
-func (tracker *Tracker) Reset() {
-	conf, err := LoadConfig(tracker.configPath)
-	if err != nil {
-		return
-	}
-
-	tracker.config = conf
-	tracker.items = conf.Items
+func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
+	tracker.items = items
+	tracker.zoneItemMap = zoneItemMap
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
 }

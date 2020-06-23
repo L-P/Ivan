@@ -1,5 +1,15 @@
 {
-    "ZoneItems": [
+    "Dimensions": {
+        "ItemTracker": {
+            "Min": {"X": 0, "Y": 0},
+            "Max": {"X": 294, "Y": 378}
+        },
+        "Timer": {
+            "Min": {"X": 0, "Y": 378},
+            "Max": {"X": 294, "Y": 450}
+        }
+    },
+    "ZoneItemMap": [
         [
             "Kokiri Boots", "Iron Boots", "Hover Boots",
             "Kokiri Tunic", "Goron Tunic", "Zora Tunic",

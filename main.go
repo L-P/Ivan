@@ -21,7 +21,6 @@ func main() {
 	chdirToExecutableDir()
 
 	ebiten.SetWindowTitle("Ivan")
-	ebiten.SetWindowSize(width, height)
 	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetWindowResizable(true)
 

@@ -152,7 +152,7 @@ func actionToKPZone(a action) int {
 
 // DEBUG
 func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
-	pos := tracker.Origin.Add(image.Point{10, 15 + 9*gridSize})
+	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
 	if tracker.kbInputStateIsAny(inputStateItemInput, inputStateItemKPZoneInput) {
 		str := "+"
 		if tracker.input.downgradeNextItem {

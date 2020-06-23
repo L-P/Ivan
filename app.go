@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"image"
 	"ivan/timer"
 	"ivan/tracker"
 
@@ -10,25 +9,37 @@ import (
 	"github.com/hajimehoshi/ebiten/inpututil"
 )
 
-const (
-	width  = tracker.Width
-	height = tracker.Height + timer.Height
-)
+const configPath = "assets/config.json"
 
 var errCloseApp = errors.New("user requested app close")
 
 type App struct {
 	tracker *tracker.Tracker
 	timer   *timer.Timer
+	config  config
 }
 
 func NewApp() (*App, error) {
-	timer, err := timer.New(image.Point{0, tracker.Height})
+	config, err := loadConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
 
-	tracker, err := tracker.New("assets/config.json")
+	size := config.Dimensions.ItemTracker.Size()
+	size.Y += config.Dimensions.Timer.Dy()
+	ebiten.SetWindowSize(size.X, size.Y)
+	ebiten.SetWindowPosition(1920-config.Dimensions.ItemTracker.Dx(), 20)
+
+	timer, err := timer.New(config.Dimensions.Timer)
+	if err != nil {
+		return nil, err
+	}
+
+	tracker, err := tracker.New(
+		config.Dimensions.ItemTracker,
+		config.Items,
+		config.ZoneItemMap,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +47,7 @@ func NewApp() (*App, error) {
 	return &App{
 		tracker: tracker,
 		timer:   timer,
+		config:  config,
 	}, nil
 }
 
@@ -49,7 +61,12 @@ func (app *App) Update(screen *ebiten.Image) error {
 		}
 	case inpututil.IsKeyJustPressed(ebiten.KeyHome):
 		if !app.timer.IsRunning() {
-			app.tracker.Reset()
+			config, err := loadConfig(configPath)
+			if err != nil {
+				return err
+			}
+			app.config = config
+			app.tracker.Reset(app.config.Items, app.config.ZoneItemMap)
 		}
 	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
 		app.timer.Toggle()
