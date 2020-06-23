@@ -1,11 +1,11 @@
 package tracker
 
 import (
-	"encoding/json"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/golang/freetype/truetype"
@@ -26,8 +26,9 @@ type Tracker struct {
 	sheetDisabled  *ebiten.Image
 	sheetEnabled   *ebiten.Image
 
-	items []Item
-	input kbInput
+	config Config
+	items  []Item
+	input  kbInput
 
 	undoStack  []undoStackEntry
 	undoCursor int
@@ -58,7 +59,7 @@ func New(path string) (*Tracker, error) {
 		return nil, err
 	}
 
-	items, err := loadItems(path)
+	conf, err := LoadConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +80,10 @@ func New(path string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
+		config:         conf,
+		items:          conf.Items, // we won't need the initial state: reuse slice.
 		background:     background,
 		backgroundHelp: backgroundHelp,
-		items:          items,
 		sheetDisabled:  sheetDisabled,
 		sheetEnabled:   sheetEnabled,
 		font: truetype.NewFace(ttf, &truetype.Options{
@@ -95,6 +97,36 @@ func New(path string) (*Tracker, error) {
 	}
 
 	return tracker, nil
+}
+
+func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
+	if zoneKP <= 0 || zoneKP > 9 {
+		return "", errors.New("invalid zoneKP, must be [1-9]")
+	}
+	if itemKP <= 0 || itemKP > 9 {
+		return "", errors.New("invalid itemKP, must be [1-9]")
+	}
+
+	name := tracker.config.ZoneItems[zoneKP-1][itemKP-1]
+	if name == "" {
+		return "", fmt.Errorf("no item defined for zone %d item %d", zoneKP, itemKP)
+	}
+
+	return name, nil
+}
+
+func (tracker *Tracker) GetZoneItemIndex(zoneKP, itemKP int) (int, error) {
+	name, err := tracker.GetZoneItem(zoneKP, itemKP)
+	if err != nil {
+		return -1, err
+	}
+
+	index := tracker.getItemIndexByName(name)
+	if index < 0 {
+		return -1, fmt.Errorf("item name misconfigured: %s", name)
+	}
+
+	return index, nil
 }
 
 // getItemIndexByPos returns the index of the item at the given position or -1 if
@@ -335,20 +367,4 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		str := strconv.Itoa(count)
 		text.Draw(screen, str, tracker.font, x, y, color.White)
 	}
-}
-
-func loadItems(path string) ([]Item, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var items []Item
-	dec := json.NewDecoder(f)
-	if err := dec.Decode(&items); err != nil {
-		return nil, err
-	}
-
-	return items, nil
 }

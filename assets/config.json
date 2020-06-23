@@ -1,0 +1,1038 @@
+{
+    "ZoneItems": [
+        [
+            "Forest Medallion",
+            "Fire Medallion",
+            "Water Medallion",
+            "Kokiri Boots",
+            "Iron Boots",
+            "Hover Boots",
+            "Kokiri Tunic",
+            "Goron Tunic",
+            "Zora Tunic"
+        ],
+        [
+            "Spirit Medallion",
+            "Shadow Medallion",
+            "Light Medallion",
+            "Kokiri Emerald",
+            "Goron Ruby",
+            "Zora Sapphire",
+            "Stone of Agony",
+            "Progressive Scale",
+            "Progressive Force"
+        ],
+        [
+            "Minuet of Forest",
+            "Bolero of Fire",
+            "Serenade of Water",
+            "Requiem of Spirit",
+            "Nocturne of Shadow",
+            "Prelude of Light"
+        ],
+        [
+            "Deku Shield",
+            "Hylian Shield",
+            "Mirror Shield",
+            "Kokiri Sword",
+            "Master Sword",
+            "Biggoron Sword",
+            "Bottle 1",
+            "Bottle 2",
+            "Bottle 3"
+        ],
+        [
+            "Magic Meter",
+            "Wallet",
+            "Gerudo Membership Card",
+            "",
+            "Gold Skulltula Token",
+            "",
+            "Bottle 4",
+            "Trade Sequence",
+            "Mask Trade Sequence"
+        ],
+        [],
+        [
+            "Boomerang",
+            "Lens of Truth",
+            "Magic Bean",
+            "Slingshot",
+            "Ocarina",
+            "Bombchu",
+            "Deku Stick",
+            "Deku Nut",
+            "Bomb Bag"
+        ],
+        [
+            "Hammer",
+            "Light Arrows",
+            "Nayrus Love",
+            "Progressive Hookshot",
+            "Ice Arrows",
+            "Farores Wind",
+            "Bow",
+            "Fire Arrows",
+            "Dins Fire"
+        ],
+        [
+            "Zeldas Lullaby",
+            "Eponas Song",
+            "Sarias Song",
+            "Suns Song",
+            "Song of Time",
+            "Song of Storms"
+        ]
+    ],
+    "Items": [
+        {
+            "Name": "Deku Stick",
+            "X": 0,
+            "Y": 0,
+            "SheetX": 0,
+            "SheetY": 0,
+            "CapacityProgression": [
+                10,
+                20,
+                30
+            ]
+        },
+        {
+            "Name": "Deku Nut",
+            "X": 42,
+            "Y": 0,
+            "SheetX": 35,
+            "SheetY": 0,
+            "CapacityProgression": [
+                20,
+                30,
+                40
+            ]
+        },
+        {
+            "Name": "Bomb Bag",
+            "X": 84,
+            "Y": 0,
+            "SheetX": 70,
+            "SheetY": 0,
+            "CapacityProgression": [
+                20,
+                30,
+                40
+            ]
+        },
+        {
+            "Name": "Bow",
+            "X": 126,
+            "Y": 0,
+            "SheetX": 105,
+            "SheetY": 0,
+            "CapacityProgression": [
+                30,
+                40,
+                50
+            ]
+        },
+        {
+            "Name": "Fire Arrows",
+            "X": 168,
+            "Y": 0,
+            "SheetX": 140,
+            "SheetY": 0
+        },
+        {
+            "Name": "Dins Fire",
+            "X": 210,
+            "Y": 0,
+            "SheetX": 175,
+            "SheetY": 0
+        },
+        {
+            "Name": "Slingshot",
+            "X": 0,
+            "Y": 42,
+            "SheetX": 210,
+            "SheetY": 0,
+            "CapacityProgression": [
+                30,
+                40,
+                50
+            ]
+        },
+        {
+            "Name": "Ocarina",
+            "X": 42,
+            "Y": 42,
+            "ItemProgression": [
+                {
+                    "Name": "Fairy Ocarina",
+                    "SheetX": 245,
+                    "SheetY": 0
+                },
+                {
+                    "Name": "Ocarina of Time",
+                    "SheetX": 280,
+                    "SheetY": 0
+                }
+            ]
+        },
+        {
+            "Name": "Bombchu",
+            "X": 84,
+            "Y": 42,
+            "SheetX": 315,
+            "SheetY": 0
+        },
+        {
+            "Name": "Progressive Hookshot",
+            "X": 126,
+            "Y": 42,
+            "ItemProgression": [
+                {
+                    "Name": "Hookshot",
+                    "SheetX": 350,
+                    "SheetY": 0
+                },
+                {
+                    "Name": "Longshot",
+                    "SheetX": 385,
+                    "SheetY": 0
+                }
+            ]
+        },
+        {
+            "Name": "Ice Arrows",
+            "X": 168,
+            "Y": 42,
+            "SheetX": 0,
+            "SheetY": 35
+        },
+        {
+            "Name": "Farores Wind",
+            "X": 210,
+            "Y": 42,
+            "SheetX": 35,
+            "SheetY": 35
+        },
+        {
+            "Name": "Boomerang",
+            "X": 0,
+            "Y": 84,
+            "SheetX": 70,
+            "SheetY": 35
+        },
+        {
+            "Name": "Lens of Truth",
+            "X": 42,
+            "Y": 84,
+            "SheetX": 105,
+            "SheetY": 35
+        },
+        {
+            "Name": "Magic Bean",
+            "X": 84,
+            "Y": 84,
+            "SheetX": 140,
+            "SheetY": 35
+        },
+        {
+            "Name": "Hammer",
+            "X": 126,
+            "Y": 84,
+            "SheetX": 175,
+            "SheetY": 35
+        },
+        {
+            "Name": "Light Arrows",
+            "X": 168,
+            "Y": 84,
+            "SheetX": 210,
+            "SheetY": 35
+        },
+        {
+            "Name": "Nayrus Love",
+            "X": 210,
+            "Y": 84,
+            "SheetX": 245,
+            "SheetY": 35
+        },
+        {
+            "Name": "Bottle 1",
+            "X": 0,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Ruto's Letter",
+                    "SheetX": 105,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Big Poe",
+                    "SheetX": 210,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Red Potion",
+                    "SheetX": 315,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Green Potion",
+                    "SheetX": 350,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Blue Potion",
+                    "SheetX": 385,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Fairy",
+                    "SheetX": 0,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Fish",
+                    "SheetX": 35,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Milk",
+                    "SheetX": 70,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Blue Fire",
+                    "SheetX": 140,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Bugs",
+                    "SheetX": 175,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Half Milk",
+                    "SheetX": 245,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Poe",
+                    "SheetX": 280,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Empty Bottle",
+                    "SheetX": 280,
+                    "SheetY": 35
+                }
+            ]
+        },
+        {
+            "Name": "Bottle 2",
+            "X": 42,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Ruto's Letter",
+                    "SheetX": 105,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Big Poe",
+                    "SheetX": 210,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Red Potion",
+                    "SheetX": 315,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Green Potion",
+                    "SheetX": 350,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Blue Potion",
+                    "SheetX": 385,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Fairy",
+                    "SheetX": 0,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Fish",
+                    "SheetX": 35,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Milk",
+                    "SheetX": 70,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Blue Fire",
+                    "SheetX": 140,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Bugs",
+                    "SheetX": 175,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Half Milk",
+                    "SheetX": 245,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Poe",
+                    "SheetX": 280,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Empty Bottle",
+                    "SheetX": 280,
+                    "SheetY": 35
+                }
+            ]
+        },
+        {
+            "Name": "Bottle 3",
+            "X": 84,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Ruto's Letter",
+                    "SheetX": 105,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Big Poe",
+                    "SheetX": 210,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Red Potion",
+                    "SheetX": 315,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Green Potion",
+                    "SheetX": 350,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Blue Potion",
+                    "SheetX": 385,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Fairy",
+                    "SheetX": 0,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Fish",
+                    "SheetX": 35,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Milk",
+                    "SheetX": 70,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Blue Fire",
+                    "SheetX": 140,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Bugs",
+                    "SheetX": 175,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Half Milk",
+                    "SheetX": 245,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Poe",
+                    "SheetX": 280,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Empty Bottle",
+                    "SheetX": 280,
+                    "SheetY": 35
+                }
+            ]
+        },
+        {
+            "Name": "Bottle 4",
+            "X": 126,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Ruto's Letter",
+                    "SheetX": 105,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Big Poe",
+                    "SheetX": 210,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Red Potion",
+                    "SheetX": 315,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Green Potion",
+                    "SheetX": 350,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Blue Potion",
+                    "SheetX": 385,
+                    "SheetY": 35
+                },
+                {
+                    "Name": "Fairy",
+                    "SheetX": 0,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Fish",
+                    "SheetX": 35,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Milk",
+                    "SheetX": 70,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Blue Fire",
+                    "SheetX": 140,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Bugs",
+                    "SheetX": 175,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Half Milk",
+                    "SheetX": 245,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Poe",
+                    "SheetX": 280,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Empty Bottle",
+                    "SheetX": 280,
+                    "SheetY": 35
+                }
+            ]
+        },
+        {
+            "Name": "Mask Trade Sequence",
+            "X": 210,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Weird Egg",
+                    "SheetX": 315,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Cucco",
+                    "SheetX": 350,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Zelda's Letter",
+                    "SheetX": 385,
+                    "SheetY": 70
+                },
+                {
+                    "Name": "Keaton Mask",
+                    "SheetX": 0,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Skull Mask",
+                    "SheetX": 35,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Spooky Mask",
+                    "SheetX": 70,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Bunny Hood",
+                    "SheetX": 105,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Goron Mask",
+                    "SheetX": 140,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Zora Mask",
+                    "SheetX": 175,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Gerudo Mask",
+                    "SheetX": 210,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Mask of Truth",
+                    "SheetX": 245,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "None",
+                    "SheetX": 280,
+                    "SheetY": 105
+                }
+            ]
+        },
+        {
+            "Name": "Trade Sequence",
+            "X": 168,
+            "Y": 126,
+            "ItemProgression": [
+                {
+                    "Name": "Pocket Egg",
+                    "SheetX": 315,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Pocket Cucco",
+                    "SheetX": 350,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Cojiro",
+                    "SheetX": 385,
+                    "SheetY": 105
+                },
+                {
+                    "Name": "Odd Mushroom",
+                    "SheetX": 0,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Odd Potion",
+                    "SheetX": 35,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Poacher's Saw",
+                    "SheetX": 70,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Broken Goron's Sword",
+                    "SheetX": 105,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Prescription",
+                    "SheetX": 140,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Eyeball Frog",
+                    "SheetX": 175,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "World's Finest Eye Drops",
+                    "SheetX": 210,
+                    "SheetY": 140
+                },
+                {
+                    "Name": "Claim Check",
+                    "SheetX": 245,
+                    "SheetY": 140
+                }
+            ]
+        },
+        {
+            "Name": "Kokiri Sword",
+            "X": 0,
+            "Y": 168,
+            "SheetX": 280,
+            "SheetY": 140
+        },
+        {
+            "Name": "Master Sword",
+            "X": 42,
+            "Y": 168,
+            "SheetX": 315,
+            "SheetY": 140
+        },
+        {
+            "Name": "Biggoron Sword",
+            "X": 84,
+            "Y": 168,
+            "SheetX": 350,
+            "SheetY": 140
+        },
+        {
+            "Name": "Deku Shield",
+            "X": 0,
+            "Y": 210,
+            "SheetX": 385,
+            "SheetY": 140
+        },
+        {
+            "Name": "Hylian Shield",
+            "X": 42,
+            "Y": 210,
+            "SheetX": 0,
+            "SheetY": 175
+        },
+        {
+            "Name": "Mirror Shield",
+            "X": 84,
+            "Y": 210,
+            "SheetX": 35,
+            "SheetY": 175
+        },
+        {
+            "Name": "Kokiri Tunic",
+            "X": 0,
+            "Y": 252,
+            "SheetX": 70,
+            "SheetY": 175,
+            "Enabled": true
+        },
+        {
+            "Name": "Goron Tunic",
+            "X": 42,
+            "Y": 252,
+            "SheetX": 105,
+            "SheetY": 175
+        },
+        {
+            "Name": "Zora Tunic",
+            "X": 84,
+            "Y": 252,
+            "SheetX": 140,
+            "SheetY": 175
+        },
+        {
+            "Name": "Kokiri Boots",
+            "X": 0,
+            "Y": 294,
+            "SheetX": 175,
+            "SheetY": 175,
+            "Enabled": true
+        },
+        {
+            "Name": "Iron Boots",
+            "X": 42,
+            "Y": 294,
+            "SheetX": 210,
+            "SheetY": 175
+        },
+        {
+            "Name": "Hover Boots",
+            "X": 84,
+            "Y": 294,
+            "SheetX": 245,
+            "SheetY": 175
+        },
+        {
+            "Name": "Gold Skulltula Token",
+            "X": 168,
+            "Y": 168,
+            "SheetX": 35,
+            "SheetY": 245,
+            "Enabled": true,
+            "CountMax": 100,
+            "CountStep": 5
+        },
+        {
+            "Name": "Kokiri Emerald",
+            "IsMedallion": true,
+            "X": 126,
+            "Y": 294,
+            "SheetX": 140,
+            "SheetY": 245
+        },
+        {
+            "Name": "Goron Ruby",
+            "IsMedallion": true,
+            "X": 168,
+            "Y": 294,
+            "SheetX": 175,
+            "SheetY": 245
+        },
+        {
+            "Name": "Zora Sapphire",
+            "IsMedallion": true,
+            "X": 210,
+            "Y": 294,
+            "SheetX": 210,
+            "SheetY": 245
+        },
+        {
+            "Name": "Magic Meter",
+            "X": 126,
+            "Y": 210,
+            "ItemProgression": [
+                {
+                    "Name": "Magic I",
+                    "SheetX": 70,
+                    "SheetY": 245
+                },
+                {
+                    "Name": "Magic II",
+                    "SheetX": 105,
+                    "SheetY": 245
+                }
+            ]
+        },
+        {
+            "Name": "Stone of Agony",
+            "X": 126,
+            "Y": 252,
+            "SheetX": 35,
+            "SheetY": 315
+        },
+        {
+            "Name": "Progressive Scale",
+            "X": 168,
+            "Y": 252,
+            "ItemProgression": [
+                {
+                    "Name": "Silver Scale",
+                    "SheetX": 280,
+                    "SheetY": 210
+                },
+                {
+                    "Name": "Golden Scale",
+                    "SheetX": 315,
+                    "SheetY": 210
+                }
+            ]
+        },
+        {
+            "Name": "Progressive Force",
+            "X": 210,
+            "Y": 252,
+            "ItemProgression": [
+                {
+                    "Name": "Goron's Bracelet",
+                    "SheetX": 175,
+                    "SheetY": 210
+                },
+                {
+                    "Name": "Silver Gauntlets",
+                    "SheetX": 210,
+                    "SheetY": 210
+                },
+                {
+                    "Name": "Golden Gauntlets",
+                    "SheetX": 245,
+                    "SheetY": 210
+                }
+            ]
+        },
+        {
+            "Name": "Wallet",
+            "X": 168,
+            "Y": 210,
+            "CapacityProgression": [
+                200,
+                500,
+                999
+            ],
+            "ItemProgression": [
+                {
+                    "Name": "Child Wallet",
+                    "SheetX": 350,
+                    "SheetY": 210
+                },
+                {
+                    "Name": "Adult Wallet",
+                    "SheetX": 385,
+                    "SheetY": 210
+                },
+                {
+                    "Name": "Giant Wallet",
+                    "SheetX": 385,
+                    "SheetY": 210
+                }
+            ]
+        },
+        {
+            "Name": "Gerudo Membership Card",
+            "X": 210,
+            "Y": 210,
+            "SheetX": 0,
+            "SheetY": 245
+        },
+        {
+            "Name": "Forest Medallion",
+            "IsMedallion": true,
+            "X": 0,
+            "Y": 336,
+            "SheetX": 245,
+            "SheetY": 245
+        },
+        {
+            "Name": "Fire Medallion",
+            "IsMedallion": true,
+            "X": 42,
+            "Y": 336,
+            "SheetX": 280,
+            "SheetY": 245
+        },
+        {
+            "Name": "Water Medallion",
+            "IsMedallion": true,
+            "X": 84,
+            "Y": 336,
+            "SheetX": 315,
+            "SheetY": 245
+        },
+        {
+            "Name": "Shadow Medallion",
+            "IsMedallion": true,
+            "X": 168,
+            "Y": 336,
+            "SheetX": 350,
+            "SheetY": 245
+        },
+        {
+            "Name": "Spirit Medallion",
+            "IsMedallion": true,
+            "X": 126,
+            "Y": 336,
+            "SheetX": 385,
+            "SheetY": 245
+        },
+        {
+            "Name": "Light Medallion",
+            "IsMedallion": true,
+            "X": 210,
+            "Y": 336,
+            "SheetX": 0,
+            "SheetY": 280
+        },
+        {
+            "Name": "Zeldas Lullaby",
+            "IsSong": true,
+            "X": 252,
+            "Y": -4,
+            "SheetX": 35,
+            "SheetY": 280
+        },
+        {
+            "Name": "Eponas Song",
+            "IsSong": true,
+            "X": 252,
+            "Y": 26,
+            "SheetX": 70,
+            "SheetY": 280
+        },
+        {
+            "Name": "Sarias Song",
+            "IsSong": true,
+            "X": 252,
+            "Y": 56,
+            "SheetX": 105,
+            "SheetY": 280
+        },
+        {
+            "Name": "Suns Song",
+            "IsSong": true,
+            "X": 252,
+            "Y": 86,
+            "SheetX": 140,
+            "SheetY": 280
+        },
+        {
+            "Name": "Song of Time",
+            "IsSong": true,
+            "X": 252,
+            "Y": 116,
+            "SheetX": 175,
+            "SheetY": 280
+        },
+        {
+            "Name": "Song of Storms",
+            "IsSong": true,
+            "X": 252,
+            "Y": 146,
+            "SheetX": 210,
+            "SheetY": 280
+        },
+        {
+            "Name": "Minuet of Forest",
+            "IsSong": true,
+            "X": 252,
+            "Y": 184,
+            "SheetX": 245,
+            "SheetY": 281
+        },
+        {
+            "Name": "Bolero of Fire",
+            "IsSong": true,
+            "X": 252,
+            "Y": 214,
+            "SheetX": 280,
+            "SheetY": 280
+        },
+        {
+            "Name": "Serenade of Water",
+            "IsSong": true,
+            "X": 252,
+            "Y": 244,
+            "SheetX": 315,
+            "SheetY": 280
+        },
+        {
+            "Name": "Requiem of Spirit",
+            "IsSong": true,
+            "X": 252,
+            "Y": 274,
+            "SheetX": 350,
+            "SheetY": 280
+        },
+        {
+            "Name": "Nocturne of Shadow",
+            "IsSong": true,
+            "X": 252,
+            "Y": 304,
+            "SheetX": 385,
+            "SheetY": 280
+        },
+        {
+            "Name": "Prelude of Light",
+            "IsSong": true,
+            "X": 252,
+            "Y": 334,
+            "SheetX": 0,
+            "SheetY": 315
+        }
+    ]
+}

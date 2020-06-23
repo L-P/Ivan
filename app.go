@@ -28,7 +28,7 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
-	tracker, err := tracker.New("assets/items.json")
+	tracker, err := tracker.New("assets/config.json")
 	if err != nil {
 		return nil, err
 	}
