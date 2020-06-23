@@ -17,7 +17,10 @@ import (
 )
 
 type Tracker struct {
-	Origin image.Point
+	pos      image.Point
+	size     image.Point
+	hintPos  image.Point
+	hintSize image.Point
 
 	background     *ebiten.Image
 	backgroundHelp *ebiten.Image
@@ -26,41 +29,40 @@ type Tracker struct {
 	sheetDisabled  *ebiten.Image
 	sheetEnabled   *ebiten.Image
 
-	configPath string
-	config     Config
-	items      []Item
-	input      kbInput
+	items       []Item
+	zoneItemMap ZoneItemMap
+	locations   []string
+	input       kbInput
+
+	woths     []string
+	barrens   []string
+	always    [7]string // skull, bigg, 30, 40, 50, OOT, frogs 2
+	sometimes []string  // freeform input
 
 	undoStack []undoStackEntry
 	redoStack []undoStackEntry
 }
 
-// undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
-type undoStackEntry struct {
-	itemIndex int
-	isUpgrade bool
-}
-
 const (
-	Width  = 7 * gridSize
-	Height = 9 * gridSize
-
 	capacityFontSize = 20
 	templeFontSize   = 13
 )
 
-func New(path string) (*Tracker, error) {
+type ZoneItemMap [9][9]string
+
+func New(
+	dimensions image.Rectangle,
+	hintDimensions image.Rectangle,
+	items []Item,
+	zoneItemMap ZoneItemMap,
+	locations []string,
+) (*Tracker, error) {
 	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
 	if err != nil {
 		return nil, err
 	}
 
 	backgroundHelp, _, err := ebitenutil.NewImageFromFile("assets/background-help.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
-	conf, err := LoadConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -81,9 +83,13 @@ func New(path string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
-		config:         conf,
-		configPath:     path,
-		items:          conf.Items, // we won't need the initial state: reuse slice.
+		pos:            dimensions.Min,
+		size:           dimensions.Size(),
+		hintPos:        hintDimensions.Min,
+		hintSize:       hintDimensions.Size(),
+		items:          items,
+		locations:      locations,
+		zoneItemMap:    zoneItemMap,
 		background:     background,
 		backgroundHelp: backgroundHelp,
 		sheetDisabled:  sheetDisabled,
@@ -98,6 +104,10 @@ func New(path string) (*Tracker, error) {
 		}),
 	}
 
+	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Tunic"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
+
 	return tracker, nil
 }
 
@@ -109,7 +119,7 @@ func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 		return "", errors.New("invalid itemKP, must be [1-9]")
 	}
 
-	name := tracker.config.ZoneItems[zoneKP-1][itemKP-1]
+	name := tracker.zoneItemMap[zoneKP-1][itemKP-1]
 	if name == "" {
 		return "", fmt.Errorf("no item defined for zone %d item %d", zoneKP, itemKP)
 	}
@@ -186,52 +196,6 @@ func (tracker *Tracker) changeItem(itemIndex int, isUpgrade bool) {
 	}
 }
 
-func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
-	// If we were back in time, discard and replace history.
-	if len(tracker.redoStack) > 0 {
-		tracker.redoStack = nil
-	}
-
-	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
-		itemIndex: itemIndex,
-		isUpgrade: isUpgrade,
-	})
-}
-
-func (tracker *Tracker) undo() {
-	if len(tracker.undoStack) == 0 {
-		log.Printf("no action to undo")
-		return
-	}
-
-	entry := tracker.undoStack[len(tracker.undoStack)-1]
-	tracker.undoStack = tracker.undoStack[:len(tracker.undoStack)-1]
-	tracker.redoStack = append(tracker.redoStack, entry)
-
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Downgrade()
-	} else {
-		tracker.items[entry.itemIndex].Upgrade()
-	}
-}
-
-func (tracker *Tracker) redo() {
-	if len(tracker.redoStack) == 0 {
-		log.Printf("no action to redo")
-		return
-	}
-
-	entry := tracker.redoStack[len(tracker.redoStack)-1]
-	tracker.redoStack = tracker.redoStack[:len(tracker.redoStack)-1]
-	tracker.undoStack = append(tracker.undoStack, entry)
-
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Upgrade()
-	} else {
-		tracker.items[entry.itemIndex].Downgrade()
-	}
-}
-
 func (tracker *Tracker) Wheel(x, y int, up bool) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
@@ -258,7 +222,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 				continue
 			}
 
-			pos := tracker.items[k].Rect().Min.Add(tracker.Origin)
+			pos := tracker.items[k].Rect().Min.Add(tracker.pos)
 			op.GeoM.Reset()
 			op.GeoM.Translate(float64(pos.X), float64(pos.Y))
 
@@ -271,13 +235,12 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	_ = screen.DrawImage(tracker.background, nil)
 	if tracker.kbInputStateIsAny(inputStateItemKPZoneInput, inputStateItemInput) {
 		_ = screen.DrawImage(tracker.backgroundHelp, nil)
 		if tracker.input.activeKPZone > 0 {
 			tracker.drawActiveItemSlot(screen, tracker.input.activeKPZone)
 		}
-	} else {
-		_ = screen.DrawImage(tracker.background, nil)
 	}
 
 	// Do two loops to avoid texture switches.
@@ -287,6 +250,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	tracker.drawTemples(screen)
 	tracker.drawCapacities(screen)
 	tracker.drawInputState(screen)
+	tracker.drawHints(screen)
 }
 
 func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
@@ -372,14 +336,13 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 	}
 }
 
-func (tracker *Tracker) Reset() {
-	conf, err := LoadConfig(tracker.configPath)
-	if err != nil {
-		return
-	}
-
-	tracker.config = conf
-	tracker.items = conf.Items
+func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
+	tracker.items = items
+	tracker.zoneItemMap = zoneItemMap
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
+	tracker.woths = tracker.woths[:0]
+	tracker.barrens = tracker.barrens[:0]
+	tracker.sometimes = tracker.sometimes[:0]
+	tracker.always = [7]string{}
 }

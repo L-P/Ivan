@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"ivan/tracker"
 	"math"
 	"time"
 
@@ -15,12 +14,7 @@ import (
 	"golang.org/x/image/font/gofont/gomono"
 )
 
-const (
-	Height = 72
-	Width  = tracker.Width
-
-	timeFontSize = 32
-)
+const timeFontSize = 32
 
 type timerState int
 
@@ -35,11 +29,12 @@ type Timer struct {
 	state               timerState
 
 	font     font.Face
-	origin   image.Point
+	pos      image.Point
+	size     image.Point
 	timeSize image.Point
 }
 
-func New(origin image.Point) (*Timer, error) {
+func New(dimensions image.Rectangle) (*Timer, error) {
 	ttf, err := truetype.Parse(gomono.TTF)
 	if err != nil {
 		return nil, err
@@ -52,7 +47,8 @@ func New(origin image.Point) (*Timer, error) {
 
 	return &Timer{
 		font:     font,
-		origin:   origin,
+		pos:      dimensions.Min,
+		size:     dimensions.Size(),
 		timeSize: text.MeasureString(format(time.Duration(0)), font),
 	}, nil
 }
@@ -68,16 +64,16 @@ func format(d time.Duration) string {
 }
 
 func (timer *Timer) Draw(screen *ebiten.Image) {
-	pos := timer.origin.Add(image.Point{
-		((Width - timer.timeSize.X) / 2),
-		timer.timeSize.Y + ((Height - timer.timeSize.Y) / 2) - 8,
+	pos := timer.pos.Add(image.Point{
+		((timer.size.X - timer.timeSize.X) / 2),
+		timer.timeSize.Y + ((timer.size.Y - timer.timeSize.Y) / 2) - 8,
 	})
 
 	var str string
 	switch timer.state {
 	case stateInitial:
 		// HARDCODED, time size is cached and I don't want to compute this
-		pos.X = ((Width - 19) / 2)
+		pos.X = ((timer.size.X - 19) / 2)
 		str = "-"
 	case stateRunning:
 		str = format(time.Since(timer.startedAt).Round(time.Millisecond))

@@ -14,6 +14,22 @@ gotta go fast.
 - `Home` resets the tracker and reloads its configuration from file, only works
   when the timer is stopped (not paused).
 
+## Hint tracker
+1. Press the key corresponding to your hint type (WotH, Barren, Sometimes,
+   Always)
+2. Type your text.
+3. Press `Enter`
+
+- `w` to enter a _WotH_ Hint (green background, fuzzy location search)
+- `b` to enter a _Barren_ Hint (red background, fuzzy location search)
+- `s` to enter a _Sometimes_ Hint (blue background, freeform text)
+- `a` to enter a _Always_ Hint (yellow background)
+
+As _Always Hints_ have a fixed slot, they get special treatment. The text you input
+is parsed as the slot name until the first space, then your text. eg. If you
+get _Nocturne of Shadows_ on _Ocarina of Time_ you might press `a` to start the
+prompt then `oot = nocturne` then `Enter`.
+
 ## Item tracker
 ### Keyboard
 **Ivan must be focused for keyboard input to work.**
