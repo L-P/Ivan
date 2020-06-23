@@ -1,79 +1,39 @@
 {
     "ZoneItems": [
         [
-            "Forest Medallion",
-            "Fire Medallion",
-            "Water Medallion",
-            "Kokiri Boots",
-            "Iron Boots",
-            "Hover Boots",
-            "Kokiri Tunic",
-            "Goron Tunic",
-            "Zora Tunic"
+            "Kokiri Boots", "Iron Boots", "Hover Boots",
+            "Kokiri Tunic", "Goron Tunic", "Zora Tunic",
+            "Deku Shield", "Hylian Shield", "Mirror Shield"
         ],
         [
-            "Spirit Medallion",
-            "Shadow Medallion",
-            "Light Medallion",
-            "Kokiri Emerald",
-            "Goron Ruby",
-            "Zora Sapphire",
-            "Stone of Agony",
-            "Progressive Scale",
-            "Progressive Force"
+            "Spirit Medallion", "Shadow Medallion", "Light Medallion",
+            "Forest Medallion", "Fire Medallion", "Water Medallion",
+            "Kokiri Emerald", "Goron Ruby", "Zora Sapphire"
         ],
         [
-            "Minuet of Forest",
-            "Bolero of Fire",
-            "Serenade of Water",
-            "Requiem of Spirit",
-            "Nocturne of Shadow",
-            "Prelude of Light"
+            "Minuet of Forest", "Bolero of Fire", "Serenade of Water",
+            "Requiem of Spirit", "Nocturne of Shadow", "Prelude of Light"
         ],
         [
-            "Deku Shield",
-            "Hylian Shield",
-            "Mirror Shield",
-            "Kokiri Sword",
-            "Master Sword",
-            "Biggoron Sword",
-            "Bottle 1",
-            "Bottle 2",
-            "Bottle 3"
+            "Kokiri Sword", "Master Sword", "Biggoron Sword",
+            "Magic Meter", "Progressive Force", "Progressive Scale",
+            "Wallet", "Gerudo Membership Card", "Stone of Agony"
         ],
         [
-            "Magic Meter",
-            "Wallet",
-            "Gerudo Membership Card",
-            "",
-            "Gold Skulltula Token",
-            "",
-            "Bottle 4",
-            "Trade Sequence",
-            "Mask Trade Sequence"
+            "Rutos Letter", "Trade Sequence", "Mask Trade Sequence",
+            "", "Gold Skulltula Token", "",
+            "Bottle 1", "Bottle 2", "Bottle 3"
         ],
         [],
         [
-            "Boomerang",
-            "Lens of Truth",
-            "Magic Bean",
-            "Slingshot",
-            "Ocarina",
-            "Bombchu",
-            "Deku Stick",
-            "Deku Nut",
-            "Bomb Bag"
+            "Boomerang", "Lens of Truth", "Magic Bean",
+            "Slingshot", "Ocarina", "Bombchu",
+            "Deku Stick", "Deku Nut", "Bomb Bag"
         ],
         [
-            "Hammer",
-            "Light Arrows",
-            "Nayrus Love",
-            "Progressive Hookshot",
-            "Ice Arrows",
-            "Farores Wind",
-            "Bow",
-            "Fire Arrows",
-            "Dins Fire"
+            "Hammer", "Light Arrows", "Nayrus Love",
+            "Progressive Hookshot", "Ice Arrows", "Farores Wind",
+            "Bow", "Fire Arrows", "Dins Fire"
         ],
         [
             "Zeldas Lullaby",
@@ -258,14 +218,9 @@
         },
         {
             "Name": "Bottle 1",
-            "X": 0,
+            "X": 126,
             "Y": 126,
             "ItemProgression": [
-                {
-                    "Name": "Ruto's Letter",
-                    "SheetX": 105,
-                    "SheetY": 70
-                },
                 {
                     "Name": "Big Poe",
                     "SheetX": 210,
@@ -330,14 +285,9 @@
         },
         {
             "Name": "Bottle 2",
-            "X": 42,
+            "X": 168,
             "Y": 126,
             "ItemProgression": [
-                {
-                    "Name": "Ruto's Letter",
-                    "SheetX": 105,
-                    "SheetY": 70
-                },
                 {
                     "Name": "Big Poe",
                     "SheetX": 210,
@@ -402,14 +352,9 @@
         },
         {
             "Name": "Bottle 3",
-            "X": 84,
+            "X": 210,
             "Y": 126,
             "ItemProgression": [
-                {
-                    "Name": "Ruto's Letter",
-                    "SheetX": 105,
-                    "SheetY": 70
-                },
                 {
                     "Name": "Big Poe",
                     "SheetX": 210,
@@ -473,81 +418,16 @@
             ]
         },
         {
-            "Name": "Bottle 4",
+            "Name": "Rutos Letter",
             "X": 126,
-            "Y": 126,
-            "ItemProgression": [
-                {
-                    "Name": "Ruto's Letter",
-                    "SheetX": 105,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Big Poe",
-                    "SheetX": 210,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Red Potion",
-                    "SheetX": 315,
-                    "SheetY": 35
-                },
-                {
-                    "Name": "Green Potion",
-                    "SheetX": 350,
-                    "SheetY": 35
-                },
-                {
-                    "Name": "Blue Potion",
-                    "SheetX": 385,
-                    "SheetY": 35
-                },
-                {
-                    "Name": "Fairy",
-                    "SheetX": 0,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Fish",
-                    "SheetX": 35,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Milk",
-                    "SheetX": 70,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Blue Fire",
-                    "SheetX": 140,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Bugs",
-                    "SheetX": 175,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Half Milk",
-                    "SheetX": 245,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Poe",
-                    "SheetX": 280,
-                    "SheetY": 70
-                },
-                {
-                    "Name": "Empty Bottle",
-                    "SheetX": 280,
-                    "SheetY": 35
-                }
-            ]
+            "Y": 210,
+            "SheetX": 105,
+            "SheetY": 70
         },
         {
             "Name": "Mask Trade Sequence",
             "X": 210,
-            "Y": 126,
+            "Y": 210,
             "ItemProgression": [
                 {
                     "Name": "Weird Egg",
@@ -614,7 +494,7 @@
         {
             "Name": "Trade Sequence",
             "X": 168,
-            "Y": 126,
+            "Y": 210,
             "ItemProgression": [
                 {
                     "Name": "Pocket Egg",
@@ -676,49 +556,49 @@
         {
             "Name": "Kokiri Sword",
             "X": 0,
-            "Y": 168,
+            "Y": 210,
             "SheetX": 280,
             "SheetY": 140
         },
         {
             "Name": "Master Sword",
             "X": 42,
-            "Y": 168,
+            "Y": 210,
             "SheetX": 315,
             "SheetY": 140
         },
         {
             "Name": "Biggoron Sword",
             "X": 84,
-            "Y": 168,
+            "Y": 210,
             "SheetX": 350,
             "SheetY": 140
         },
         {
             "Name": "Deku Shield",
             "X": 0,
-            "Y": 210,
+            "Y": 252,
             "SheetX": 385,
             "SheetY": 140
         },
         {
             "Name": "Hylian Shield",
             "X": 42,
-            "Y": 210,
+            "Y": 252,
             "SheetX": 0,
             "SheetY": 175
         },
         {
             "Name": "Mirror Shield",
             "X": 84,
-            "Y": 210,
+            "Y": 252,
             "SheetX": 35,
             "SheetY": 175
         },
         {
             "Name": "Kokiri Tunic",
             "X": 0,
-            "Y": 252,
+            "Y": 294,
             "SheetX": 70,
             "SheetY": 175,
             "Enabled": true
@@ -726,21 +606,21 @@
         {
             "Name": "Goron Tunic",
             "X": 42,
-            "Y": 252,
+            "Y": 294,
             "SheetX": 105,
             "SheetY": 175
         },
         {
             "Name": "Zora Tunic",
             "X": 84,
-            "Y": 252,
+            "Y": 294,
             "SheetX": 140,
             "SheetY": 175
         },
         {
             "Name": "Kokiri Boots",
             "X": 0,
-            "Y": 294,
+            "Y": 336,
             "SheetX": 175,
             "SheetY": 175,
             "Enabled": true
@@ -748,14 +628,14 @@
         {
             "Name": "Iron Boots",
             "X": 42,
-            "Y": 294,
+            "Y": 336,
             "SheetX": 210,
             "SheetY": 175
         },
         {
             "Name": "Hover Boots",
             "X": 84,
-            "Y": 294,
+            "Y": 336,
             "SheetX": 245,
             "SheetY": 175
         },
@@ -773,7 +653,7 @@
             "Name": "Kokiri Emerald",
             "IsMedallion": true,
             "X": 126,
-            "Y": 294,
+            "Y": 252,
             "SheetX": 140,
             "SheetY": 245
         },
@@ -781,7 +661,7 @@
             "Name": "Goron Ruby",
             "IsMedallion": true,
             "X": 168,
-            "Y": 294,
+            "Y": 252,
             "SheetX": 175,
             "SheetY": 245
         },
@@ -789,14 +669,14 @@
             "Name": "Zora Sapphire",
             "IsMedallion": true,
             "X": 210,
-            "Y": 294,
+            "Y": 252,
             "SheetX": 210,
             "SheetY": 245
         },
         {
             "Name": "Magic Meter",
-            "X": 126,
-            "Y": 210,
+            "X": 0,
+            "Y": 168,
             "ItemProgression": [
                 {
                     "Name": "Magic I",
@@ -812,15 +692,15 @@
         },
         {
             "Name": "Stone of Agony",
-            "X": 126,
-            "Y": 252,
+            "X": 84,
+            "Y": 126,
             "SheetX": 35,
             "SheetY": 315
         },
         {
             "Name": "Progressive Scale",
-            "X": 168,
-            "Y": 252,
+            "X": 84,
+            "Y": 168,
             "ItemProgression": [
                 {
                     "Name": "Silver Scale",
@@ -836,8 +716,8 @@
         },
         {
             "Name": "Progressive Force",
-            "X": 210,
-            "Y": 252,
+            "X": 42,
+            "Y": 168,
             "ItemProgression": [
                 {
                     "Name": "Goron's Bracelet",
@@ -858,8 +738,8 @@
         },
         {
             "Name": "Wallet",
-            "X": 168,
-            "Y": 210,
+            "X": 0,
+            "Y": 126,
             "CapacityProgression": [
                 200,
                 500,
@@ -885,32 +765,32 @@
         },
         {
             "Name": "Gerudo Membership Card",
-            "X": 210,
-            "Y": 210,
+            "X": 42,
+            "Y": 126,
             "SheetX": 0,
             "SheetY": 245
         },
         {
             "Name": "Forest Medallion",
             "IsMedallion": true,
-            "X": 0,
-            "Y": 336,
+            "X": 126,
+            "Y": 294,
             "SheetX": 245,
             "SheetY": 245
         },
         {
             "Name": "Fire Medallion",
             "IsMedallion": true,
-            "X": 42,
-            "Y": 336,
+            "X": 168,
+            "Y": 294,
             "SheetX": 280,
             "SheetY": 245
         },
         {
             "Name": "Water Medallion",
             "IsMedallion": true,
-            "X": 84,
-            "Y": 336,
+            "X": 210,
+            "Y": 294,
             "SheetX": 315,
             "SheetY": 245
         },
