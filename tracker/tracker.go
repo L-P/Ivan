@@ -17,8 +17,10 @@ import (
 )
 
 type Tracker struct {
-	pos  image.Point
-	size image.Point
+	pos      image.Point
+	size     image.Point
+	hintPos  image.Point
+	hintSize image.Point
 
 	background     *ebiten.Image
 	backgroundHelp *ebiten.Image
@@ -29,16 +31,16 @@ type Tracker struct {
 
 	items       []Item
 	zoneItemMap ZoneItemMap
+	locations   []string
 	input       kbInput
+
+	woths     []string
+	barrens   []string
+	always    [7]string // skull, bigg, 30, 40, 50, OOT, frogs 2
+	sometimes []string  // freeform input
 
 	undoStack []undoStackEntry
 	redoStack []undoStackEntry
-}
-
-// undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
-type undoStackEntry struct {
-	itemIndex int
-	isUpgrade bool
 }
 
 const (
@@ -48,7 +50,13 @@ const (
 
 type ZoneItemMap [9][9]string
 
-func New(dimensions image.Rectangle, items []Item, zoneItemMap ZoneItemMap) (*Tracker, error) {
+func New(
+	dimensions image.Rectangle,
+	hintDimensions image.Rectangle,
+	items []Item,
+	zoneItemMap ZoneItemMap,
+	locations []string,
+) (*Tracker, error) {
 	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
 	if err != nil {
 		return nil, err
@@ -77,7 +85,10 @@ func New(dimensions image.Rectangle, items []Item, zoneItemMap ZoneItemMap) (*Tr
 	tracker := &Tracker{
 		pos:            dimensions.Min,
 		size:           dimensions.Size(),
+		hintPos:        hintDimensions.Min,
+		hintSize:       hintDimensions.Size(),
 		items:          items,
+		locations:      locations,
 		zoneItemMap:    zoneItemMap,
 		background:     background,
 		backgroundHelp: backgroundHelp,
@@ -185,52 +196,6 @@ func (tracker *Tracker) changeItem(itemIndex int, isUpgrade bool) {
 	}
 }
 
-func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
-	// If we were back in time, discard and replace history.
-	if len(tracker.redoStack) > 0 {
-		tracker.redoStack = nil
-	}
-
-	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
-		itemIndex: itemIndex,
-		isUpgrade: isUpgrade,
-	})
-}
-
-func (tracker *Tracker) undo() {
-	if len(tracker.undoStack) == 0 {
-		log.Printf("no action to undo")
-		return
-	}
-
-	entry := tracker.undoStack[len(tracker.undoStack)-1]
-	tracker.undoStack = tracker.undoStack[:len(tracker.undoStack)-1]
-	tracker.redoStack = append(tracker.redoStack, entry)
-
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Downgrade()
-	} else {
-		tracker.items[entry.itemIndex].Upgrade()
-	}
-}
-
-func (tracker *Tracker) redo() {
-	if len(tracker.redoStack) == 0 {
-		log.Printf("no action to redo")
-		return
-	}
-
-	entry := tracker.redoStack[len(tracker.redoStack)-1]
-	tracker.redoStack = tracker.redoStack[:len(tracker.redoStack)-1]
-	tracker.undoStack = append(tracker.undoStack, entry)
-
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Upgrade()
-	} else {
-		tracker.items[entry.itemIndex].Downgrade()
-	}
-}
-
 func (tracker *Tracker) Wheel(x, y int, up bool) {
 	i := tracker.getItemIndexByPos(x, y)
 	if i < 0 {
@@ -270,13 +235,12 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	_ = screen.DrawImage(tracker.background, nil)
 	if tracker.kbInputStateIsAny(inputStateItemKPZoneInput, inputStateItemInput) {
 		_ = screen.DrawImage(tracker.backgroundHelp, nil)
 		if tracker.input.activeKPZone > 0 {
 			tracker.drawActiveItemSlot(screen, tracker.input.activeKPZone)
 		}
-	} else {
-		_ = screen.DrawImage(tracker.background, nil)
 	}
 
 	// Do two loops to avoid texture switches.
@@ -286,6 +250,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	tracker.drawTemples(screen)
 	tracker.drawCapacities(screen)
 	tracker.drawInputState(screen)
+	tracker.drawHints(screen)
 }
 
 func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
@@ -376,4 +341,8 @@ func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
 	tracker.zoneItemMap = zoneItemMap
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
+	tracker.woths = tracker.woths[:0]
+	tracker.barrens = tracker.barrens[:0]
+	tracker.sometimes = tracker.sometimes[:0]
+	tracker.always = [7]string{}
 }

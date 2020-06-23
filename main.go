@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	_ "image/png"
 
@@ -23,6 +24,10 @@ func main() {
 	ebiten.SetWindowTitle("Ivan")
 	ebiten.SetRunnableOnUnfocused(true)
 	ebiten.SetWindowResizable(true)
+	// Can't move an undecorated window on Windows… Such good UX.
+	if runtime.GOOS != "windows" {
+		ebiten.SetWindowDecorated(false)
+	}
 
 	ivan, err := NewApp()
 	if err != nil {

@@ -6,7 +6,11 @@
         },
         "Timer": {
             "Min": {"X": 0, "Y": 378},
-            "Max": {"X": 294, "Y": 450}
+            "Max": {"X": 294, "Y": 462}
+        },
+        "HintTracker": {
+            "Min": {"X": 0, "Y": 462},
+            "Max": {"X": 294, "Y": 672}
         }
     },
     "ZoneItemMap": [
@@ -53,6 +57,43 @@
             "Song of Time",
             "Song of Storms"
         ]
+    ],
+    "Locations": [
+        "Bottom of the Well",
+        "Death Mountain Crater",
+        "Death Mountain Trail",
+        "Deku Tree",
+        "Desert Colossus",
+        "Dodongo's Cavern",
+        "Fire Temple",
+        "Forest Temple",
+        "Ganon's Castle",
+        "Gerudo Training Grounds",
+        "Gerudo Valley",
+        "Gerudo's Fortress",
+        "Goron City",
+        "Graveyard",
+        "Haunted Wasteland",
+        "Hyrule Castle",
+        "Hyrule Field",
+        "Ice Cavern",
+        "Jabu Jabu's Belly",
+        "Kakariko Village",
+        "Kokiri Forest",
+        "Lake Hylia",
+        "Links House",
+        "Lon Lon Ranch",
+        "Lost Woods",
+        "Market",
+        "Outside Ganon's Castle",
+        "Sacred Forest Meadow",
+        "Shadow Temple",
+        "Spirit Temple",
+        "Temple of Time",
+        "Water Temple",
+        "Zora's Domain",
+        "Zora's Fountain",
+        "Zora's River"
     ],
     "Items": [
         {

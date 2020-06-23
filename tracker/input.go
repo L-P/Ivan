@@ -1,19 +1,36 @@
 package tracker
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
+	"sort"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/text"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 type kbInput struct {
 	state             inputState
 	activeKPZone      int // visually tied to a keypad number
 	downgradeNextItem bool
+
+	buf          []rune // text input buffer
+	textInputFor hintType
 }
+
+type hintType int
+
+const (
+	_ hintType = iota
+	hintTypeWOTH
+	hintTypeBarren
+	hintTypeSometimes
+	hintTypeAlways
+)
 
 type inputState int
 
@@ -25,6 +42,9 @@ const (
 
 	// Asking for an item inside a KP zone
 	inputStateItemInput
+
+	// Writing raw text for a fuzzy search
+	inputStateTextInput
 )
 
 func (tracker *Tracker) kbInputStateIs(v inputState) bool {
@@ -50,8 +70,52 @@ func (tracker *Tracker) Input(input []rune) {
 		return
 	}
 
+	if tracker.input.state == inputStateTextInput {
+		tracker.input.buf = append(tracker.input.buf, input...)
+		return
+	}
+
 	for _, r := range input {
 		tracker.inputAction(runeToAction(r))
+	}
+}
+
+func (tracker *Tracker) idleHandleAction(a action) {
+	switch a {
+	case actionIgnore:
+		return
+
+	case actionStartItemInput:
+		tracker.input.state = inputStateItemKPZoneInput
+
+	case actionDowngradeNext:
+		tracker.input.state = inputStateItemKPZoneInput
+		tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
+
+	case actionTopLeft, actionTop, actionTopRight,
+		actionLeft, actionMiddle, actionRight,
+		actionBottomLeft, actionBottom, actionBottomRight:
+
+		tracker.input.activeKPZone = actionToKPZone(a)
+		tracker.input.state = inputStateItemInput
+
+	case actionStartWOTHInput:
+		tracker.input.state = inputStateTextInput
+		tracker.input.textInputFor = hintTypeWOTH
+	case actionStartBarrenInput:
+		tracker.input.state = inputStateTextInput
+		tracker.input.textInputFor = hintTypeBarren
+	case actionStartAlwaysHintInput:
+		tracker.input.state = inputStateTextInput
+		tracker.input.textInputFor = hintTypeAlways
+	case actionStartSometimesHintInput:
+		tracker.input.state = inputStateTextInput
+		tracker.input.textInputFor = hintTypeSometimes
+
+	case actionRedo:
+		tracker.redo()
+	case actionUndo:
+		tracker.undo()
 	}
 }
 
@@ -64,23 +128,14 @@ func (tracker *Tracker) inputAction(a action) {
 
 	switch tracker.input.state {
 	case inputStateIdle:
+		tracker.idleHandleAction(a)
+
+	case inputStateTextInput:
 		switch a {
-		case actionIgnore:
-			return
-		case actionStartItemInput:
-			tracker.input.state = inputStateItemKPZoneInput
-		case actionDowngradeNext:
-			tracker.input.state = inputStateItemKPZoneInput
-			tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
-		case actionTopLeft, actionTop, actionTopRight,
-			actionLeft, actionMiddle, actionRight,
-			actionBottomLeft, actionBottom, actionBottomRight:
-			tracker.input.activeKPZone = actionToKPZone(a)
-			tracker.input.state = inputStateItemInput
-		case actionRedo:
-			tracker.redo()
-		case actionUndo:
-			tracker.undo()
+		case actionSubmit:
+			tracker.submitTextInput()
+		case actionCancel:
+			tracker.cancelTextInput()
 		}
 
 	case inputStateItemKPZoneInput:
@@ -153,14 +208,57 @@ func actionToKPZone(a action) int {
 // DEBUG
 func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
-	if tracker.kbInputStateIsAny(inputStateItemInput, inputStateItemKPZoneInput) {
-		str := "+"
+	var str string
+
+	switch tracker.input.state {
+	case inputStateItemInput, inputStateItemKPZoneInput:
 		if tracker.input.downgradeNextItem {
 			str = "-"
+		} else {
+			str = "+"
 		}
 
-		text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
+	case inputStateTextInput:
+		str = "> " + string(tracker.input.buf)
+		if tracker.input.textInputFor == hintTypeWOTH ||
+			tracker.input.textInputFor == hintTypeBarren {
+			if match := tracker.matchLocation(string(tracker.input.buf)); match != "" {
+				str += " (" + match + ")"
+			}
+		} else if tracker.input.textInputFor == hintTypeAlways {
+			index, _ := parseAlways(string(tracker.input.buf))
+			if index > -1 {
+				str += fmt.Sprintf(` (%s)`, alwaysLocations[index])
+			}
+		}
 	}
+
+	if str == "" {
+		return
+	}
+
+	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
+}
+
+func (tracker *Tracker) matchLocation(str string) string {
+	if str == "" { // this matches Market for some reason.
+		return ""
+	}
+
+	// HACK: Force some established conventions.
+	switch strings.ToLower(strings.Trim(str, " ")) {
+	case "dc":
+		str = "Dodongo's Cavern"
+	case "ogc":
+		str = "Outside Ganon's Castle"
+	}
+
+	matches := fuzzy.RankFindFold(str, tracker.locations)
+	if len(matches) == 0 {
+		return ""
+	}
+	sort.Sort(matches)
+	return matches[0].Target
 }
 
 type action int
@@ -169,6 +267,13 @@ const (
 	actionIgnore action = iota
 	actionStartItemInput
 	actionDowngradeNext
+
+	actionStartWOTHInput
+	actionStartBarrenInput
+	actionStartAlwaysHintInput
+	actionStartSometimesHintInput
+	actionSubmit
+	actionCancel
 
 	actionUndo
 	actionRedo
@@ -198,6 +303,15 @@ func runeToAction(r rune) action {
 	case '+':
 		return actionRedo
 
+	case 'w':
+		return actionStartWOTHInput
+	case 'b':
+		return actionStartBarrenInput
+	case 'a':
+		return actionStartAlwaysHintInput
+	case 's':
+		return actionStartSometimesHintInput
+
 	case '7':
 		return actionTopLeft
 	case '8':
@@ -219,4 +333,39 @@ func runeToAction(r rune) action {
 	default:
 		return actionIgnore
 	}
+}
+
+// Submit is called the user presses Enter.
+func (tracker *Tracker) Submit() {
+	if !tracker.kbInputStateIs(inputStateTextInput) {
+		return
+	}
+
+	tracker.inputAction(actionSubmit)
+}
+
+// Submit is called the user presses Escape.
+func (tracker *Tracker) Cancel() {
+	if !tracker.kbInputStateIs(inputStateTextInput) {
+		return
+	}
+
+	tracker.inputAction(actionCancel)
+}
+
+func (tracker *Tracker) Backspace() {
+	if len(tracker.input.buf) == 0 {
+		return
+	}
+
+	tracker.input.buf = tracker.input.buf[:len(tracker.input.buf)-1]
+}
+
+func (tracker *Tracker) cancelTextInput() {
+	tracker.input.reset()
+}
+
+// EatInput returns true if the tracker should reserve all text inputs for itself.
+func (tracker *Tracker) EatInput() bool {
+	return tracker.kbInputStateIs(inputStateTextInput)
 }
