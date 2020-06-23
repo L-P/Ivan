@@ -31,8 +31,8 @@ type Tracker struct {
 	items      []Item
 	input      kbInput
 
-	undoStack  []undoStackEntry
-	undoCursor int
+	undoStack []undoStackEntry
+	redoStack []undoStackEntry
 }
 
 // undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
@@ -188,47 +188,48 @@ func (tracker *Tracker) changeItem(itemIndex int, isUpgrade bool) {
 
 func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
 	// If we were back in time, discard and replace history.
-	if tracker.undoCursor > 0 && tracker.undoCursor != len(tracker.undoStack)-1 {
-		tracker.undoStack = tracker.undoStack[:tracker.undoCursor+1]
+	if len(tracker.redoStack) > 0 {
+		tracker.redoStack = nil
 	}
 
 	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
 		itemIndex: itemIndex,
 		isUpgrade: isUpgrade,
 	})
-	tracker.undoCursor = len(tracker.undoStack) - 1
 }
 
 func (tracker *Tracker) undo() {
-	if tracker.undoCursor < 0 || len(tracker.undoStack) == 0 {
+	if len(tracker.undoStack) == 0 {
 		log.Printf("no action to undo")
 		return
 	}
 
-	entry := tracker.undoStack[tracker.undoCursor]
+	entry := tracker.undoStack[len(tracker.undoStack)-1]
+	tracker.undoStack = tracker.undoStack[:len(tracker.undoStack)-1]
+	tracker.redoStack = append(tracker.redoStack, entry)
+
 	if entry.isUpgrade {
 		tracker.items[entry.itemIndex].Downgrade()
 	} else {
 		tracker.items[entry.itemIndex].Upgrade()
 	}
-
-	tracker.undoCursor--
 }
 
 func (tracker *Tracker) redo() {
-	if tracker.undoCursor >= len(tracker.undoStack)-1 {
+	if len(tracker.redoStack) == 0 {
 		log.Printf("no action to redo")
 		return
 	}
 
-	entry := tracker.undoStack[tracker.undoCursor+1]
+	entry := tracker.redoStack[len(tracker.redoStack)-1]
+	tracker.redoStack = tracker.redoStack[:len(tracker.redoStack)-1]
+	tracker.undoStack = append(tracker.undoStack, entry)
+
 	if entry.isUpgrade {
 		tracker.items[entry.itemIndex].Upgrade()
 	} else {
 		tracker.items[entry.itemIndex].Downgrade()
 	}
-
-	tracker.undoCursor++
 }
 
 func (tracker *Tracker) Wheel(x, y int, up bool) {
@@ -379,6 +380,6 @@ func (tracker *Tracker) Reset() {
 
 	tracker.config = conf
 	tracker.items = conf.Items
-	tracker.undoCursor = 0
 	tracker.undoStack = tracker.undoStack[:0]
+	tracker.redoStack = tracker.redoStack[:0]
 }
