@@ -71,5 +71,5 @@ func (app *App) Draw(screen *ebiten.Image) {
 }
 
 func (app *App) Layout(w, h int) (int, int) {
-	return width, height
+	return w, h
 }
