@@ -26,9 +26,10 @@ type Tracker struct {
 	sheetDisabled  *ebiten.Image
 	sheetEnabled   *ebiten.Image
 
-	config Config
-	items  []Item
-	input  kbInput
+	configPath string
+	config     Config
+	items      []Item
+	input      kbInput
 
 	undoStack  []undoStackEntry
 	undoCursor int
@@ -81,6 +82,7 @@ func New(path string) (*Tracker, error) {
 
 	tracker := &Tracker{
 		config:         conf,
+		configPath:     path,
 		items:          conf.Items, // we won't need the initial state: reuse slice.
 		background:     background,
 		backgroundHelp: backgroundHelp,
@@ -367,4 +369,16 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		str := strconv.Itoa(count)
 		text.Draw(screen, str, tracker.font, x, y, color.White)
 	}
+}
+
+func (tracker *Tracker) Reset() {
+	conf, err := LoadConfig(tracker.configPath)
+	if err != nil {
+		return
+	}
+
+	tracker.config = conf
+	tracker.items = conf.Items
+	tracker.undoCursor = 0
+	tracker.undoStack = tracker.undoStack[:0]
 }

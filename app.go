@@ -47,6 +47,10 @@ func (app *App) Update(screen *ebiten.Image) error {
 		if !app.timer.IsRunning() {
 			return errCloseApp
 		}
+	case inpututil.IsKeyJustPressed(ebiten.KeyHome):
+		if !app.timer.IsRunning() {
+			app.tracker.Reset()
+		}
 	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
 		app.timer.Toggle()
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
