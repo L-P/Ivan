@@ -1,11 +1,11 @@
 package tracker
 
 import (
-	"encoding/json"
+	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/golang/freetype/truetype"
@@ -26,11 +26,13 @@ type Tracker struct {
 	sheetDisabled  *ebiten.Image
 	sheetEnabled   *ebiten.Image
 
-	items []Item
-	input kbInput
+	configPath string
+	config     Config
+	items      []Item
+	input      kbInput
 
-	undoStack  []undoStackEntry
-	undoCursor int
+	undoStack []undoStackEntry
+	redoStack []undoStackEntry
 }
 
 // undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
@@ -58,7 +60,7 @@ func New(path string) (*Tracker, error) {
 		return nil, err
 	}
 
-	items, err := loadItems(path)
+	conf, err := LoadConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +81,11 @@ func New(path string) (*Tracker, error) {
 	}
 
 	tracker := &Tracker{
+		config:         conf,
+		configPath:     path,
+		items:          conf.Items, // we won't need the initial state: reuse slice.
 		background:     background,
 		backgroundHelp: backgroundHelp,
-		items:          items,
 		sheetDisabled:  sheetDisabled,
 		sheetEnabled:   sheetEnabled,
 		font: truetype.NewFace(ttf, &truetype.Options{
@@ -95,6 +99,36 @@ func New(path string) (*Tracker, error) {
 	}
 
 	return tracker, nil
+}
+
+func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
+	if zoneKP <= 0 || zoneKP > 9 {
+		return "", errors.New("invalid zoneKP, must be [1-9]")
+	}
+	if itemKP <= 0 || itemKP > 9 {
+		return "", errors.New("invalid itemKP, must be [1-9]")
+	}
+
+	name := tracker.config.ZoneItems[zoneKP-1][itemKP-1]
+	if name == "" {
+		return "", fmt.Errorf("no item defined for zone %d item %d", zoneKP, itemKP)
+	}
+
+	return name, nil
+}
+
+func (tracker *Tracker) GetZoneItemIndex(zoneKP, itemKP int) (int, error) {
+	name, err := tracker.GetZoneItem(zoneKP, itemKP)
+	if err != nil {
+		return -1, err
+	}
+
+	index := tracker.getItemIndexByName(name)
+	if index < 0 {
+		return -1, fmt.Errorf("item name misconfigured: %s", name)
+	}
+
+	return index, nil
 }
 
 // getItemIndexByPos returns the index of the item at the given position or -1 if
@@ -154,47 +188,48 @@ func (tracker *Tracker) changeItem(itemIndex int, isUpgrade bool) {
 
 func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
 	// If we were back in time, discard and replace history.
-	if tracker.undoCursor > 0 && tracker.undoCursor != len(tracker.undoStack)-1 {
-		tracker.undoStack = tracker.undoStack[:tracker.undoCursor+1]
+	if len(tracker.redoStack) > 0 {
+		tracker.redoStack = nil
 	}
 
 	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
 		itemIndex: itemIndex,
 		isUpgrade: isUpgrade,
 	})
-	tracker.undoCursor = len(tracker.undoStack) - 1
 }
 
 func (tracker *Tracker) undo() {
-	if tracker.undoCursor < 0 || len(tracker.undoStack) == 0 {
+	if len(tracker.undoStack) == 0 {
 		log.Printf("no action to undo")
 		return
 	}
 
-	entry := tracker.undoStack[tracker.undoCursor]
+	entry := tracker.undoStack[len(tracker.undoStack)-1]
+	tracker.undoStack = tracker.undoStack[:len(tracker.undoStack)-1]
+	tracker.redoStack = append(tracker.redoStack, entry)
+
 	if entry.isUpgrade {
 		tracker.items[entry.itemIndex].Downgrade()
 	} else {
 		tracker.items[entry.itemIndex].Upgrade()
 	}
-
-	tracker.undoCursor--
 }
 
 func (tracker *Tracker) redo() {
-	if tracker.undoCursor >= len(tracker.undoStack)-1 {
+	if len(tracker.redoStack) == 0 {
 		log.Printf("no action to redo")
 		return
 	}
 
-	entry := tracker.undoStack[tracker.undoCursor+1]
+	entry := tracker.redoStack[len(tracker.redoStack)-1]
+	tracker.redoStack = tracker.redoStack[:len(tracker.redoStack)-1]
+	tracker.undoStack = append(tracker.undoStack, entry)
+
 	if entry.isUpgrade {
 		tracker.items[entry.itemIndex].Upgrade()
 	} else {
 		tracker.items[entry.itemIndex].Downgrade()
 	}
-
-	tracker.undoCursor++
 }
 
 func (tracker *Tracker) Wheel(x, y int, up bool) {
@@ -337,18 +372,14 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 	}
 }
 
-func loadItems(path string) ([]Item, error) {
-	f, err := os.Open(path)
+func (tracker *Tracker) Reset() {
+	conf, err := LoadConfig(tracker.configPath)
 	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	var items []Item
-	dec := json.NewDecoder(f)
-	if err := dec.Decode(&items); err != nil {
-		return nil, err
+		return
 	}
 
-	return items, nil
+	tracker.config = conf
+	tracker.items = conf.Items
+	tracker.undoStack = tracker.undoStack[:0]
+	tracker.redoStack = tracker.redoStack[:0]
 }

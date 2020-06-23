@@ -9,8 +9,10 @@ gotta go fast.
 # Binds
 [![screenshot of ivan](./assets/home-screenshot.png)](./assets/home-screenshot.png)
 
-- `esc` quits the tracker, only works when the timer is in its zero-state to avoid
-  accidentally closing the tracker.
+- `esc` quits the tracker, only works when the timer is stopped (not paused) to
+  avoid accidentally closing the tracker.
+- `Home` resets the tracker and reloads its configuration from file, only works
+  when the timer is stopped (not paused).
 
 ## Item tracker
 ### Keyboard

@@ -1,7 +1,6 @@
 package tracker
 
 import (
-	"errors"
 	"image"
 	"image/color"
 	"log"
@@ -112,63 +111,12 @@ func (tracker *Tracker) inputAction(a action) {
 	}
 }
 
-var zoneItems = [10][10]string{ // nolint:gochecknoglobals
-	{"KP0"}, // KP0 does not exist
-	{"KP1",
-		"Forest Medallion", "Fire Medallion", "Water Medallion",
-		"Kokiri Boots", "Iron Boots", "Hover Boots",
-		"Kokiri Tunic", "Goron Tunic", "Zora Tunic",
-	},
-	{"KP2",
-		"Spirit Medallion", "Shadow Medallion", "Light Medallion",
-		"Kokiri Emerald", "Goron Ruby", "Zora Sapphire",
-		"Stone of Agony", "Progressive Scale", "Progressive Force",
-	},
-	{"KP3", // Special case for songs, they are not in KP order but numerical order.
-		"Minuet of Forest", "Bolero of Fire", "Serenade of Water",
-		"Requiem of Spirit", "Nocturne of Shadow", "Prelude of Light",
-	},
-	{"KP4",
-		"Deku Shield", "Hylian Shield", "Mirror Shield",
-		"Kokiri Sword", "Master Sword", "Biggoron Sword",
-		"Bottle 1", "Bottle 2", "Bottle 3",
-	},
-	{"KP5",
-		"Magic Meter", "Wallet", "Gerudo Membership Card",
-		"", "Gold Skulltula Token", "",
-		"Bottle 4", "Trade Sequence", "Mask Trade Sequence",
-	},
-	{"KP6"}, // KP6 does not exist
-	{"KP7",
-		"Boomerang", "Lens of Truth", "Magic Bean",
-		"Slingshot", "Ocarina", "Bombchu",
-		"Deku Stick", "Deku Nut", "Bomb Bag",
-	},
-	{"KP8",
-		"Hammer", "Light Arrows", "Nayrus Love",
-		"Progressive Hookshot", "Ice Arrows", "Farores Wind",
-		"Bow", "Fire Arrows", "Dins Fire",
-	},
-	{"KP9", // Special case for songs, they are not in KP order but numerical order.
-		"Zeldas Lullaby", "Eponas Song", "Sarias Song",
-		"Suns Song", "Song of Time", "Song of Storms",
-	},
-}
-
-func (tracker *Tracker) inputKPZoneItem(zone, itemZone int) error {
-	if zone <= 0 || zone > 9 {
-		return errors.New("invalid zone")
-	}
-	if itemZone <= 0 || itemZone > 9 {
-		return errors.New("invalid itemZone")
-	}
-
-	index := tracker.getItemIndexByName(zoneItems[zone][itemZone])
-	if index < 0 {
-		if zoneItems[zone][itemZone] == "" {
-			return errors.New("empty item name")
-		}
-		return errors.New("item name misconfigured")
+// inputKPZoneItem triggers an upgrade (or downgrade) of an item selected using
+// first its rough then fine position on the tracker using the numpad.
+func (tracker *Tracker) inputKPZoneItem(zoneKP, itemKP int) error {
+	index, err := tracker.GetZoneItemIndex(zoneKP, itemKP)
+	if err != nil {
+		return err
 	}
 
 	tracker.changeItem(index, !tracker.input.downgradeNextItem)
