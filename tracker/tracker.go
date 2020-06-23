@@ -93,6 +93,10 @@ func New(dimensions image.Rectangle, items []Item, zoneItemMap ZoneItemMap) (*Tr
 		}),
 	}
 
+	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Tunic"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
+
 	return tracker, nil
 }
 
