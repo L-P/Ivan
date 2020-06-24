@@ -33,6 +33,7 @@ type Tracker struct {
 	zoneItemMap ZoneItemMap
 	locations   []string
 	input       kbInput
+	binds       map[string]string
 
 	woths     []string
 	barrens   []string
@@ -56,6 +57,7 @@ func New(
 	items []Item,
 	zoneItemMap ZoneItemMap,
 	locations []string,
+	binds map[string]string,
 ) (*Tracker, error) {
 	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
 	if err != nil {
@@ -83,17 +85,21 @@ func New(
 	}
 
 	tracker := &Tracker{
-		pos:            dimensions.Min,
-		size:           dimensions.Size(),
-		hintPos:        hintDimensions.Min,
-		hintSize:       hintDimensions.Size(),
-		items:          items,
-		locations:      locations,
-		zoneItemMap:    zoneItemMap,
+		pos:      dimensions.Min,
+		size:     dimensions.Size(),
+		hintPos:  hintDimensions.Min,
+		hintSize: hintDimensions.Size(),
+
+		items:       items,
+		locations:   locations,
+		binds:       binds,
+		zoneItemMap: zoneItemMap,
+
 		background:     background,
 		backgroundHelp: backgroundHelp,
 		sheetDisabled:  sheetDisabled,
 		sheetEnabled:   sheetEnabled,
+
 		font: truetype.NewFace(ttf, &truetype.Options{
 			Size:    capacityFontSize,
 			Hinting: font.HintingFull,

@@ -8,6 +8,7 @@ import (
 )
 
 type config struct {
+	Binds       map[string]string
 	Items       []tracker.Item
 	ZoneItemMap [9][9]string
 	Locations   []string // woth/barren "simple" locations

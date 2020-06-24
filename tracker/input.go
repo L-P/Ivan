@@ -76,7 +76,7 @@ func (tracker *Tracker) Input(input []rune) {
 	}
 
 	for _, r := range input {
-		tracker.inputAction(runeToAction(r))
+		tracker.inputAction(tracker.runeToAction(r))
 	}
 }
 
@@ -261,78 +261,44 @@ func (tracker *Tracker) matchLocation(str string) string {
 	return matches[0].Target
 }
 
-type action int
+type action string
 
 const (
-	actionIgnore action = iota
-	actionStartItemInput
-	actionDowngradeNext
+	actionIgnore         action = "Ignore"
+	actionStartItemInput action = "StartItemInput"
+	actionDowngradeNext  action = "DowngradeNext"
 
-	actionStartWOTHInput
-	actionStartBarrenInput
-	actionStartAlwaysHintInput
-	actionStartSometimesHintInput
-	actionSubmit
-	actionCancel
+	actionStartWOTHInput          action = "StartWOTHInput"
+	actionStartBarrenInput        action = "StartBarrenInput"
+	actionStartAlwaysHintInput    action = "StartAlwaysHintInput"
+	actionStartSometimesHintInput action = "StartSometimesHintInput"
+	actionSubmit                  action = "Submit"
+	actionCancel                  action = "Cancel"
 
-	actionUndo
-	actionRedo
+	actionUndo action = "Undo"
+	actionRedo action = "Redo"
 
-	actionTopLeft
-	actionTop
-	actionTopRight
-	actionLeft
-	actionMiddle
-	actionRight
-	actionBottomLeft
-	actionBottom
-	actionBottomRight
+	actionTopLeft     action = "TopLeft"
+	actionTop         action = "Top"
+	actionTopRight    action = "TopRight"
+	actionLeft        action = "Left"
+	actionMiddle      action = "Middle"
+	actionRight       action = "Right"
+	actionBottomLeft  action = "BottomLeft"
+	actionBottom      action = "Bottom"
+	actionBottomRight action = "BottomRight"
 )
 
 // runeToAction is the keyboard "binds" part, as we handle text input and not
 // keys we already are qwerty/azerty compatible but can't distinguish the main
 // keyboard from keypad.
-func runeToAction(r rune) action {
-	switch r {
-	case '0':
-		return actionStartItemInput
-	case '.':
-		return actionDowngradeNext
-	case '-':
-		return actionUndo
-	case '+':
-		return actionRedo
-
-	case 'w':
-		return actionStartWOTHInput
-	case 'b':
-		return actionStartBarrenInput
-	case 'a':
-		return actionStartAlwaysHintInput
-	case 's':
-		return actionStartSometimesHintInput
-
-	case '7':
-		return actionTopLeft
-	case '8':
-		return actionTop
-	case '9':
-		return actionTopRight
-	case '4':
-		return actionLeft
-	case '5':
-		return actionMiddle
-	case '6':
-		return actionRight
-	case '1':
-		return actionBottomLeft
-	case '2':
-		return actionBottom
-	case '3':
-		return actionBottomRight
-	default:
+func (tracker *Tracker) runeToAction(r rune) action {
+	a, ok := tracker.binds[string([]rune{r})]
+	if !ok {
 		return actionIgnore
 	}
+
+	return action(a)
 }
 
 // Submit is called the user presses Enter.

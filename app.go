@@ -40,6 +40,7 @@ func NewApp() (*App, error) {
 		config.Items,
 		config.ZoneItemMap,
 		config.Locations,
+		config.Binds,
 	)
 	if err != nil {
 		return nil, err

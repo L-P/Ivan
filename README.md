@@ -71,4 +71,4 @@ prompt then `oot = nocturne` then `Enter`.
 The images in the [`assets`](./assets) folder can be changed if you wish to
 customize your background or your icons.  
 The [`config.json`](./assets/config.json) file contains all positions and
-definitions of the available items and locations.
+definitions of the available items and locations, it also contains keybinds.
