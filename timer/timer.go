@@ -103,9 +103,11 @@ func (timer *Timer) Toggle() {
 }
 
 func (timer *Timer) Reset() {
-	if timer.state == statePaused {
-		timer.state = stateInitial
-	}
+	timer.state = stateInitial
+}
+
+func (timer *Timer) CanReset() bool {
+	return timer.state == statePaused || timer.state == stateInitial
 }
 
 func (timer *Timer) IsRunning() bool {

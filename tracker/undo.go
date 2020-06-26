@@ -4,10 +4,10 @@ import "log"
 
 // undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
 type undoStackEntry struct {
-	hintText          string
-	hintType          hintType
-	itemIndex         int
-	isHint, isUpgrade bool
+	HintText          string
+	HintType          hintType
+	ItemIndex         int
+	IsHint, IsUpgrade bool
 }
 
 func (tracker *Tracker) appendHintToUndoStack(t hintType, str string) {
@@ -17,9 +17,9 @@ func (tracker *Tracker) appendHintToUndoStack(t hintType, str string) {
 	}
 
 	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
-		isHint:   true,
-		hintType: t,
-		hintText: str,
+		IsHint:   true,
+		HintType: t,
+		HintText: str,
 	})
 }
 
@@ -30,8 +30,8 @@ func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
 	}
 
 	tracker.undoStack = append(tracker.undoStack, undoStackEntry{
-		itemIndex: itemIndex,
-		isUpgrade: isUpgrade,
+		ItemIndex: itemIndex,
+		IsUpgrade: isUpgrade,
 	})
 }
 func (tracker *Tracker) undo() {
@@ -44,8 +44,8 @@ func (tracker *Tracker) undo() {
 	tracker.undoStack = tracker.undoStack[:len(tracker.undoStack)-1]
 	tracker.redoStack = append(tracker.redoStack, entry)
 
-	if entry.isHint {
-		switch entry.hintType {
+	if entry.IsHint {
+		switch entry.HintType {
 		case hintTypeWOTH:
 			tracker.woths = tracker.woths[:len(tracker.woths)-1]
 		case hintTypeBarren:
@@ -53,16 +53,16 @@ func (tracker *Tracker) undo() {
 		case hintTypeSometimes:
 			tracker.sometimes = tracker.sometimes[:len(tracker.sometimes)-1]
 		case hintTypeAlways:
-			index, _ := parseAlways(entry.hintText)
+			index, _ := parseAlways(entry.HintText)
 			tracker.setAlways(index, "")
 		}
 		return
 	}
 
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Downgrade()
+	if entry.IsUpgrade {
+		tracker.items[entry.ItemIndex].Downgrade()
 	} else {
-		tracker.items[entry.itemIndex].Upgrade()
+		tracker.items[entry.ItemIndex].Upgrade()
 	}
 }
 
@@ -76,23 +76,23 @@ func (tracker *Tracker) redo() {
 	tracker.redoStack = tracker.redoStack[:len(tracker.redoStack)-1]
 	tracker.undoStack = append(tracker.undoStack, entry)
 
-	if entry.isHint {
-		switch entry.hintType {
+	if entry.IsHint {
+		switch entry.HintType {
 		case hintTypeWOTH:
-			tracker.AddWOTH(entry.hintText)
+			tracker.AddWOTH(entry.HintText)
 		case hintTypeBarren:
-			tracker.AddBarren(entry.hintText)
+			tracker.AddBarren(entry.HintText)
 		case hintTypeSometimes:
-			tracker.AddSometimes(entry.hintText)
+			tracker.AddSometimes(entry.HintText)
 		case hintTypeAlways:
-			tracker.AddAlways(entry.hintText)
+			tracker.AddAlways(entry.HintText)
 		}
 		return
 	}
 
-	if entry.isUpgrade {
-		tracker.items[entry.itemIndex].Upgrade()
+	if entry.IsUpgrade {
+		tracker.items[entry.ItemIndex].Upgrade()
 	} else {
-		tracker.items[entry.itemIndex].Downgrade()
+		tracker.items[entry.ItemIndex].Downgrade()
 	}
 }

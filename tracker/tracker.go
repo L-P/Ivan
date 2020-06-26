@@ -1,11 +1,15 @@
 package tracker
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/golang/freetype/truetype"
@@ -57,19 +61,19 @@ func New(
 		hintPos:  hintDimensions.Min,
 		hintSize: hintDimensions.Size(),
 
-		items:       items,
 		locations:   locations,
 		binds:       binds,
 		zoneItemMap: zoneItemMap,
 	}
 
+	tracker.items = make([]Item, len(items))
+	copy(tracker.items, items)
+
 	if err := tracker.loadResources(); err != nil {
 		return nil, err
 	}
 
-	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
-	tracker.changeItem(tracker.getItemIndexByName("Kokiri Tunic"), true)
-	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
+	tracker.setInitialItems()
 
 	return tracker, nil
 }
@@ -307,7 +311,7 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		case tracker.items[k].HasCapacity():
 			count = tracker.items[k].Capacity()
 		case tracker.items[k].IsCountable():
-			count = tracker.items[k].Count()
+			count = tracker.items[k].Count
 		default:
 			continue
 		}
@@ -335,7 +339,9 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 }
 
 func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
-	tracker.items = items
+	tracker.items = make([]Item, len(items))
+	copy(tracker.items, items)
+
 	tracker.zoneItemMap = zoneItemMap
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
@@ -343,4 +349,86 @@ func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
 	tracker.barrens = tracker.barrens[:0]
 	tracker.sometimes = tracker.sometimes[:0]
 	tracker.always = [7]string{}
+	tracker.setInitialItems()
+
+	if err := tracker.Save(); err != nil {
+		log.Printf("error: %s", err)
+	}
+}
+
+func (tracker *Tracker) Save() error {
+	f, err := os.OpenFile(getSavePath(), os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	return enc.Encode(tracker)
+}
+
+func (tracker *Tracker) Load() error {
+	f, err := os.Open(getSavePath())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return tracker.loadJSON(f)
+}
+
+func getSavePath() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		dir = "./"
+	}
+
+	return filepath.Join(dir, "ivan.state.json")
+}
+
+func (tracker Tracker) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Items                     []Item
+		WotHs, Barrens, Sometimes []string
+		Always                    [7]string
+		UndoStack, RedoStack      []undoStackEntry
+	}{
+		tracker.items,
+		tracker.woths,
+		tracker.barrens,
+		tracker.sometimes,
+		tracker.always,
+		tracker.undoStack,
+		tracker.redoStack,
+	})
+}
+
+func (tracker *Tracker) loadJSON(r io.Reader) error {
+	var tmp struct {
+		Items                     []Item
+		WotHs, Barrens, Sometimes []string
+		Always                    [7]string
+		UndoStack, RedoStack      []undoStackEntry
+	}
+
+	dec := json.NewDecoder(r)
+	if err := dec.Decode(&tmp); err != nil {
+		return err
+	}
+
+	tracker.items = tmp.Items
+	tracker.woths = tmp.WotHs
+	tracker.barrens = tmp.Barrens
+	tracker.sometimes = tmp.Sometimes
+	tracker.always = tmp.Always
+	tracker.undoStack = tmp.UndoStack
+	tracker.redoStack = tmp.RedoStack
+
+	return nil
+}
+
+func (tracker *Tracker) setInitialItems() {
+	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Tunic"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
 }
