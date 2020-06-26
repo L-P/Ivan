@@ -17,17 +17,12 @@ import (
 )
 
 type Tracker struct {
-	pos      image.Point
-	size     image.Point
-	hintPos  image.Point
-	hintSize image.Point
+	pos, size         image.Point
+	hintPos, hintSize image.Point
 
-	background     *ebiten.Image
-	backgroundHelp *ebiten.Image
-	font           font.Face
-	fontSmall      font.Face
-	sheetDisabled  *ebiten.Image
-	sheetEnabled   *ebiten.Image
+	background, backgroundHelp  *ebiten.Image
+	sheetDisabled, sheetEnabled *ebiten.Image
+	font, fontSmall             font.Face
 
 	items       []Item
 	zoneItemMap ZoneItemMap
@@ -35,13 +30,10 @@ type Tracker struct {
 	input       kbInput
 	binds       map[string]string
 
-	woths     []string
-	barrens   []string
-	always    [7]string // skull, bigg, 30, 40, 50, OOT, frogs 2
-	sometimes []string  // freeform input
+	woths, barrens, sometimes []string
+	always                    [7]string // in order: skull, bigg, 30, 40, 50, OOT, frogs 2
 
-	undoStack []undoStackEntry
-	redoStack []undoStackEntry
+	undoStack, redoStack []undoStackEntry
 }
 
 const (
@@ -59,31 +51,6 @@ func New(
 	locations []string,
 	binds map[string]string,
 ) (*Tracker, error) {
-	background, _, err := ebitenutil.NewImageFromFile("assets/background.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
-	backgroundHelp, _, err := ebitenutil.NewImageFromFile("assets/background-help.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
-	ttf, err := truetype.Parse(goregular.TTF)
-	if err != nil {
-		return nil, err
-	}
-
-	sheetDisabled, _, err := ebitenutil.NewImageFromFile("assets/items-disabled.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
-	sheetEnabled, _, err := ebitenutil.NewImageFromFile("assets/items.png", ebiten.FilterDefault)
-	if err != nil {
-		return nil, err
-	}
-
 	tracker := &Tracker{
 		pos:      dimensions.Min,
 		size:     dimensions.Size(),
@@ -94,20 +61,10 @@ func New(
 		locations:   locations,
 		binds:       binds,
 		zoneItemMap: zoneItemMap,
+	}
 
-		background:     background,
-		backgroundHelp: backgroundHelp,
-		sheetDisabled:  sheetDisabled,
-		sheetEnabled:   sheetEnabled,
-
-		font: truetype.NewFace(ttf, &truetype.Options{
-			Size:    capacityFontSize,
-			Hinting: font.HintingFull,
-		}),
-		fontSmall: truetype.NewFace(ttf, &truetype.Options{
-			Size:    templeFontSize,
-			Hinting: font.HintingFull,
-		}),
+	if err := tracker.loadResources(); err != nil {
+		return nil, err
 	}
 
 	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
@@ -115,6 +72,41 @@ func New(
 	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
 
 	return tracker, nil
+}
+
+func (tracker *Tracker) loadResources() (err error) {
+	images := []struct {
+		img  **ebiten.Image
+		path string
+	}{
+		{&tracker.background, "assets/background.png"},
+		{&tracker.backgroundHelp, "assets/background-help.png"},
+		{&tracker.sheetDisabled, "assets/items-disabled.png"},
+		{&tracker.sheetEnabled, "assets/items.png"},
+	}
+
+	for _, v := range images {
+		*v.img, _, err = ebitenutil.NewImageFromFile(v.path, ebiten.FilterDefault)
+		if err != nil {
+			return err
+		}
+	}
+
+	ttf, err := truetype.Parse(goregular.TTF)
+	if err != nil {
+		return err
+	}
+
+	tracker.font = truetype.NewFace(ttf, &truetype.Options{
+		Size:    capacityFontSize,
+		Hinting: font.HintingFull,
+	})
+	tracker.fontSmall = truetype.NewFace(ttf, &truetype.Options{
+		Size:    templeFontSize,
+		Hinting: font.HintingFull,
+	})
+
+	return nil
 }
 
 func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
