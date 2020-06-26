@@ -15,8 +15,13 @@ gotta go fast.
   avoid accidentally closing the tracker.
 - `Home` resets the tracker and reloads its configuration from file, only works
   when the timer is stopped (not paused).
+- `Del` to reset the timer and the tracker, only works when the timer is paused.
 - `-` to undo the last action.
 - `+` to redo the last undone action.
+
+The state of the tracker is persisted to file in case you close it by mistake
+of if someone played _Song of Storms_ nearby. `Del` will reset the tracker
+right after launching if needed.
 
 ## Item tracker
 Basic usage:
@@ -47,7 +52,6 @@ Other keys:
 ## Timer
 - `space` once to start the timer, then to pause/resume its _display_ (it still
   runs in the background).
-- `del` to reset the timer when it's paused.
 
 ## Hint tracker
 1. Press the key corresponding to your hint type (WotH, Barren, Sometimes,

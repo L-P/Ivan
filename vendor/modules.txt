@@ -1,3 +1,6 @@
+# github.com/bep/debounce v1.2.0
+## explicit
+github.com/bep/debounce
 # github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200420212212-258d9bec320e
 ## explicit
 github.com/go-gl/glfw/v3.3/glfw

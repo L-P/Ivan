@@ -14,10 +14,10 @@ type Item struct {
 	ItemProgression     []Item `json:",omitempty"`
 
 	// Index of the current item/capacity and temple upgrade
-	upgradeIndex, templeIndex int
+	UpgradeIndex, TempleIndex int
 
 	// For countable items.
-	CountMax, CountStep, count int
+	CountMax, CountStep, Count int
 
 	IsMedallion, IsSong, Enabled bool `json:",omitempty"`
 }
@@ -31,10 +31,10 @@ func (item Item) Capacity() int {
 
 	// HACK, use the index as a direct count.
 	if item.IsCountable() {
-		return item.upgradeIndex
+		return item.UpgradeIndex
 	}
 
-	return item.CapacityProgression[item.upgradeIndex]
+	return item.CapacityProgression[item.UpgradeIndex]
 }
 
 const (
@@ -63,8 +63,8 @@ func (item Item) SheetRect() image.Rectangle {
 
 	if len(item.ItemProgression) > 0 {
 		if item.Enabled {
-			x = item.ItemProgression[item.upgradeIndex].SheetX
-			y = item.ItemProgression[item.upgradeIndex].SheetY
+			x = item.ItemProgression[item.UpgradeIndex].SheetX
+			y = item.ItemProgression[item.UpgradeIndex].SheetY
 		} else {
 			x = item.ItemProgression[len(item.ItemProgression)-1].SheetX
 			y = item.ItemProgression[len(item.ItemProgression)-1].SheetY
@@ -98,11 +98,11 @@ func (item *Item) Upgrade() bool {
 		max = len(item.CapacityProgression)
 	}
 
-	if max == 0 || ((item.upgradeIndex + 1) >= max) {
+	if max == 0 || ((item.UpgradeIndex + 1) >= max) {
 		return false // not upgradable, skip
 	}
 
-	item.upgradeIndex = (item.upgradeIndex + 1) % max
+	item.UpgradeIndex = (item.UpgradeIndex + 1) % max
 	return true
 }
 
@@ -125,32 +125,28 @@ func (item *Item) Downgrade() bool {
 		max = len(item.CapacityProgression)
 	}
 
-	if max == 0 || (item.upgradeIndex-1) < 0 {
+	if max == 0 || (item.UpgradeIndex-1) < 0 {
 		item.Enabled = false
 		return true
 	}
 
-	item.upgradeIndex = (item.upgradeIndex - 1) % max
+	item.UpgradeIndex = (item.UpgradeIndex - 1) % max
 	return true
 }
 
 func (item *Item) countDown() {
-	item.count -= item.CountStep
-	if item.count < 0 {
-		item.count = 0
+	item.Count -= item.CountStep
+	if item.Count < 0 {
+		item.Count = 0
 		item.Enabled = false
 	}
 }
 
 func (item *Item) countUp() {
-	item.count += item.CountStep
-	if item.count > item.CountMax {
-		item.count = item.CountMax
+	item.Count += item.CountStep
+	if item.Count > item.CountMax {
+		item.Count = item.CountMax
 	}
-}
-
-func (item *Item) Count() int {
-	return item.count
 }
 
 func (item *Item) HasCapacity() bool {
@@ -174,18 +170,18 @@ func (item *Item) CycleTempleUp() {
 
 func (item *Item) CycleTemple(up bool) {
 	if up {
-		item.templeIndex = (item.templeIndex + 1) % len(temples)
+		item.TempleIndex = (item.TempleIndex + 1) % len(temples)
 		return
 	}
 
-	if item.templeIndex-1 < 0 {
-		item.templeIndex = len(temples) - 1
+	if item.TempleIndex-1 < 0 {
+		item.TempleIndex = len(temples) - 1
 		return
 	}
 
-	item.templeIndex--
+	item.TempleIndex--
 }
 
 func (item *Item) TempleText() string {
-	return temples[item.templeIndex]
+	return temples[item.TempleIndex]
 }

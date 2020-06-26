@@ -4,7 +4,10 @@ import (
 	"errors"
 	"ivan/timer"
 	"ivan/tracker"
+	"log"
+	"time"
 
+	"github.com/bep/debounce"
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/inpututil"
 )
@@ -17,6 +20,8 @@ type App struct {
 	tracker *tracker.Tracker
 	timer   *timer.Timer
 	config  config
+
+	saveDebounce func(func())
 }
 
 func NewApp() (*App, error) {
@@ -46,15 +51,22 @@ func NewApp() (*App, error) {
 		return nil, err
 	}
 
+	if err := tracker.Load(); err != nil {
+		log.Printf("error: %s", err)
+	}
+
 	return &App{
-		tracker: tracker,
-		timer:   timer,
-		config:  config,
+		tracker:      tracker,
+		timer:        timer,
+		config:       config,
+		saveDebounce: debounce.New(1 * time.Second),
 	}, nil
 }
 
+// nolint: funlen
 func (app *App) Update(screen *ebiten.Image) error {
 	_, wheel := ebiten.Wheel()
+	var shouldSave bool
 
 	switch {
 	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
@@ -70,37 +82,60 @@ func (app *App) Update(screen *ebiten.Image) error {
 				return err
 			}
 			app.config = config
-			app.tracker.Reset(app.config.Items, app.config.ZoneItemMap)
 		}
 
 	case inpututil.IsKeyJustPressed(ebiten.KeyEnter):
 		app.tracker.Submit()
+		shouldSave = true
 
 	case inpututil.IsKeyJustPressed(ebiten.KeySpace):
 		if app.tracker.EatInput() {
 			app.tracker.Input([]rune(" "))
-		} else {
-			app.timer.Toggle()
+			break
 		}
+		app.timer.Toggle()
 
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
-		app.timer.Reset()
+		if app.timer.CanReset() {
+			app.timer.Reset()
+			app.tracker.Reset(app.config.Items, app.config.ZoneItemMap)
+			shouldSave = true
+		}
+
+	case inpututil.IsKeyJustPressed(ebiten.KeyEnd):
+		shouldSave = true
 
 	case inpututil.IsKeyJustPressed(ebiten.KeyBackspace):
 		app.tracker.Backspace()
 
 	case inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft):
 		app.tracker.ClickLeft(ebiten.CursorPosition())
+		shouldSave = true
 
 	case inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight):
 		app.tracker.ClickRight(ebiten.CursorPosition())
+		shouldSave = true
 
 	case wheel != 0:
 		x, y := ebiten.CursorPosition()
 		app.tracker.Wheel(x, y, wheel > 0)
+		shouldSave = true
 
 	default:
-		app.tracker.Input(ebiten.InputChars())
+		input := ebiten.InputChars()
+		if len(input) > 0 {
+			app.tracker.Input(input)
+			shouldSave = true
+		}
+	}
+
+	if shouldSave {
+		app.saveDebounce(func() {
+			log.Printf("saving")
+			if err := app.tracker.Save(); err != nil {
+				log.Printf("error: unable to write save: %s", err)
+			}
+		})
 	}
 
 	return nil
