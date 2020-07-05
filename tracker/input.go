@@ -249,6 +249,10 @@ func (tracker *Tracker) matchLocation(str string) string {
 	switch strings.ToLower(strings.Trim(str, " ")) {
 	case "dc":
 		str = "Dodongo's Cavern"
+	case "gv":
+		str = "Gerudo Valley"
+	case "gy":
+		str = "Graveyard"
 	case "ogc":
 		str = "Outside Ganon's Castle"
 	}
