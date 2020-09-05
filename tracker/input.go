@@ -253,6 +253,10 @@ func (tracker *Tracker) matchLocation(str string) string {
 		str = "Gerudo Valley"
 	case "gy":
 		str = "Graveyard"
+	case "gc":
+		str = "Goron City"
+	case "igc":
+		str = "Inside Ganon's Castle"
 	case "ogc":
 		str = "Outside Ganon's Castle"
 	}
