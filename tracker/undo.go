@@ -1,6 +1,9 @@
 package tracker
 
-import "log"
+import (
+	"log"
+	"strings"
+)
 
 // undoStackEntry represents an action (upgrade/downgrade) that happened on an item.
 type undoStackEntry struct {
@@ -47,7 +50,7 @@ func (tracker *Tracker) undo() {
 	if entry.IsHint {
 		switch entry.HintType {
 		case hintTypeWOTH:
-			tracker.woths = tracker.woths[:len(tracker.woths)-1]
+			tracker.undoWOTH(entry)
 		case hintTypeBarren:
 			tracker.barrens = tracker.barrens[:len(tracker.barrens)-1]
 		case hintTypeSometimes:
@@ -64,6 +67,19 @@ func (tracker *Tracker) undo() {
 	} else {
 		tracker.items[entry.ItemIndex].Upgrade()
 	}
+}
+
+func (tracker *Tracker) undoWOTH(entry undoStackEntry) {
+	// Clear last added double woth or last woth
+	double := entry.HintText + doubleWOTHMarker
+	for i := len(tracker.woths) - 1; i >= 0; i-- {
+		if tracker.woths[i] == double {
+			tracker.woths[i] = strings.TrimSuffix(tracker.woths[i], doubleWOTHMarker)
+			return
+		}
+	}
+
+	tracker.woths = tracker.woths[:len(tracker.woths)-1]
 }
 
 func (tracker *Tracker) redo() {
