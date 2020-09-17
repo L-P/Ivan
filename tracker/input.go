@@ -259,6 +259,8 @@ func (tracker *Tracker) matchLocation(str string) string {
 		str = "Inside Ganon's Castle"
 	case "ogc":
 		str = "Outside Ganon's Castle"
+	case "sp":
+		str = "Spirit Temple"
 	}
 
 	matches := fuzzy.RankFindFold(str, tracker.locations)
