@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"ivan/timer"
 	"ivan/tracker"
 	"log"
@@ -27,7 +28,7 @@ type App struct {
 func NewApp() (*App, error) {
 	config, err := loadConfig(configPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to load initial config: %w", err)
 	}
 
 	size := config.windowSize()
@@ -46,6 +47,8 @@ func NewApp() (*App, error) {
 		config.ZoneItemMap,
 		config.Locations,
 		config.Binds,
+		config.DungeonInputMedallionOrder,
+		config.DungeonInputDungeonKP,
 	)
 	if err != nil {
 		return nil, err
@@ -79,7 +82,7 @@ func (app *App) Update(screen *ebiten.Image) error {
 		if !app.timer.IsRunning() {
 			config, err := loadConfig(configPath)
 			if err != nil {
-				return err
+				return fmt.Errorf("unable to load config: %w", err)
 			}
 			app.config = config
 		}

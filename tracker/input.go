@@ -18,6 +18,10 @@ type kbInput struct {
 	activeKPZone      int // visually tied to a keypad number
 	downgradeNextItem bool
 
+	// Index in DungeonInputMedallionOrder, same order as the hint in the
+	// Temple of Time.
+	curMedallion int
+
 	buf          []rune // text input buffer
 	textInputFor hintType
 }
@@ -45,6 +49,9 @@ const (
 
 	// Writing raw text for a fuzzy search
 	inputStateTextInput
+
+	// Quick dungeons input for stones/medallions
+	inputStateDungeonInput
 )
 
 func (tracker *Tracker) kbInputStateIs(v inputState) bool {
@@ -87,6 +94,10 @@ func (tracker *Tracker) idleHandleAction(a action) {
 
 	case actionStartItemInput:
 		tracker.input.state = inputStateItemKPZoneInput
+
+	case actionStartDungeonInput:
+		tracker.input.curMedallion = 0
+		tracker.input.state = inputStateDungeonInput
 
 	case actionDowngradeNext:
 		tracker.input.state = inputStateItemKPZoneInput
@@ -163,7 +174,50 @@ func (tracker *Tracker) inputAction(a action) {
 			// Reset on wrong input so we can start typing the correct "code" right away.
 			tracker.input.reset()
 		}
+
+	case inputStateDungeonInput:
+		defer func() {
+			// Reset / exit when all medallions are set, don't care about stones.
+			if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
+				tracker.input.curMedallion = 0
+				tracker.input.state = inputStateIdle
+			}
+		}()
+
+		if zone := actionToKPZone(a); zone == -1 {
+			switch a { // +/- to go back/forward in the Medallion list (cycles around).
+			case actionUndo:
+				tracker.input.curMedallion--
+				if tracker.input.curMedallion < 0 {
+					tracker.input.curMedallion = len(tracker.dungeonInputMedallionOrder) - 1
+				}
+			case actionRedo:
+				tracker.input.curMedallion++
+				if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
+					tracker.input.curMedallion = 0
+				}
+			}
+
+			return
+		}
+
+		tracker.inputDungeon(a)
 	}
+}
+
+func (tracker *Tracker) inputDungeon(a action) {
+	dungeon, err := tracker.GetZoneDungeon(actionToKPZone(a))
+	if err != nil {
+		log.Printf("warning: %s", err)
+		return
+	}
+
+	idx := tracker.getItemIndexByName(
+		tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
+	)
+
+	tracker.items[idx].SetDungeon(dungeon)
+	tracker.input.curMedallion++
 }
 
 // inputKPZoneItem triggers an upgrade (or downgrade) of an item selected using
@@ -205,7 +259,6 @@ func actionToKPZone(a action) int {
 	}
 }
 
-// DEBUG
 func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
 	var str string
@@ -231,6 +284,13 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 				str += fmt.Sprintf(` (%s)`, alwaysLocations[index])
 			}
 		}
+
+	case inputStateDungeonInput:
+		str = "dungeon for: "
+		idx := tracker.getItemIndexByName(
+			tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
+		)
+		str += tracker.items[idx].Name
 	}
 
 	if str == "" {
@@ -274,9 +334,10 @@ func (tracker *Tracker) matchLocation(str string) string {
 type action string
 
 const (
-	actionIgnore         action = "Ignore"
-	actionStartItemInput action = "StartItemInput"
-	actionDowngradeNext  action = "DowngradeNext"
+	actionIgnore            action = "Ignore"
+	actionStartItemInput    action = "StartItemInput"
+	actionStartDungeonInput action = "StartDungeonInput"
+	actionDowngradeNext     action = "DowngradeNext"
 
 	actionStartWOTHInput          action = "StartWOTHInput"
 	actionStartBarrenInput        action = "StartBarrenInput"
@@ -311,7 +372,7 @@ func (tracker *Tracker) runeToAction(r rune) action {
 	return action(a)
 }
 
-// Submit is called the user presses Enter.
+// Submit is called when the user presses Enter.
 func (tracker *Tracker) Submit() {
 	if !tracker.kbInputStateIs(inputStateTextInput) {
 		return
@@ -320,7 +381,7 @@ func (tracker *Tracker) Submit() {
 	tracker.inputAction(actionSubmit)
 }
 
-// Submit is called the user presses Escape.
+// Cancel is called when the user presses Escape.
 func (tracker *Tracker) Cancel() {
 	if !tracker.kbInputStateIs(inputStateTextInput) {
 		return

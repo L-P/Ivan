@@ -14,7 +14,7 @@ type Item struct {
 	ItemProgression     []Item `json:",omitempty"`
 
 	// Index of the current item/capacity and temple upgrade
-	UpgradeIndex, TempleIndex int
+	UpgradeIndex, DungeonIndex int
 
 	// For countable items.
 	CountMax, CountStep, Count int
@@ -158,30 +158,47 @@ func (item *Item) IsCountable() bool {
 }
 
 // nolint:gochecknoglobals
-var temples = []string{
+var dungeons = []string{
 	"", "Free",
 	"Deku", "DC", "Jabu",
 	"Forest", "Fire", "Water",
 	"Spirit", "Shdw",
 }
 
-func (item *Item) CycleTempleUp() {
+// map the dungeons global with actual dungeon names
+func dungeonToDungeonIndex(str string) int {
+	return map[string]int{
+		"":                 0,
+		"Free":             1,
+		"Deku Tree":        2,
+		"Dodongo's Cavern": 3,
+		"Jabu Jabu":        4,
+		"Forest Temple":    5,
+		"Fire Temple":      6,
+		"Water Temple":     7,
+		"Spirit Temple":    8,
+		"Shadow Temple":    9,
+	}[str]
 }
 
-func (item *Item) CycleTemple(up bool) {
+func (item *Item) SetDungeon(dungeon string) {
+	item.DungeonIndex = dungeonToDungeonIndex(dungeon)
+}
+
+func (item *Item) CycleDungeon(up bool) {
 	if up {
-		item.TempleIndex = (item.TempleIndex + 1) % len(temples)
+		item.DungeonIndex = (item.DungeonIndex + 1) % len(dungeons)
 		return
 	}
 
-	if item.TempleIndex-1 < 0 {
-		item.TempleIndex = len(temples) - 1
+	if item.DungeonIndex-1 < 0 {
+		item.DungeonIndex = len(dungeons) - 1
 		return
 	}
 
-	item.TempleIndex--
+	item.DungeonIndex--
 }
 
-func (item *Item) TempleText() string {
-	return temples[item.TempleIndex]
+func (item *Item) DungeonText() string {
+	return dungeons[item.DungeonIndex]
 }

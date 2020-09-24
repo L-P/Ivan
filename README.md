@@ -54,22 +54,37 @@ Other keys:
   runs in the background).
 
 ## Hint tracker
-1. Press the key corresponding to your hint type (WotH, Barren, Sometimes,
-   Always)
+1. Press the key corresponding to your hint type (**W**otH, **B**arren, **S**ometimes,
+   **A**lways).
 2. Type your text.
-3. Press `Enter`
+3. Press `Enter`.
 
-- `w` to enter a _WotH_ Hint (green background, fuzzy location search)
-- `b` to enter a _Barren_ Hint (red background, fuzzy location search)
-- `s` to enter a _Sometimes_ Hint (blue background, freeform text)
-- `a` to enter a _Always_ Hint (yellow background)
-- `Esc` to cancel your input
-- `Enter` to submit your input
+- `w` to enter a _WotH_ Hint (green background, fuzzy location search).
+- `b` to enter a _Barren_ Hint (red background, fuzzy location search).
+- `s` to enter a _Sometimes_ Hint (blue background, freeform text).
+- `a` to enter a _Always_ Hint (yellow background).
+- `Esc` to cancel your input.
+- `Enter` to submit your input.
 
 As _Always Hints_ have a fixed slot, they get special treatment. The text you input
 is parsed as the slot name until the first space, then your text. eg. If you
 get _Nocturne of Shadows_ on _Ocarina of Time_ you might press `a` to start the
 prompt then `oot = nocturne` then `Enter`.
+
+## Dungeon input
+Dungeon input allows you to quickly set which dungeons holds what medallions
+when reading the altar at the _Temple of Time_.
+
+1. Press `d` to enter dungeon input mode.
+2. Dungeon mode always starts with the _Light Medallion_ and goes in the same
+   order as the altar.
+3. Press the KP of the medallion that originally holds the dungeon. eg. if
+   _Fire Temple_ holds the _Light Medallion_, press the key for _Fire
+   Medallion_, ie. `5`.
+4. Dungeon mode will advance to the next medallion and you can go back to 3.
+5. When the last medallion is entered, dungeon mode is exited automatically.
+
+You can also use `+` and `-` to cycle through medallions and `0` to exit.
 
 ## Customization
 The images in the [`assets`](./assets) folder can be changed if you wish to
