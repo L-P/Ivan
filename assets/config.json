@@ -6,6 +6,7 @@
         "+": "Redo",
         "w": "StartWOTHInput",
         "b": "StartBarrenInput",
+        "d": "StartDungeonInput",
         "a": "StartAlwaysHintInput",
         "s": "StartSometimesHintInput",
         "7": "TopLeft",
@@ -18,6 +19,22 @@
         "2": "Bottom",
         "3": "BottomRight"
     },
+
+    "DungeonInputMedallionOrder": [
+        "Light Medallion",
+        "Forest Medallion",
+        "Fire Medallion",
+        "Water Medallion",
+        "Shadow Medallion",
+        "Spirit Medallion"
+    ],
+
+    "DungeonInputDungeonKP": [
+        "Spirit Temple", "Shadow Temple", "Free",
+        "Forest Temple", "Fire Temple", "Water Temple",
+        "Deku Tree", "Dodongo's Cavern", "Jabu Jabu"
+    ],
+
     "Dimensions": {
         "ItemTracker": {
             "Min": {"X": 0, "Y": 0},

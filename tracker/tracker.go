@@ -37,6 +37,8 @@ type Tracker struct {
 	woths, barrens, sometimes []string
 	always                    [7]string // in order: skull, bigg, 30, 40, 50, OOT, frogs 2
 
+	dungeonInputMedallionOrder, dungeonInputDungeonKP []string
+
 	undoStack, redoStack []undoStackEntry
 }
 
@@ -54,12 +56,18 @@ func New(
 	zoneItemMap ZoneItemMap,
 	locations []string,
 	binds map[string]string,
+	dungeonInputMedallionOrder []string,
+	dungeonInputDungeonKP []string,
+
 ) (*Tracker, error) {
 	tracker := &Tracker{
 		pos:      dimensions.Min,
 		size:     dimensions.Size(),
 		hintPos:  hintDimensions.Min,
 		hintSize: hintDimensions.Size(),
+
+		dungeonInputMedallionOrder: dungeonInputMedallionOrder,
+		dungeonInputDungeonKP:      dungeonInputDungeonKP,
 
 		locations:   locations,
 		binds:       binds,
@@ -127,6 +135,19 @@ func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 	}
 
 	return name, nil
+}
+
+func (tracker *Tracker) GetZoneDungeon(zoneKP int) (string, error) {
+	if zoneKP <= 0 || zoneKP > 9 {
+		return "", errors.New("invalid zoneKP, must be [1-9]")
+	}
+
+	dungeon := tracker.dungeonInputDungeonKP[zoneKP-1]
+	if dungeon == "" {
+		return "", fmt.Errorf("no dungeon defined for zone %d", zoneKP)
+	}
+
+	return dungeon, nil
 }
 
 func (tracker *Tracker) GetZoneItemIndex(zoneKP, itemKP int) (int, error) {
@@ -206,7 +227,7 @@ func (tracker *Tracker) Wheel(x, y int, up bool) {
 
 	switch {
 	case tracker.items[i].IsMedallion:
-		tracker.items[i].CycleTemple(up)
+		tracker.items[i].CycleDungeon(up)
 	default:
 		if up {
 			tracker.ClickLeft(x, y)
@@ -249,7 +270,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	drawState(false, tracker.sheetDisabled)
 	drawState(true, tracker.sheetEnabled)
 
-	tracker.drawTemples(screen)
+	tracker.drawDungeons(screen)
 	tracker.drawCapacities(screen)
 	tracker.drawInputState(screen)
 	tracker.drawHints(screen)
@@ -292,7 +313,7 @@ func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 	)
 }
 
-func (tracker *Tracker) drawTemples(screen *ebiten.Image) {
+func (tracker *Tracker) drawDungeons(screen *ebiten.Image) {
 	for k := range tracker.items {
 		if !tracker.items[k].IsMedallion {
 			continue
@@ -300,7 +321,7 @@ func (tracker *Tracker) drawTemples(screen *ebiten.Image) {
 
 		rect := tracker.items[k].Rect()
 		x, y := rect.Min.X, rect.Max.Y
-		text.Draw(screen, tracker.items[k].TempleText(), tracker.fontSmall, x, y, color.White)
+		text.Draw(screen, tracker.items[k].DungeonText(), tracker.fontSmall, x, y, color.White)
 	}
 }
 

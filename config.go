@@ -12,7 +12,10 @@ type config struct {
 	Items       []tracker.Item
 	ZoneItemMap [9][9]string
 	Locations   []string // woth/barren "simple" locations
-	Dimensions  struct {
+
+	DungeonInputMedallionOrder, DungeonInputDungeonKP []string
+
+	Dimensions struct {
 		ItemTracker image.Rectangle
 		Timer       image.Rectangle
 		HintTracker image.Rectangle
