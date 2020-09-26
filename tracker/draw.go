@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"log"
@@ -130,4 +131,55 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		str := strconv.Itoa(count)
 		text.Draw(screen, str, tracker.font, x, y, color.White)
 	}
+}
+
+func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
+	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
+	var str string
+
+	switch tracker.input.state {
+	case inputStateItemInput, inputStateItemKPZoneInput:
+		if tracker.input.downgradeNextItem {
+			str = "-"
+		} else {
+			str = "+"
+		}
+
+	case inputStateTextInput:
+		str = "> " + string(tracker.input.buf)
+		if tracker.input.textInputFor == hintTypeWOTH ||
+			tracker.input.textInputFor == hintTypeBarren {
+			if match := tracker.matchLocation(string(tracker.input.buf)); match != "" {
+				str += " (" + match + ")"
+			}
+		} else if tracker.input.textInputFor == hintTypeAlways {
+			index, _ := parseAlways(string(tracker.input.buf))
+			if index > -1 {
+				str += fmt.Sprintf(` (%s)`, alwaysLocations[index])
+			}
+		}
+
+	case inputStateDungeonInput:
+		str = "dungeon for: "
+		idx := tracker.getItemIndexByName(
+			tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
+		)
+		str += tracker.items[idx].Name
+
+		// Highlight corresponding medallion.
+		rect := tracker.items[idx].Rect()
+		size := rect.Size()
+		ebitenutil.DrawRect(
+			screen,
+			float64(rect.Min.X), float64(rect.Min.Y),
+			float64(size.X), float64(size.Y),
+			color.RGBA{0xFF, 0xFF, 0xFF, 0x50},
+		)
+	}
+
+	if str == "" {
+		return
+	}
+
+	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
 }

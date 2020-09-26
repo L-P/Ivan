@@ -1,15 +1,10 @@
 package tracker
 
 import (
-	"fmt"
-	"image"
-	"image/color"
 	"log"
 	"sort"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/text"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
@@ -257,47 +252,6 @@ func actionToKPZone(a action) int {
 	default:
 		return -1
 	}
-}
-
-func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
-	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
-	var str string
-
-	switch tracker.input.state {
-	case inputStateItemInput, inputStateItemKPZoneInput:
-		if tracker.input.downgradeNextItem {
-			str = "-"
-		} else {
-			str = "+"
-		}
-
-	case inputStateTextInput:
-		str = "> " + string(tracker.input.buf)
-		if tracker.input.textInputFor == hintTypeWOTH ||
-			tracker.input.textInputFor == hintTypeBarren {
-			if match := tracker.matchLocation(string(tracker.input.buf)); match != "" {
-				str += " (" + match + ")"
-			}
-		} else if tracker.input.textInputFor == hintTypeAlways {
-			index, _ := parseAlways(string(tracker.input.buf))
-			if index > -1 {
-				str += fmt.Sprintf(` (%s)`, alwaysLocations[index])
-			}
-		}
-
-	case inputStateDungeonInput:
-		str = "dungeon for: "
-		idx := tracker.getItemIndexByName(
-			tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
-		)
-		str += tracker.items[idx].Name
-	}
-
-	if str == "" {
-		return
-	}
-
-	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
 }
 
 func (tracker *Tracker) matchLocation(str string) string {
