@@ -1,4 +1,18 @@
 {
+    "InputViewer": {
+        "A":      {"Type": "Button", "ID": 1, "Pos": {"X": 130, "Y": 384}, "Color": {"G": 255}},
+        "B":      {"Type": "Button", "ID": 3, "Pos": {"X": 134, "Y": 384}, "Color": {"R": 255}},
+        "Start":  {"Type": "Button", "ID": 7, "Pos": {"X": 138, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
+        "CLeft":  {"Type": "Button", "ID": 0, "Pos": {"X": 142, "Y": 388}, "Color": {"R": 255, "G": 255}},
+        "CUp":    {"Type": "Axis",   "ID": 4, "Dir":  1, "Pos": {"X": 146, "Y": 384}, "Color": {"R": 255, "G": 255}},
+        "CDown":  {"Type": "Button", "ID": 4,  "Pos": {"X": 146, "Y": 392}, "Color": {"R": 255, "G": 255}},
+        "CRight": {"Type": "Button", "ID": 2, "Pos": {"X": 150, "Y": 388}, "Color": {"R": 255, "G": 255}},
+        "Z":      {"Type": "Axis",   "ID": 2, "Pos": {"X": 154, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
+        "R":      {"Type": "Axis",   "ID": 5, "Pos": {"X": 158, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
+
+        "J": {"Type": "Axis", "IDX": 0, "IDY": 1, "Pos": {"X": 122, "Y": 388}, "Color": {"R": 255, "G": 255, "B": 255}}
+    },
+
     "Binds": {
         "0": "StartItemInput",
         ".": "DowngradeNext",

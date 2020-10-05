@@ -125,6 +125,7 @@ func (tracker *Tracker) idleHandleAction(a action) {
 	}
 }
 
+// nolint:funlen
 func (tracker *Tracker) inputAction(a action) {
 	// Ensure we can _always_ leave using KP0
 	if a == actionStartItemInput && !tracker.kbInputStateIs(inputStateIdle) {
