@@ -19,6 +19,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/internal/driver"
 	"github.com/hajimehoshi/ebiten/internal/graphics"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 	"github.com/hajimehoshi/ebiten/internal/web"
 )
 
@@ -90,19 +91,15 @@ var theArrayBufferLayout = arrayBufferLayout{
 	// Note that GL_MAX_VERTEX_ATTRIBS is at least 16.
 	parts: []arrayBufferLayoutPart{
 		{
-			name: "vertex",
+			name: "A0",
 			num:  2,
 		},
 		{
-			name: "tex",
+			name: "A1",
 			num:  2,
 		},
 		{
-			name: "tex_region",
-			num:  4,
-		},
-		{
-			name: "color_scale",
+			name: "A2",
 			num:  4,
 		},
 	},
@@ -184,6 +181,7 @@ func (s *openGLState) reset(context *context) error {
 		for _, a := range []driver.Address{
 			driver.AddressClampToZero,
 			driver.AddressRepeat,
+			driver.AddressUnsafe,
 		} {
 			for _, f := range []driver.Filter{
 				driver.FilterNearest,
@@ -238,13 +236,18 @@ func areSameFloat32Array(a, b []float32) bool {
 }
 
 type uniformVariable struct {
-	name         string
-	value        interface{}
-	textureIndex int
+	name  string
+	value interface{}
+	typ   shaderir.Type
+}
+
+type textureVariable struct {
+	valid  bool
+	native textureNative
 }
 
 // useProgram uses the program (programTexture).
-func (g *Graphics) useProgram(program program, uniforms []uniformVariable) error {
+func (g *Graphics) useProgram(program program, uniforms []uniformVariable, textures [graphics.ShaderImageNum]textureVariable) error {
 	if !g.state.lastProgram.equal(program) {
 		g.context.useProgram(program)
 		if g.state.lastProgram.equal(zeroProgram) {
@@ -262,6 +265,10 @@ func (g *Graphics) useProgram(program program, uniforms []uniformVariable) error
 	for _, u := range uniforms {
 		switch v := u.value.(type) {
 		case float32:
+			if got, expected := (&shaderir.Type{Main: shaderir.Float}), &u.typ; !got.Equal(expected) {
+				return fmt.Errorf("opengl: uniform variable %s type doesn't match: expected %s but %s", u.name, expected.String(), got.String())
+			}
+
 			cached, ok := g.state.lastUniforms[u.name].(float32)
 			if ok && cached == v {
 				continue
@@ -270,23 +277,59 @@ func (g *Graphics) useProgram(program program, uniforms []uniformVariable) error
 			g.context.uniformFloat(program, u.name, v)
 			g.state.lastUniforms[u.name] = v
 		case []float32:
+			if got, expected := len(v), u.typ.FloatNum(); got != expected {
+				return fmt.Errorf("opengl: length of a uniform variables %s (%s) doesn't match: expected %d but %d", u.name, u.typ.String(), expected, got)
+			}
+
 			cached, ok := g.state.lastUniforms[u.name].([]float32)
 			if ok && areSameFloat32Array(cached, v) {
 				continue
 			}
-			g.context.uniformFloats(program, u.name, v)
+			g.context.uniformFloats(program, u.name, v, u.typ)
 			g.state.lastUniforms[u.name] = v
-		case textureNative:
-			// Apparently, a texture must be bound every time. The cache is not used here.
-			g.context.uniformInt(program, u.name, u.textureIndex)
-			if g.state.lastActiveTexture != u.textureIndex {
-				g.context.activeTexture(u.textureIndex)
-				g.state.lastActiveTexture = u.textureIndex
-			}
-			g.context.bindTexture(v)
 		default:
-			return fmt.Errorf("opengl: unexpected uniform value: %v", u.value)
+			return fmt.Errorf("opengl: unexpected uniform value: %v (type: %T)", u.value, u.value)
 		}
 	}
+
+	type activatedTexture struct {
+		textureNative textureNative
+		index         int
+	}
+
+	// textureNative cannot be a map key unfortunately.
+	textureToActivatedTexture := []activatedTexture{}
+	var idx int
+loop:
+	for i, t := range textures {
+		if !t.valid {
+			continue
+		}
+
+		// If the texture is already bound, set the texture variable to point to the texture.
+		// Rebinding the same texture seems problematic (#1193).
+		for _, at := range textureToActivatedTexture {
+			if t.native.equal(at.textureNative) {
+				g.context.uniformInt(program, fmt.Sprintf("T%d", i), at.index)
+				continue loop
+			}
+		}
+
+		textureToActivatedTexture = append(textureToActivatedTexture, activatedTexture{
+			textureNative: t.native,
+			index:         idx,
+		})
+		g.context.uniformInt(program, fmt.Sprintf("T%d", i), idx)
+		if g.state.lastActiveTexture != idx {
+			g.context.activeTexture(idx)
+			g.state.lastActiveTexture = idx
+		}
+
+		// Apparently, a texture must be bound every time. The cache is not used here.
+		g.context.bindTexture(t.native)
+
+		idx++
+	}
+
 	return nil
 }

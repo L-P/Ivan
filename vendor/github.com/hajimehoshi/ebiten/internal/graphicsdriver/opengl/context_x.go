@@ -12,10 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build !android
 // +build !js
+// +build freebsd linux
 
-package restorable
+package opengl
 
-const needsDisposingWhenRestoring = true
+import (
+	"strings"
+	"sync"
 
-const canDetectContextLostExplicitly = false
+	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl/gl"
+)
+
+var (
+	pboAvailable     = true
+	pboAvailableOnce sync.Once
+)
+
+func isPBOAvailable() bool {
+	pboAvailableOnce.Do(func() {
+		// This must be called after GL context is created.
+		str := gl.RendererDeviceString()
+		tokens := strings.Split(str, " ")
+		if len(tokens) == 0 {
+			return
+		}
+		// Raspbery Pi 4 has an issue around PBO (#1208).
+		if tokens[0] == "V3D" {
+			pboAvailable = false
+		}
+	})
+	return pboAvailable
+}

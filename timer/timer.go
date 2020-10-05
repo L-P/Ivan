@@ -49,7 +49,7 @@ func New(dimensions image.Rectangle) (*Timer, error) {
 		font:     font,
 		pos:      dimensions.Min,
 		size:     dimensions.Size(),
-		timeSize: text.MeasureString(format(time.Duration(0)), font),
+		timeSize: text.BoundString(font, format(time.Duration(0))).Size(),
 	}, nil
 }
 
@@ -66,7 +66,7 @@ func format(d time.Duration) string {
 func (timer *Timer) Draw(screen *ebiten.Image) {
 	pos := timer.pos.Add(image.Point{
 		((timer.size.X - timer.timeSize.X) / 2),
-		timer.timeSize.Y + ((timer.size.Y - timer.timeSize.Y) / 2) - 8,
+		timer.timeSize.Y + ((timer.size.Y - timer.timeSize.Y) / 2),
 	})
 
 	var str string

@@ -58,26 +58,9 @@ func currentDesktop() desktop {
 var gsettingsRe = regexp.MustCompile(`\Auint32 (\d+)\s*\z`)
 
 func gnomeScale() float64 {
-	out, err := exec.Command("gsettings", "get", "org.gnome.desktop.interface", "scaling-factor").Output()
-	if err != nil {
-		if err == exec.ErrNotFound {
-			return 0
-		}
-		if _, ok := err.(*exec.ExitError); ok {
-			return 0
-		}
-		panic(err)
-	}
-	m := gsettingsRe.FindStringSubmatch(string(out))
-	s, err := strconv.Atoi(m[1])
-	if err != nil {
-		return 0
-	}
-	return float64(s)
-}
+	// TODO: Should 'monitors.xml' be loaded?
 
-func cinnamonScale() float64 {
-	out, err := exec.Command("gsettings", "get", "org.cinnamon.desktop.interface", "scaling-factor").Output()
+	out, err := exec.Command("gsettings", "get", "org.gnome.desktop.interface", "scaling-factor").Output()
 	if err != nil {
 		if err == exec.ErrNotFound {
 			return 0
