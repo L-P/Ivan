@@ -34,6 +34,7 @@ type UserInterface struct {
 	runnableOnUnfocused bool
 	vsync               bool
 	running             bool
+	initFocused         bool
 
 	sizeChanged bool
 	contextLost bool
@@ -47,6 +48,7 @@ type UserInterface struct {
 var theUI = &UserInterface{
 	sizeChanged: true,
 	vsync:       true,
+	initFocused: true,
 }
 
 func init() {
@@ -292,13 +294,6 @@ func init() {
 	bodyStyle.Set("margin", "0")
 	bodyStyle.Set("padding", "0")
 
-	// TODO: This is OK as long as the game is in an independent iframe.
-	// What if the canvas is embedded in a HTML directly?
-	document.Get("body").Call("addEventListener", "click", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-		canvas.Call("focus")
-		return nil
-	}))
-
 	canvasStyle := canvas.Get("style")
 	canvasStyle.Set("width", "100%")
 	canvasStyle.Set("height", "100%")
@@ -411,7 +406,9 @@ func init() {
 }
 
 func (u *UserInterface) Run(context driver.UIContext) error {
-	canvas.Call("focus")
+	if u.initFocused {
+		canvas.Call("focus")
+	}
 	u.running = true
 	ch := u.loop(context)
 	if runtime.GOARCH == "wasm" {
@@ -465,6 +462,13 @@ func (u *UserInterface) IsScreenTransparent() bool {
 func (u *UserInterface) ResetForFrame() {
 	u.updateSize()
 	u.input.resetForFrame()
+}
+
+func (u *UserInterface) SetInitFocused(focused bool) {
+	if u.running {
+		panic("ui: SetInitFocused must be called before the main loop")
+	}
+	u.initFocused = focused
 }
 
 func (u *UserInterface) Input() driver.Input {

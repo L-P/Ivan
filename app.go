@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	inputviewer "ivan/input-viewer"
 	"ivan/timer"
 	"ivan/tracker"
 	"log"
@@ -18,9 +19,10 @@ const configPath = "assets/config.json"
 var errCloseApp = errors.New("user requested app close")
 
 type App struct {
-	tracker *tracker.Tracker
-	timer   *timer.Timer
-	config  config
+	tracker     *tracker.Tracker
+	timer       *timer.Timer
+	inputViewer *inputviewer.InputViewer
+	config      config
 
 	saveDebounce func(func())
 }
@@ -61,6 +63,7 @@ func NewApp() (*App, error) {
 	return &App{
 		tracker:      tracker,
 		timer:        timer,
+		inputViewer:  nil, // initialized on first frame to ensure we have a gamepad
 		config:       config,
 		saveDebounce: debounce.New(1 * time.Second),
 	}, nil
@@ -70,6 +73,10 @@ func NewApp() (*App, error) {
 func (app *App) Update(screen *ebiten.Image) error {
 	_, wheel := ebiten.Wheel()
 	var shouldSave bool
+
+	if app.inputViewer == nil {
+		app.inputViewer = inputviewer.NewInputViewer(app.config.InputViewer)
+	}
 
 	switch {
 	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
@@ -147,6 +154,7 @@ func (app *App) Update(screen *ebiten.Image) error {
 func (app *App) Draw(screen *ebiten.Image) {
 	app.tracker.Draw(screen)
 	app.timer.Draw(screen)
+	app.inputViewer.Draw(screen)
 }
 
 func (app *App) Layout(w, h int) (int, int) {

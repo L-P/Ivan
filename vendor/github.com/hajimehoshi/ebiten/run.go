@@ -89,8 +89,9 @@ func CurrentFPS() float64 {
 }
 
 var (
-	isDrawingSkipped = int32(0)
-	currentMaxTPS    = int32(DefaultTPS)
+	isDrawingSkipped          = int32(0)
+	isScreenClearedEveryFrame = int32(1)
+	currentMaxTPS             = int32(DefaultTPS)
 )
 
 func setDrawingSkipped(skipped bool) {
@@ -99,6 +100,26 @@ func setDrawingSkipped(skipped bool) {
 		v = 1
 	}
 	atomic.StoreInt32(&isDrawingSkipped, v)
+}
+
+// SetScreenClearedEveryFrame enables or disables the clearing of the screen at the beginning of each frame.
+// The default value is false and the screen is cleared each frame by default.
+//
+// SetScreenClearedEveryFrame is concurrent-safe.
+func SetScreenClearedEveryFrame(cleared bool) {
+	v := int32(0)
+	if cleared {
+		v = 1
+	}
+	atomic.StoreInt32(&isScreenClearedEveryFrame, v)
+	theUIContext.setScreenClearedEveryFrame(cleared)
+}
+
+// IsScreenClearedEveryFrame returns true if the frame isn't cleared at the beginning.
+//
+// IsScreenClearedEveryFrame is concurrent-safe.
+func IsScreenClearedEveryFrame() bool {
+	return atomic.LoadInt32(&isScreenClearedEveryFrame) != 0
 }
 
 // IsDrawingSkipped returns true if rendering result is not adopted.
@@ -139,6 +160,9 @@ func IsRunningSlowly() bool {
 }
 
 // Run starts the main loop and runs the game.
+//
+// Deprecated: (as of 1.12.0) Use RunGame instead.
+//
 // f is a function which is called at every frame.
 // The argument (*Image) is the render target that represents the screen.
 // The screen size is based on the given values (width and height).
@@ -244,7 +268,7 @@ func (i *imageDumperGameWithDraw) Draw(screen *Image) {
 }
 
 // RunGame starts the main loop and runs the game.
-// game's Update function is called every tick to update the gmae logic.
+// game's Update function is called every tick to update the game logic.
 // game's Draw function is, if it exists, called every frame to draw the screen.
 // game's Layout function is called when necessary, and you can specify the logical screen size by the function.
 //
@@ -342,7 +366,7 @@ func ScreenSizeInFullscreen() (int, int) {
 	return uiDriver().ScreenSizeInFullscreen()
 }
 
-// MonitorSize is an old name for ScreenSizeInFullscreen
+// MonitorSize is an old name for ScreenSizeInFullscreen.
 //
 // Deprecated: (as of 1.8.0) Use ScreenSizeInFullscreen instead.
 func MonitorSize() (int, int) {
@@ -593,4 +617,18 @@ func IsScreenTransparent() bool {
 // SetScreenTransparent is concurrent-safe.
 func SetScreenTransparent(transparent bool) {
 	uiDriver().SetScreenTransparent(transparent)
+}
+
+// SetInitFocused sets whether the application is focused on show.
+// The default value is true, i.e., the application is focused.
+// Note that the application does not proceed if this is not focused by default.
+// This behavior can be changed by SetRunnableInBackground.
+//
+// SetInitFocused does nothing on mobile.
+//
+// SetInitFocused panics if this is called after the main loop.
+//
+// SetInitFocused is cuncurrent-safe.
+func SetInitFocused(focused bool) {
+	uiDriver().SetInitFocused(focused)
 }

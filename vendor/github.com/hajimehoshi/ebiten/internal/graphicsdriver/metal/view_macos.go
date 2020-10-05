@@ -18,14 +18,14 @@
 package metal
 
 import (
-	"unsafe"
-
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/mtl"
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ns"
 )
 
-func (v *view) setWindow(window unsafe.Pointer) {
+func (v *view) setWindow(window uintptr) {
+	// NSView can be updated e.g., fullscreen-state is switched.
 	v.window = window
+	v.windowChanged = true
 }
 
 func (v *view) setUIView(uiview uintptr) {
@@ -33,16 +33,17 @@ func (v *view) setUIView(uiview uintptr) {
 }
 
 func (v *view) update() {
-	// NSView can be changed anytime (probably). Set this everyframe.
+	if !v.windowChanged {
+		return
+	}
+
 	cocoaWindow := ns.NewWindow(v.window)
 	cocoaWindow.ContentView().SetLayer(v.ml)
 	cocoaWindow.ContentView().SetWantsLayer(true)
+	v.windowChanged = false
 }
 
 const (
-	// MTLTextureUsageRenderTarget might cause a problematic render result. Not sure the reason.
-	textureUsage = mtl.TextureUsageShaderRead
-
 	storageMode         = mtl.StorageModeManaged
 	resourceStorageMode = mtl.ResourceStorageModeManaged
 )

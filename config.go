@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"image"
+	inputviewer "ivan/input-viewer"
 	"ivan/tracker"
 	"os"
 )
@@ -15,7 +16,8 @@ type config struct {
 
 	DungeonInputMedallionOrder, DungeonInputDungeonKP []string
 
-	Dimensions struct {
+	InputViewer inputviewer.Config
+	Dimensions  struct {
 		ItemTracker image.Rectangle
 		Timer       image.Rectangle
 		HintTracker image.Rectangle

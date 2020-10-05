@@ -1,8 +1,7 @@
 # github.com/bep/debounce v1.2.0
 ## explicit
 github.com/bep/debounce
-# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200420212212-258d9bec320e
-## explicit
+# github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200707082815-5321531c36a2
 github.com/go-gl/glfw/v3.3/glfw
 github.com/go-gl/glfw/v3.3/glfw/glfw/deps
 github.com/go-gl/glfw/v3.3/glfw/glfw/deps/glad
@@ -14,7 +13,7 @@ github.com/go-gl/glfw/v3.3/glfw/glfw/src
 ## explicit
 github.com/golang/freetype/raster
 github.com/golang/freetype/truetype
-# github.com/hajimehoshi/ebiten v1.12.0-alpha.2
+# github.com/hajimehoshi/ebiten v1.12.0
 ## explicit
 github.com/hajimehoshi/ebiten
 github.com/hajimehoshi/ebiten/ebitenutil
@@ -23,6 +22,7 @@ github.com/hajimehoshi/ebiten/inpututil
 github.com/hajimehoshi/ebiten/internal/affine
 github.com/hajimehoshi/ebiten/internal/buffered
 github.com/hajimehoshi/ebiten/internal/clock
+github.com/hajimehoshi/ebiten/internal/colormcache
 github.com/hajimehoshi/ebiten/internal/devicescale
 github.com/hajimehoshi/ebiten/internal/driver
 github.com/hajimehoshi/ebiten/internal/glfw
@@ -40,7 +40,10 @@ github.com/hajimehoshi/ebiten/internal/mipmap
 github.com/hajimehoshi/ebiten/internal/packing
 github.com/hajimehoshi/ebiten/internal/png
 github.com/hajimehoshi/ebiten/internal/restorable
+github.com/hajimehoshi/ebiten/internal/shader
 github.com/hajimehoshi/ebiten/internal/shaderir
+github.com/hajimehoshi/ebiten/internal/shaderir/glsl
+github.com/hajimehoshi/ebiten/internal/shaderir/metal
 github.com/hajimehoshi/ebiten/internal/shareable
 github.com/hajimehoshi/ebiten/internal/thread
 github.com/hajimehoshi/ebiten/internal/uidriver/glfw
@@ -48,10 +51,10 @@ github.com/hajimehoshi/ebiten/internal/uidriver/js
 github.com/hajimehoshi/ebiten/internal/uidriver/mobile
 github.com/hajimehoshi/ebiten/internal/web
 github.com/hajimehoshi/ebiten/text
-# github.com/lithammer/fuzzysearch v1.1.0
+# github.com/lithammer/fuzzysearch v1.1.1
 ## explicit
 github.com/lithammer/fuzzysearch/fuzzy
-# golang.org/x/exp v0.0.0-20200513190911-00229845015e
+# golang.org/x/exp v0.0.0-20200924195034-c827fd4f18b9
 ## explicit
 golang.org/x/exp/shiny/driver/gldriver
 golang.org/x/exp/shiny/driver/internal/drawer
@@ -61,14 +64,14 @@ golang.org/x/exp/shiny/driver/internal/lifecycler
 golang.org/x/exp/shiny/driver/internal/win32
 golang.org/x/exp/shiny/driver/internal/x11key
 golang.org/x/exp/shiny/screen
-# golang.org/x/image v0.0.0-20200618115811-c13761719519
+# golang.org/x/image v0.0.0-20200927104501-e162460cd6b5
 ## explicit
 golang.org/x/image/font
 golang.org/x/image/font/gofont/gomono
 golang.org/x/image/font/gofont/goregular
 golang.org/x/image/math/f64
 golang.org/x/image/math/fixed
-# golang.org/x/mobile v0.0.0-20200329125638-4c31acba0007
+# golang.org/x/mobile v0.0.0-20200801112145-973feb4309de
 golang.org/x/mobile/app
 golang.org/x/mobile/app/internal/callfn
 golang.org/x/mobile/event/key
@@ -80,11 +83,12 @@ golang.org/x/mobile/event/touch
 golang.org/x/mobile/geom
 golang.org/x/mobile/gl
 golang.org/x/mobile/internal/mobileinit
-# golang.org/x/sys v0.0.0-20200620081246-981b61492c35
+# golang.org/x/sys v0.0.0-20201005065044-765f4ea38db3
 ## explicit
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/windows
-# golang.org/x/text v0.3.2
+# golang.org/x/text v0.3.3
+## explicit
 golang.org/x/text/runes
 golang.org/x/text/transform
 golang.org/x/text/unicode/norm

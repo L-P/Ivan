@@ -39,7 +39,7 @@ import (
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/mtl"
 )
 
-func (v *view) setWindow(window unsafe.Pointer) {
+func (v *view) setWindow(window uintptr) {
 	panic("metal: setWindow is not available on iOS")
 }
 
@@ -58,8 +58,6 @@ func (v *view) update() {
 }
 
 const (
-	textureUsage = mtl.TextureUsageShaderRead | mtl.TextureUsageRenderTarget
-
 	storageMode         = mtl.StorageModeShared
 	resourceStorageMode = mtl.ResourceStorageModeShared
 )

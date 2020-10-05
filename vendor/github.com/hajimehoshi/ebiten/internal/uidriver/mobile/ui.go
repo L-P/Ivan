@@ -17,10 +17,11 @@
 package mobile
 
 import (
-	"context"
 	"fmt"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
+	"time"
 	"unicode"
 
 	"golang.org/x/mobile/app"
@@ -35,6 +36,7 @@ import (
 	"github.com/hajimehoshi/ebiten/internal/driver"
 	"github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl"
 	"github.com/hajimehoshi/ebiten/internal/hooks"
+	"github.com/hajimehoshi/ebiten/internal/restorable"
 	"github.com/hajimehoshi/ebiten/internal/thread"
 )
 
@@ -48,7 +50,7 @@ var (
 	renderEndCh = make(chan struct{})
 
 	theUI = &UserInterface{
-		foreground: true,
+		foreground: 1,
 		errCh:      make(chan error),
 
 		// Give a default outside size so that the game can start without initializing them.
@@ -67,6 +69,8 @@ func Get() *UserInterface {
 }
 
 // Update is called from mobile/ebitenmobileview.
+//
+// Update must be called on the rendering thread.
 func (u *UserInterface) Update() error {
 	select {
 	case err := <-u.errCh:
@@ -79,38 +83,52 @@ func (u *UserInterface) Update() error {
 	}
 
 	renderCh <- struct{}{}
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		<-renderEndCh
-		if u.t != nil {
-			// If there is a (main) thread, ensure that cancel is called after every other task is done.
-			u.t.Call(func() error {
-				cancel()
-				return nil
-			})
-		} else {
-			cancel()
-		}
-	}()
-
 	if u.Graphics().IsGL() {
 		if u.glWorker == nil {
 			panic("mobile: glWorker must be initialized but not")
 		}
+
 		workAvailable := u.glWorker.WorkAvailable()
-	loop:
 		for {
+			// When the two channels don't receive for a while, call DoWork forcibly to avoid freeze
+			// (#1322, #1332).
+			//
+			// In theory, this timeout should not be necessary. However, it looks like this 'select'
+			// statement sometimes blocks forever on some Android devices like Pixel 4(a). Apparently
+			// workAvailable sometimes not receives even though there are queued OpenGL functions.
+			// Call DoWork for such case as a symptomatic treatment.
+			//
+			// Calling DoWork without waiting for workAvailable is safe. If there are no tasks, DoWork
+			// should return immediately.
+			//
+			// TODO: Fix the root cause. Note that this is pretty hard since e.g., logging affects the
+			// scheduling and freezing might not happen with logging.
+			t := time.NewTimer(100 * time.Millisecond)
+
 			select {
 			case <-workAvailable:
+				if !t.Stop() {
+					<-t.C
+				}
 				u.glWorker.DoWork()
-			case <-ctx.Done():
-				break loop
+			case <-renderEndCh:
+				if !t.Stop() {
+					<-t.C
+				}
+				return nil
+			case <-t.C:
+				u.glWorker.DoWork()
 			}
 		}
-		return nil
-	} else {
-		u.t.Loop(ctx)
 	}
+
+	go func() {
+		<-renderEndCh
+		u.t.Call(func() error {
+			return thread.BreakLoop
+		})
+	}()
+	u.t.Loop()
 	return nil
 }
 
@@ -119,7 +137,7 @@ type UserInterface struct {
 	outsideHeight float64
 
 	sizeChanged bool
-	foreground  bool
+	foreground  int32
 	errCh       chan error
 
 	// Used for gomobile-build
@@ -159,6 +177,7 @@ func (u *UserInterface) appMain(a app.App) {
 			switch e.Crosses(lifecycle.StageVisible) {
 			case lifecycle.CrossOn:
 				u.SetForeground(true)
+				restorable.OnContextLost()
 				glctx, _ = e.DrawContext.(gl.Context)
 				// Assume that glctx is always a same instance.
 				// Then, only once initializing should be enough.
@@ -235,9 +254,11 @@ func (u *UserInterface) appMain(a app.App) {
 }
 
 func (u *UserInterface) SetForeground(foreground bool) {
-	u.m.Lock()
-	u.foreground = foreground
-	u.m.Unlock()
+	var v int32
+	if foreground {
+		v = 1
+	}
+	atomic.StoreInt32(&u.foreground, v)
 
 	if foreground {
 		hooks.ResumeAudio()
@@ -280,8 +301,9 @@ func (u *UserInterface) run(context driver.UIContext, mainloop bool) (err error)
 
 	u.m.Lock()
 	u.sizeChanged = true
-	u.context = context
 	u.m.Unlock()
+
+	u.context = context
 
 	if u.Graphics().IsGL() {
 		var ctx gl.Context
@@ -302,7 +324,7 @@ func (u *UserInterface) run(context driver.UIContext, mainloop bool) (err error)
 	}
 
 	// Force to set the screen size
-	u.updateSize()
+	u.layoutIfNeeded()
 	for {
 		if err := u.update(); err != nil {
 			return err
@@ -310,10 +332,11 @@ func (u *UserInterface) run(context driver.UIContext, mainloop bool) (err error)
 	}
 }
 
-func (u *UserInterface) updateSize() {
+// layoutIfNeeded must be called on the same goroutine as update().
+func (u *UserInterface) layoutIfNeeded() {
 	var outsideWidth, outsideHeight float64
 
-	u.m.Lock()
+	u.m.RLock()
 	sizeChanged := u.sizeChanged
 	if sizeChanged {
 		if u.gbuildWidthPx == 0 || u.gbuildHeightPx == 0 {
@@ -327,7 +350,7 @@ func (u *UserInterface) updateSize() {
 		}
 	}
 	u.sizeChanged = false
-	u.m.Unlock()
+	u.m.RUnlock()
 
 	if sizeChanged {
 		u.context.Layout(outsideWidth, outsideHeight)
@@ -356,8 +379,9 @@ func (u *UserInterface) ScreenSizeInFullscreen() (int, int) {
 }
 
 // SetOutsideSize is called from mobile/ebitenmobileview.
+//
+// SetOutsideSize is concurrent safe.
 func (u *UserInterface) SetOutsideSize(outsideWidth, outsideHeight float64) {
-	// Called from ebitenmobileview.
 	u.m.Lock()
 	if u.outsideWidth != outsideWidth || u.outsideHeight != outsideHeight {
 		u.outsideWidth = outsideWidth
@@ -372,10 +396,11 @@ func (u *UserInterface) setGBuildSize(widthPx, heightPx int) {
 	u.gbuildWidthPx = widthPx
 	u.gbuildHeightPx = heightPx
 	u.sizeChanged = true
+	u.m.Unlock()
+
 	u.once.Do(func() {
 		close(u.setGBuildSizeCh)
 	})
-	u.m.Unlock()
 }
 
 func (u *UserInterface) adjustPosition(x, y int) (int, int) {
@@ -400,10 +425,7 @@ func (u *UserInterface) SetFullscreen(fullscreen bool) {
 }
 
 func (u *UserInterface) IsFocused() bool {
-	u.m.Lock()
-	fg := u.foreground
-	u.m.Unlock()
-	return fg
+	return atomic.LoadInt32(&u.foreground) != 0
 }
 
 func (u *UserInterface) IsRunnableOnUnfocused() bool {
@@ -435,8 +457,12 @@ func (u *UserInterface) IsScreenTransparent() bool {
 }
 
 func (u *UserInterface) ResetForFrame() {
-	u.updateSize()
+	u.layoutIfNeeded()
 	u.input.resetForFrame()
+}
+
+func (u *UserInterface) SetInitFocused(focused bool) {
+	// Do nothing
 }
 
 func (u *UserInterface) Input() driver.Input {

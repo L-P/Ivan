@@ -23,6 +23,7 @@ import (
 	mgl "golang.org/x/mobile/gl"
 
 	"github.com/hajimehoshi/ebiten/internal/driver"
+	"github.com/hajimehoshi/ebiten/internal/shaderir"
 )
 
 type (
@@ -68,8 +69,8 @@ type programID uint32
 
 var (
 	invalidTexture     = textureNative(mgl.Texture{})
-	invalidFramebuffer = framebufferNative(mgl.Framebuffer{(1 << 32) - 1})
-	invalidUniform     = uniformLocation(mgl.Uniform{-1})
+	invalidFramebuffer = framebufferNative(mgl.Framebuffer{Value: (1 << 32) - 1})
+	invalidUniform     = uniformLocation(mgl.Uniform{Value: -1})
 )
 
 func getProgramID(p program) programID {
@@ -91,6 +92,7 @@ const (
 	dstAlpha         = operation(mgl.DST_ALPHA)
 	oneMinusSrcAlpha = operation(mgl.ONE_MINUS_SRC_ALPHA)
 	oneMinusDstAlpha = operation(mgl.ONE_MINUS_DST_ALPHA)
+	dstColor         = operation(mgl.DST_COLOR)
 )
 
 type contextImpl struct {
@@ -266,7 +268,8 @@ func (c *context) newProgram(shaders []shader, attributes []string) (program, er
 	gl.LinkProgram(p)
 	v := gl.GetProgrami(p, mgl.LINK_STATUS)
 	if v == mgl.FALSE {
-		return program{}, errors.New("opengl: program error")
+		info := gl.GetProgramInfoLog(p)
+		return program{}, fmt.Errorf("opengl: program error: %s", info)
 	}
 	return program(p), nil
 }
@@ -310,21 +313,35 @@ func (c *context) uniformFloat(p program, location string, v float32) bool {
 	return true
 }
 
-func (c *context) uniformFloats(p program, location string, v []float32) bool {
+func (c *context) uniformFloats(p program, location string, v []float32, typ shaderir.Type) bool {
 	gl := c.gl
 	l := c.locationCache.GetUniformLocation(c, p, location)
 	if l == invalidUniform {
 		return false
 	}
-	switch len(v) {
-	case 2:
+
+	base := typ.Main
+	if base == shaderir.Array {
+		base = typ.Sub[0].Main
+	}
+
+	switch base {
+	case shaderir.Float:
+		gl.Uniform1fv(mgl.Uniform(l), v)
+	case shaderir.Vec2:
 		gl.Uniform2fv(mgl.Uniform(l), v)
-	case 4:
+	case shaderir.Vec3:
+		gl.Uniform3fv(mgl.Uniform(l), v)
+	case shaderir.Vec4:
 		gl.Uniform4fv(mgl.Uniform(l), v)
-	case 16:
+	case shaderir.Mat2:
+		gl.UniformMatrix2fv(mgl.Uniform(l), v)
+	case shaderir.Mat3:
+		gl.UniformMatrix3fv(mgl.Uniform(l), v)
+	case shaderir.Mat4:
 		gl.UniformMatrix4fv(mgl.Uniform(l), v)
 	default:
-		panic(fmt.Sprintf("opengl: invalid uniform floats num: %d", len(v)))
+		panic(fmt.Sprintf("opengl: unexpected type: %s", typ.String()))
 	}
 	return true
 }
