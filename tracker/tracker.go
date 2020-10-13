@@ -30,6 +30,7 @@ type Tracker struct {
 	locations   []string
 	input       kbInput
 	binds       map[string]string
+	alwaysHints map[string]image.Point // name => sheet pos
 
 	woths, barrens, sometimes []string
 	always                    [7]string // in order: skull, bigg, 30, 40, 50, OOT, frogs 2
@@ -46,16 +47,16 @@ const (
 
 type ZoneItemMap [9][9]string
 
-func New(
+func New( // TODO pass config
 	dimensions image.Rectangle,
 	hintDimensions image.Rectangle,
 	items []Item,
 	zoneItemMap ZoneItemMap,
 	locations []string,
 	binds map[string]string,
+	alwaysHints map[string]image.Point,
 	dungeonInputMedallionOrder []string,
 	dungeonInputDungeonKP []string,
-
 ) (*Tracker, error) {
 	tracker := &Tracker{
 		pos:      dimensions.Min,
@@ -68,6 +69,7 @@ func New(
 
 		locations:   locations,
 		binds:       binds,
+		alwaysHints: alwaysHints,
 		zoneItemMap: zoneItemMap,
 	}
 

@@ -115,6 +115,16 @@
         }
     },
 
+    "AlwaysHints": {
+        "Skull Mask":          { "X": 105, "Y": 350 },
+        "Biggoron Sword":      { "X": 140, "Y": 350 },
+        "Ocarina of Time":     { "X": 175, "Y": 350 },
+        "Frogs 2":             { "X": 210, "Y": 350 },
+        "30 Gold Skullutulas": { "X": 0,   "Y": 350 },
+        "40 Gold Skullutulas": { "X": 35,  "Y": 350 },
+        "50 Gold Skullutulas": { "X": 70,  "Y": 350 }
+    },
+
     "Binds": {
         "0": "StartItemInput",
         ".": "DowngradeNext",

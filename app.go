@@ -49,6 +49,7 @@ func NewApp() (*App, error) {
 		config.ZoneItemMap,
 		config.Locations,
 		config.Binds,
+		config.AlwaysHints,
 		config.DungeonInputMedallionOrder,
 		config.DungeonInputDungeonKP,
 	)

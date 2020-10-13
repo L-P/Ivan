@@ -47,6 +47,7 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 	tracker.drawInputState(screen)
 	tracker.drawHints(screen)
 }
+
 func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 	if slot <= 0 || slot > 9 {
 		return
@@ -150,9 +151,9 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 				str += " (" + match + ")"
 			}
 		} else if tracker.input.textInputFor == hintTypeAlways {
-			index, _ := parseAlways(string(tracker.input.buf))
+			index, _ := tracker.parseAlways(string(tracker.input.buf))
 			if index > -1 {
-				str += fmt.Sprintf(` (%s)`, alwaysLocations[index])
+				str += fmt.Sprintf(` (%s)`, tracker.getAlwaysLocations()[index])
 			}
 		}
 
@@ -179,4 +180,92 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	}
 
 	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
+}
+
+func (tracker *Tracker) drawHints(screen *ebiten.Image) {
+	lineHeight := tracker.hintSize.Y / maxHintsPerRow
+	pos := tracker.hintPos.Add(margins)
+	op := ebiten.DrawImageOptions{}
+
+	for k, v := range tracker.getDrawableHintList() {
+		if k > 0 && k%maxHintsPerRow == 0 {
+			pos = pos.Add(image.Point{tracker.hintSize.X / 2, -maxHintsPerRow * lineHeight})
+		}
+
+		ebitenutil.DrawRect(
+			screen,
+			float64(pos.X-margins.X), float64(pos.Y-margins.Y),
+			float64(tracker.hintSize.X/2),
+			float64(tracker.hintSize.Y/maxHintsPerRow),
+			v.bgColor,
+		)
+
+		if v.gfx != nil {
+			op.GeoM.Reset()
+			op.GeoM.Translate(
+				float64(pos.X),
+				float64(pos.Y-margins.Y),
+			)
+
+			screen.DrawImage(tracker.sheetEnabled.SubImage(*v.gfx).(*ebiten.Image), &op)
+			text.Draw(screen, v.text, tracker.fontSmall, pos.X+25, pos.Y, color.Black)
+		} else {
+			text.Draw(screen, v.text, tracker.fontSmall, pos.X, pos.Y, color.Black)
+		}
+
+		pos.Y += lineHeight
+	}
+}
+
+type drawableHintEntry struct {
+	text    string
+	gfx     *image.Rectangle
+	bgColor color.RGBA
+}
+
+var margins = image.Point{3, 15}
+
+const (
+	maxHintsPerRow = 10
+)
+
+func (tracker *Tracker) getDrawableHintList() []drawableHintEntry {
+	entries := make(
+		[]drawableHintEntry, 0,
+		len(tracker.woths)+len(tracker.barrens)+
+			len(tracker.sometimes)+len(tracker.always),
+	)
+
+	for _, v := range tracker.woths {
+		entries = append(entries, drawableHintEntry{text: v, bgColor: color.RGBA{212, 234, 107, 0xFF}})
+	}
+
+	for _, v := range tracker.barrens {
+		entries = append(entries, drawableHintEntry{text: v, bgColor: color.RGBA{255, 109, 109, 0xFF}})
+	}
+
+	for _, v := range tracker.sometimes {
+		entries = append(entries, drawableHintEntry{text: v, bgColor: color.RGBA{180, 198, 231, 0xFF}})
+	}
+
+	for k, v := range tracker.always {
+		name := tracker.getAlwaysLocations()[k]
+		if v == "" {
+			continue
+		}
+
+		entries = append(entries, drawableHintEntry{
+			text:    v,
+			bgColor: color.RGBA{255, 230, 153, 0xFF},
+			gfx: &image.Rectangle{
+				tracker.alwaysHints[name],
+				image.Point{
+					tracker.alwaysHints[name].X + itemSpriteWidth,
+					tracker.alwaysHints[name].Y + itemSpriteHeight,
+				},
+			},
+		})
+	}
+
+	return entries
 }

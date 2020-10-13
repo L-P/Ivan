@@ -13,6 +13,7 @@ type config struct {
 	Items       []tracker.Item
 	ZoneItemMap [9][9]string
 	Locations   []string // woth/barren "simple" locations
+	AlwaysHints map[string]image.Point
 
 	DungeonInputMedallionOrder, DungeonInputDungeonKP []string
 
