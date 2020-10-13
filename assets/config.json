@@ -1,16 +1,118 @@
 {
     "InputViewer": {
-        "A":      {"Type": "Button", "ID": 1, "Pos": {"X": 130, "Y": 384}, "Color": {"G": 255}},
-        "B":      {"Type": "Button", "ID": 3, "Pos": {"X": 134, "Y": 384}, "Color": {"R": 255}},
-        "Start":  {"Type": "Button", "ID": 7, "Pos": {"X": 138, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
-        "CLeft":  {"Type": "Button", "ID": 0, "Pos": {"X": 142, "Y": 388}, "Color": {"R": 255, "G": 255}},
-        "CUp":    {"Type": "Axis",   "ID": 4, "Dir":  1, "Pos": {"X": 146, "Y": 384}, "Color": {"R": 255, "G": 255}},
-        "CDown":  {"Type": "Button", "ID": 4,  "Pos": {"X": 146, "Y": 392}, "Color": {"R": 255, "G": 255}},
-        "CRight": {"Type": "Button", "ID": 2, "Pos": {"X": 150, "Y": 388}, "Color": {"R": 255, "G": 255}},
-        "Z":      {"Type": "Axis",   "ID": 2, "Pos": {"X": 154, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
-        "R":      {"Type": "Axis",   "ID": 5, "Pos": {"X": 158, "Y": 384}, "Color": {"R": 255, "G": 255, "B": 255}},
+        "A": {
+            "Type": "Button",
+            "ID": 1,
+            "Pos": {
+                "X": 282,
+                "Y": 440
+            },
+            "SheetPos": {
+                "X": 175,
+                "Y": 315
+            }
+        },
 
-        "J": {"Type": "Axis", "IDX": 0, "IDY": 1, "Pos": {"X": 122, "Y": 388}, "Color": {"R": 255, "G": 255, "B": 255}}
+        "B": {
+            "Type": "Button",
+            "ID": 3,
+            "Pos": {
+                "X": 263,
+                "Y": 443
+            },
+            "SheetPos": {
+                "X": 210,
+                "Y": 315
+            }
+        },
+
+        "Start": {
+            "Type": "Button",
+            "ID": 7,
+            "Pos": {
+                "X": 272,
+                "Y": 409
+            },
+            "SheetPos": {
+                "X": 245,
+                "Y": 315
+            }
+        },
+
+        "CUp": {
+            "Type": "Axis",
+            "ID": 4,
+            "Dir": 1,
+            "Pos": {
+                "X": 272,
+                "Y": 396
+            },
+            "SheetPos": {
+                "X": 280,
+                "Y": 315
+            }
+        },
+
+        "CRight": {
+            "Type": "Button",
+            "ID": 2,
+            "Pos": {
+                "X": 285,
+                "Y": 409
+            },
+            "SheetPos": {
+                "X": 315,
+                "Y": 315
+            }
+        },
+
+        "CDown": {
+            "Type": "Button",
+            "ID": 4,
+            "Pos": {
+                "X": 272,
+                "Y": 422
+            },
+            "SheetPos": {
+                "X": 350,
+                "Y": 315
+            }
+        },
+
+        "CLeft": {
+            "Type": "Button",
+            "ID": 0,
+            "Pos": {
+                "X": 259,
+                "Y": 409
+            },
+            "SheetPos": {
+                "X": 385,
+                "Y": 315
+            }
+        },
+
+        "Z": {"Type": "Axis",   "ID": 2, "Pos": {"X": 258, "Y": 395}, "Color": {"R": 255, "G": 255, "B": 255}},
+        "R": {"Type": "Axis",   "ID": 5, "Pos": {"X": 284, "Y": 395}, "Color": {"R": 255, "G": 255, "B": 255}},
+
+        "J": {
+            "Type": "Axis",
+            "IDX": 0,
+            "IDY": 1,
+            "Pos": {
+                "X": 25,
+                "Y": 415
+            },
+            "SheetPos": {
+                "X": 140,
+                "Y": 315
+            },
+            "Color": {
+                "R": 255,
+                "G": 255,
+                "B": 255
+            }
+        }
     },
 
     "Binds": {
@@ -63,6 +165,7 @@
             "Max": {"X": 294, "Y": 661}
         }
     },
+
     "ZoneItemMap": [
         [
             "Kokiri Boots", "Iron Boots", "Hover Boots",
@@ -108,6 +211,7 @@
             "Song of Storms"
         ]
     ],
+
     "Locations": [
         "Bottom of the Well",
         "Death Mountain Crater",
@@ -145,6 +249,7 @@
         "Zora's Fountain",
         "Zora's River"
     ],
+
     "Items": [
         {
             "Name": "Deku Stick",
