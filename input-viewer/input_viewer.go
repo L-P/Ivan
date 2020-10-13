@@ -60,7 +60,6 @@ type InputViewer struct {
 func NewInputViewer(config Config) *InputViewer {
 	ids := ebiten.GamepadIDs()
 	if len(ids) == 0 {
-		log.Printf("warning: no gamepad found")
 		return nil
 	}
 	id := ids[0]
