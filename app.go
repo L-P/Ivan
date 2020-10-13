@@ -141,7 +141,7 @@ func (app *App) Update(screen *ebiten.Image) error {
 
 	if shouldSave {
 		app.saveDebounce(func() {
-			log.Printf("saving")
+			log.Printf("info: saving")
 			if err := app.tracker.Save(); err != nil {
 				log.Printf("error: unable to write save: %s", err)
 			}
