@@ -5,8 +5,8 @@ import (
 	"image/color"
 	"log"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -74,11 +74,11 @@ func (ij InputJoystick) SheetRect() image.Rectangle {
 	)
 }
 
-func (ij InputJoystick) axes(id int) (float64, float64) {
+func (ij InputJoystick) axes(id ebiten.GamepadID) (float64, float64) {
 	return ebiten.GamepadAxis(id, ij.IDX), ebiten.GamepadAxis(id, ij.IDY)
 }
 
-func (ib InputButton) pressed(id int) bool {
+func (ib InputButton) pressed(id ebiten.GamepadID) bool {
 	dir := 1.0
 	if dir < 0 {
 		dir = -1
@@ -96,7 +96,7 @@ func (ib InputButton) pressed(id int) bool {
 
 type InputViewer struct {
 	config Config
-	id     int
+	id     ebiten.GamepadID
 
 	sheetEnabled, sheetDisabled *ebiten.Image
 }
@@ -126,7 +126,7 @@ func NewInputViewer(config Config) *InputViewer {
 
 	var err error
 	for _, v := range images {
-		*v.img, _, err = ebitenutil.NewImageFromFile(v.path, ebiten.FilterDefault)
+		*v.img, _, err = ebitenutil.NewImageFromFile(v.path)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -151,12 +151,10 @@ func (iv *InputViewer) drawJoystick(screen *ebiten.Image) {
 	j := iv.config.J
 	op.GeoM.Reset()
 	op.GeoM.Translate(float64(j.Rect().Min.X), float64(j.Rect().Min.Y))
-	if err := screen.DrawImage(
+	screen.DrawImage(
 		iv.sheetEnabled.SubImage(j.SheetRect()).(*ebiten.Image),
 		&op,
-	); err != nil {
-		log.Fatal(err)
-	}
+	)
 	x, y := j.axes(iv.id)
 	ebitenutil.DrawRect(
 		screen,
@@ -183,12 +181,10 @@ func (iv *InputViewer) drawButtons(screen *ebiten.Image) {
 
 		op.GeoM.Reset()
 		op.GeoM.Translate(float64(v.Rect().Min.X), float64(v.Rect().Min.Y))
-		if err := screen.DrawImage(
+		screen.DrawImage(
 			sheet.SubImage(v.SheetRect()).(*ebiten.Image),
 			&op,
-		); err != nil {
-			log.Fatal(err)
-		}
+		)
 	}
 }
 

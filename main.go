@@ -9,7 +9,7 @@ import (
 
 	_ "image/png"
 
-	"github.com/hajimehoshi/ebiten"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // Version holds the compile-time version string of Ivan.

@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/bep/debounce"
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/inpututil"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const configPath = "assets/config.json"
@@ -70,7 +70,7 @@ func NewApp() (*App, error) {
 }
 
 // nolint: funlen
-func (app *App) Update(screen *ebiten.Image) error {
+func (app *App) Update() error {
 	_, wheel := ebiten.Wheel()
 	var shouldSave bool
 

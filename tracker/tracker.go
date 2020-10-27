@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 )
@@ -95,7 +95,7 @@ func (tracker *Tracker) loadResources() (err error) {
 	}
 
 	for _, v := range images {
-		*v.img, _, err = ebitenutil.NewImageFromFile(v.path, ebiten.FilterDefault)
+		*v.img, _, err = ebitenutil.NewImageFromFile(v.path)
 		if err != nil {
 			return err
 		}

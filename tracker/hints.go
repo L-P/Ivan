@@ -7,8 +7,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/text"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 

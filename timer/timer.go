@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/golang/freetype/truetype"
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/text"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/text"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gomono"
 )

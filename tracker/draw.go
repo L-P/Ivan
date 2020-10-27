@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"log"
 	"strconv"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
-	"github.com/hajimehoshi/ebiten/text"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/text"
 )
 
 func (tracker *Tracker) Draw(screen *ebiten.Image) {
@@ -24,18 +23,16 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 			op.GeoM.Reset()
 			op.GeoM.Translate(float64(pos.X), float64(pos.Y))
 
-			if err := screen.DrawImage(
+			screen.DrawImage(
 				sheet.SubImage(tracker.items[k].SheetRect()).(*ebiten.Image),
 				&op,
-			); err != nil {
-				log.Fatal(err)
-			}
+			)
 		}
 	}
 
-	_ = screen.DrawImage(tracker.background, nil)
+	screen.DrawImage(tracker.background, nil)
 	if tracker.kbInputStateIsAny(inputStateItemKPZoneInput, inputStateItemInput) {
-		_ = screen.DrawImage(tracker.backgroundHelp, nil)
+		screen.DrawImage(tracker.backgroundHelp, nil)
 		if tracker.input.activeKPZone > 0 {
 			tracker.drawActiveItemSlot(screen, tracker.input.activeKPZone)
 		}
