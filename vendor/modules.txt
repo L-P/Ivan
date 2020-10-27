@@ -13,44 +13,44 @@ github.com/go-gl/glfw/v3.3/glfw/glfw/src
 ## explicit
 github.com/golang/freetype/raster
 github.com/golang/freetype/truetype
-# github.com/hajimehoshi/ebiten v1.12.0
+# github.com/hajimehoshi/ebiten/v2 v2.0.0
 ## explicit
-github.com/hajimehoshi/ebiten
-github.com/hajimehoshi/ebiten/ebitenutil
-github.com/hajimehoshi/ebiten/ebitenutil/internal/assets
-github.com/hajimehoshi/ebiten/inpututil
-github.com/hajimehoshi/ebiten/internal/affine
-github.com/hajimehoshi/ebiten/internal/buffered
-github.com/hajimehoshi/ebiten/internal/clock
-github.com/hajimehoshi/ebiten/internal/colormcache
-github.com/hajimehoshi/ebiten/internal/devicescale
-github.com/hajimehoshi/ebiten/internal/driver
-github.com/hajimehoshi/ebiten/internal/glfw
-github.com/hajimehoshi/ebiten/internal/graphics
-github.com/hajimehoshi/ebiten/internal/graphicscommand
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ca
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/mtl
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/metal/ns
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl
-github.com/hajimehoshi/ebiten/internal/graphicsdriver/opengl/gl
-github.com/hajimehoshi/ebiten/internal/hooks
-github.com/hajimehoshi/ebiten/internal/jsutil
-github.com/hajimehoshi/ebiten/internal/mipmap
-github.com/hajimehoshi/ebiten/internal/packing
-github.com/hajimehoshi/ebiten/internal/png
-github.com/hajimehoshi/ebiten/internal/restorable
-github.com/hajimehoshi/ebiten/internal/shader
-github.com/hajimehoshi/ebiten/internal/shaderir
-github.com/hajimehoshi/ebiten/internal/shaderir/glsl
-github.com/hajimehoshi/ebiten/internal/shaderir/metal
-github.com/hajimehoshi/ebiten/internal/shareable
-github.com/hajimehoshi/ebiten/internal/thread
-github.com/hajimehoshi/ebiten/internal/uidriver/glfw
-github.com/hajimehoshi/ebiten/internal/uidriver/js
-github.com/hajimehoshi/ebiten/internal/uidriver/mobile
-github.com/hajimehoshi/ebiten/internal/web
-github.com/hajimehoshi/ebiten/text
+github.com/hajimehoshi/ebiten/v2
+github.com/hajimehoshi/ebiten/v2/ebitenutil
+github.com/hajimehoshi/ebiten/v2/ebitenutil/internal/assets
+github.com/hajimehoshi/ebiten/v2/inpututil
+github.com/hajimehoshi/ebiten/v2/internal/affine
+github.com/hajimehoshi/ebiten/v2/internal/buffered
+github.com/hajimehoshi/ebiten/v2/internal/clock
+github.com/hajimehoshi/ebiten/v2/internal/colormcache
+github.com/hajimehoshi/ebiten/v2/internal/devicescale
+github.com/hajimehoshi/ebiten/v2/internal/driver
+github.com/hajimehoshi/ebiten/v2/internal/glfw
+github.com/hajimehoshi/ebiten/v2/internal/graphics
+github.com/hajimehoshi/ebiten/v2/internal/graphicscommand
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal/ca
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal/mtl
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal/ns
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl
+github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gl
+github.com/hajimehoshi/ebiten/v2/internal/hooks
+github.com/hajimehoshi/ebiten/v2/internal/jsutil
+github.com/hajimehoshi/ebiten/v2/internal/mipmap
+github.com/hajimehoshi/ebiten/v2/internal/packing
+github.com/hajimehoshi/ebiten/v2/internal/png
+github.com/hajimehoshi/ebiten/v2/internal/restorable
+github.com/hajimehoshi/ebiten/v2/internal/shader
+github.com/hajimehoshi/ebiten/v2/internal/shaderir
+github.com/hajimehoshi/ebiten/v2/internal/shaderir/glsl
+github.com/hajimehoshi/ebiten/v2/internal/shaderir/metal
+github.com/hajimehoshi/ebiten/v2/internal/shareable
+github.com/hajimehoshi/ebiten/v2/internal/thread
+github.com/hajimehoshi/ebiten/v2/internal/uidriver/glfw
+github.com/hajimehoshi/ebiten/v2/internal/uidriver/js
+github.com/hajimehoshi/ebiten/v2/internal/uidriver/mobile
+github.com/hajimehoshi/ebiten/v2/internal/web
+github.com/hajimehoshi/ebiten/v2/text
 # github.com/lithammer/fuzzysearch v1.1.1
 ## explicit
 github.com/lithammer/fuzzysearch/fuzzy
@@ -83,8 +83,7 @@ golang.org/x/mobile/event/touch
 golang.org/x/mobile/geom
 golang.org/x/mobile/gl
 golang.org/x/mobile/internal/mobileinit
-# golang.org/x/sys v0.0.0-20201005065044-765f4ea38db3
-## explicit
+# golang.org/x/sys v0.0.0-20201009025420-dfb3f7c4e634
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.3
