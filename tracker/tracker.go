@@ -327,4 +327,14 @@ func (tracker *Tracker) setInitialItems() {
 	tracker.changeItem(tracker.getItemIndexByName("Gold Skulltula Token"), true)
 	tracker.changeItem(tracker.getItemIndexByName("Kokiri Tunic"), true)
 	tracker.changeItem(tracker.getItemIndexByName("Kokiri Boots"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Master Sword"), true)
+
+	// OOTR S4 settings.
+	tracker.changeItem(tracker.getItemIndexByName("Deku Shield"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Deku Nut"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Deku Stick"), true)
+	tracker.changeItem(tracker.getItemIndexByName("Ocarina"), true)
+	for i := 0; i < 3; i++ { // get Zelda's Letter
+		tracker.changeItem(tracker.getItemIndexByName("Mask Trade Sequence"), true)
+	}
 }
