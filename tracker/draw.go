@@ -136,6 +136,8 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	var str string
 
 	switch tracker.input.state {
+	case inputStateIdle:
+		// NOP
 	case inputStateItemInput, inputStateItemKPZoneInput:
 		if tracker.input.downgradeNextItem {
 			str = "-"

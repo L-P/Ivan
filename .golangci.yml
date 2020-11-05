@@ -6,3 +6,4 @@ linters:
     - gomnd
     - wsl
     - gochecknoglobals
+    - nlreturn

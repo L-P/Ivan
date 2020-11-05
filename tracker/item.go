@@ -165,7 +165,7 @@ var dungeons = []string{
 	"Spirit", "Shdw",
 }
 
-// map the dungeons global with actual dungeon names
+// map the dungeons global with actual dungeon names.
 func dungeonToDungeonIndex(str string) int {
 	return map[string]int{
 		"":                 0,

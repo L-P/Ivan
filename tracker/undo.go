@@ -37,6 +37,7 @@ func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
 		IsUpgrade: isUpgrade,
 	})
 }
+
 func (tracker *Tracker) undo() {
 	if len(tracker.undoStack) == 0 {
 		log.Printf("no action to undo")
