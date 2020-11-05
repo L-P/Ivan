@@ -37,6 +37,7 @@ func (tracker *Tracker) appendToUndoStack(itemIndex int, isUpgrade bool) {
 		IsUpgrade: isUpgrade,
 	})
 }
+
 func (tracker *Tracker) undo() {
 	if len(tracker.undoStack) == 0 {
 		log.Printf("no action to undo")
@@ -56,7 +57,7 @@ func (tracker *Tracker) undo() {
 		case hintTypeSometimes:
 			tracker.sometimes = tracker.sometimes[:len(tracker.sometimes)-1]
 		case hintTypeAlways:
-			index, _ := parseAlways(entry.HintText)
+			index, _ := tracker.parseAlways(entry.HintText)
 			tracker.setAlways(index, "")
 		}
 		return
@@ -77,6 +78,10 @@ func (tracker *Tracker) undoWOTH(entry undoStackEntry) {
 			tracker.woths[i] = strings.TrimSuffix(tracker.woths[i], doubleWOTHMarker)
 			return
 		}
+	}
+
+	if len(tracker.woths) == 0 {
+		return
 	}
 
 	tracker.woths = tracker.woths[:len(tracker.woths)-1]

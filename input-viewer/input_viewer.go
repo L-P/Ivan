@@ -188,7 +188,7 @@ func (iv *InputViewer) drawButtons(screen *ebiten.Image) {
 	}
 }
 
-// TODO replace when a better idea is found for Z/R
+// TODO replace when a better idea is found for Z/R.
 func (iv *InputViewer) legacyDraw(screen *ebiten.Image) {
 	for _, v := range []*InputButton{
 		&iv.config.Z, &iv.config.R,

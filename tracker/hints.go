@@ -1,25 +1,16 @@
 package tracker
 
 import (
-	"image"
-	"image/color"
 	"log"
 	"sort"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 const doubleWOTHMarker = "*"
 
 func (tracker *Tracker) AddWOTH(str string) bool {
-	if len(tracker.woths) >= 5 {
-		log.Printf("warning: WotHs maxed out at 5")
-		return false
-	}
-
 	// Handle Double-WOTH
 	// Each hint is doubled, two WoTH mean you have either seen all of them
 	// _or_ there might be two WoTH hints for the same area.
@@ -36,27 +27,17 @@ func (tracker *Tracker) AddWOTH(str string) bool {
 }
 
 func (tracker *Tracker) AddBarren(str string) bool {
-	if len(tracker.barrens) >= 3 {
-		log.Printf("warning: barrens maxed out at 3")
-		return false
-	}
-
 	tracker.barrens = append(tracker.barrens, str)
 	return true
 }
 
 func (tracker *Tracker) AddSometimes(str string) bool {
-	if len(tracker.sometimes) >= 5 {
-		log.Printf("warning: sometimes maxed out at 5")
-		return false
-	}
-
 	tracker.sometimes = append(tracker.sometimes, str)
 	return true
 }
 
 func (tracker *Tracker) AddAlways(str string) bool {
-	index, item := parseAlways(str)
+	index, item := tracker.parseAlways(str)
 	if index > -1 {
 		tracker.setAlways(index, item)
 		return true
@@ -66,15 +47,19 @@ func (tracker *Tracker) AddAlways(str string) bool {
 	return false
 }
 
-var alwaysLocations = []string{ // nolint:gochecknoglobals
-	"Skull Mask", "Biggoron Sword",
-	"30 Gold Skullutulas",
-	"40 Gold Skullutulas",
-	"50 Gold Skullutulas",
-	"Ocarina of Time", "Frog 2",
+func (tracker *Tracker) getAlwaysLocations() []string {
+	return []string{
+		"Skull Mask",
+		"Biggoron Sword",
+		"Ocarina of Time",
+		"Frogs 2",
+		"30 Gold Skullutulas",
+		"40 Gold Skullutulas",
+		"50 Gold Skullutulas",
+	}
 }
 
-func parseAlways(str string) (int, string) {
+func (tracker *Tracker) parseAlways(str string) (int, string) {
 	parts := strings.SplitN(str, " ", 2)
 	if len(parts) < 2 {
 		parts = append(parts, "")
@@ -83,7 +68,7 @@ func parseAlways(str string) (int, string) {
 		return -1, ""
 	}
 
-	matches := fuzzy.RankFindFold(parts[0], alwaysLocations)
+	matches := fuzzy.RankFindFold(parts[0], tracker.getAlwaysLocations())
 	if len(matches) == 0 {
 		return -1, ""
 	}
@@ -94,15 +79,15 @@ func parseAlways(str string) (int, string) {
 		return 0, parts[1]
 	case "Biggoron Sword":
 		return 1, parts[1]
-	case "30 Gold Skullutulas":
-		return 2, parts[1]
-	case "40 Gold Skullutulas":
-		return 3, parts[1]
-	case "50 Gold Skullutulas":
-		return 4, parts[1]
 	case "Ocarina of Time":
-		return 5, parts[1]
+		return 2, parts[1]
 	case "Frog 2":
+		return 3, parts[1]
+	case "30 Gold Skullutulas":
+		return 4, parts[1]
+	case "40 Gold Skullutulas":
+		return 5, parts[1]
+	case "50 Gold Skullutulas":
 		return 6, parts[1]
 	}
 
@@ -116,39 +101,6 @@ func (tracker *Tracker) setAlways(index int, str string) {
 	}
 
 	tracker.always[index] = str
-}
-
-func (tracker *Tracker) drawHints(screen *ebiten.Image) {
-	lineHeight := tracker.hintSize.Y / 10
-	margins := image.Point{3, 15}
-
-	pos := tracker.hintPos.Add(margins)
-	for _, v := range tracker.woths {
-		text.Draw(screen, v, tracker.fontSmall, pos.X, pos.Y, color.Black)
-		pos.Y += lineHeight
-	}
-
-	pos = tracker.hintPos.Add(margins).Add(image.Point{tracker.hintSize.X / 2, 0})
-	for _, v := range tracker.barrens {
-		text.Draw(screen, v, tracker.fontSmall, pos.X, pos.Y, color.Black)
-		pos.Y += lineHeight
-	}
-
-	pos = tracker.hintPos.Add(margins).Add(image.Point{tracker.hintSize.X / 2, 3 * lineHeight})
-	for _, v := range tracker.sometimes {
-		text.Draw(screen, v, tracker.fontSmall, pos.X, pos.Y, color.Black)
-		pos.Y += lineHeight
-	}
-
-	pos = tracker.hintPos.Add(margins).Add(image.Point{22, 5 * lineHeight})
-	for k, v := range tracker.always {
-		if k == 5 {
-			pos = pos.Add(image.Point{tracker.hintSize.X / 2, -2 * lineHeight})
-		}
-
-		text.Draw(screen, v, tracker.fontSmall, pos.X, pos.Y, color.Black)
-		pos.Y += lineHeight
-	}
 }
 
 func (tracker *Tracker) submitTextInput() {

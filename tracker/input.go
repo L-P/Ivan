@@ -36,16 +36,16 @@ type inputState int
 const (
 	inputStateIdle inputState = iota
 
-	// Asking for a coarse KP zone
+	// Asking for a coarse KP zone.
 	inputStateItemKPZoneInput
 
-	// Asking for an item inside a KP zone
+	// Asking for an item inside a KP zone.
 	inputStateItemInput
 
-	// Writing raw text for a fuzzy search
+	// Writing raw text for a fuzzy search.
 	inputStateTextInput
 
-	// Quick dungeons input for stones/medallions
+	// Quick dungeons input for stones/medallions.
 	inputStateDungeonInput
 )
 
@@ -122,6 +122,8 @@ func (tracker *Tracker) idleHandleAction(a action) {
 		tracker.redo()
 	case actionUndo:
 		tracker.undo()
+	case actionCancel, actionSubmit:
+		// NOP
 	}
 }
 
@@ -138,15 +140,16 @@ func (tracker *Tracker) inputAction(a action) {
 		tracker.idleHandleAction(a)
 
 	case inputStateTextInput:
-		switch a {
+		switch a { // nolint:exhaustive
 		case actionSubmit:
 			tracker.submitTextInput()
 		case actionCancel:
 			tracker.cancelTextInput()
+		default:
 		}
 
 	case inputStateItemKPZoneInput:
-		switch a {
+		switch a { // nolint:exhaustive
 		case actionDowngradeNext:
 			tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
 		case actionTopLeft, actionTop, actionTopRight,
@@ -181,7 +184,8 @@ func (tracker *Tracker) inputAction(a action) {
 		}()
 
 		if zone := actionToKPZone(a); zone == -1 {
-			switch a { // +/- to go back/forward in the Medallion list (cycles around).
+			// +/- to go back/forward in the Medallion list (cycles around).
+			switch a { // nolint:exhaustive
 			case actionUndo:
 				tracker.input.curMedallion--
 				if tracker.input.curMedallion < 0 {
@@ -231,7 +235,7 @@ func (tracker *Tracker) inputKPZoneItem(zoneKP, itemKP int) error {
 }
 
 func actionToKPZone(a action) int {
-	switch a {
+	switch a { // nolint:exhaustive
 	case actionTopLeft:
 		return 7
 	case actionTop:

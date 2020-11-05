@@ -2,8 +2,6 @@ package tracker
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"image"
 	"io"
 	"log"
@@ -30,6 +28,7 @@ type Tracker struct {
 	locations   []string
 	input       kbInput
 	binds       map[string]string
+	alwaysHints map[string]image.Point // name => sheet pos
 
 	woths, barrens, sometimes []string
 	always                    [7]string // in order: skull, bigg, 30, 40, 50, OOT, frogs 2
@@ -46,16 +45,16 @@ const (
 
 type ZoneItemMap [9][9]string
 
-func New(
+func New( // TODO pass config
 	dimensions image.Rectangle,
 	hintDimensions image.Rectangle,
 	items []Item,
 	zoneItemMap ZoneItemMap,
 	locations []string,
 	binds map[string]string,
+	alwaysHints map[string]image.Point,
 	dungeonInputMedallionOrder []string,
 	dungeonInputDungeonKP []string,
-
 ) (*Tracker, error) {
 	tracker := &Tracker{
 		pos:      dimensions.Min,
@@ -68,6 +67,7 @@ func New(
 
 		locations:   locations,
 		binds:       binds,
+		alwaysHints: alwaysHints,
 		zoneItemMap: zoneItemMap,
 	}
 
@@ -120,15 +120,15 @@ func (tracker *Tracker) loadResources() (err error) {
 
 func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 	if zoneKP <= 0 || zoneKP > 9 {
-		return "", errors.New("invalid zoneKP, must be [1-9]")
+		return "", errInvalidZone{zoneKP, itemKP}
 	}
 	if itemKP <= 0 || itemKP > 9 {
-		return "", errors.New("invalid itemKP, must be [1-9]")
+		return "", errInvalidZone{zoneKP, itemKP}
 	}
 
 	name := tracker.zoneItemMap[zoneKP-1][itemKP-1]
 	if name == "" {
-		return "", fmt.Errorf("no item defined for zone %d item %d", zoneKP, itemKP)
+		return "", errNoDefinition{zoneKP, itemKP}
 	}
 
 	return name, nil
@@ -136,12 +136,12 @@ func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 
 func (tracker *Tracker) GetZoneDungeon(zoneKP int) (string, error) {
 	if zoneKP <= 0 || zoneKP > 9 {
-		return "", errors.New("invalid zoneKP, must be [1-9]")
+		return "", errInvalidZone{zoneKP, 0}
 	}
 
 	dungeon := tracker.dungeonInputDungeonKP[zoneKP-1]
 	if dungeon == "" {
-		return "", fmt.Errorf("no dungeon defined for zone %d", zoneKP)
+		return "", errNoDefinition{-1, zoneKP}
 	}
 
 	return dungeon, nil
@@ -155,7 +155,7 @@ func (tracker *Tracker) GetZoneItemIndex(zoneKP, itemKP int) (int, error) {
 
 	index := tracker.getItemIndexByName(name)
 	if index < 0 {
-		return -1, fmt.Errorf("item name misconfigured: %s", name)
+		return -1, errInvalidDefinition{zoneKP, itemKP, name}
 	}
 
 	return index, nil

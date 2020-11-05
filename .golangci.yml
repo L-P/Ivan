@@ -5,3 +5,5 @@ linters:
     - godox
     - gomnd
     - wsl
+    - gochecknoglobals
+    - nlreturn

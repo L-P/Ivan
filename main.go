@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
+	_ "image/png"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"runtime"
-
-	_ "image/png"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -35,7 +35,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := ebiten.RunGame(ivan); err != nil && err != errCloseApp {
+	if err := ebiten.RunGame(ivan); err != nil && !errors.Is(err, errCloseApp) {
 		log.Fatal(err)
 	}
 }
