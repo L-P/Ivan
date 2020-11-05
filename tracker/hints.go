@@ -11,11 +11,6 @@ import (
 const doubleWOTHMarker = "*"
 
 func (tracker *Tracker) AddWOTH(str string) bool {
-	if len(tracker.woths) >= 5 {
-		log.Printf("warning: WotHs maxed out at 5")
-		return false
-	}
-
 	// Handle Double-WOTH
 	// Each hint is doubled, two WoTH mean you have either seen all of them
 	// _or_ there might be two WoTH hints for the same area.
@@ -32,21 +27,11 @@ func (tracker *Tracker) AddWOTH(str string) bool {
 }
 
 func (tracker *Tracker) AddBarren(str string) bool {
-	if len(tracker.barrens) >= 3 {
-		log.Printf("warning: barrens maxed out at 3")
-		return false
-	}
-
 	tracker.barrens = append(tracker.barrens, str)
 	return true
 }
 
 func (tracker *Tracker) AddSometimes(str string) bool {
-	if len(tracker.sometimes) >= 5 {
-		log.Printf("warning: sometimes maxed out at 5")
-		return false
-	}
-
 	tracker.sometimes = append(tracker.sometimes, str)
 	return true
 }
