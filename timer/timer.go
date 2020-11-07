@@ -98,6 +98,7 @@ func (timer *Timer) Toggle() {
 		timer.pausedAt = time.Now()
 		timer.state = statePaused
 	case statePaused:
+		timer.startedAt = timer.startedAt.Add(time.Since(timer.pausedAt))
 		timer.state = stateRunning
 	}
 }
