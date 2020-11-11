@@ -3,12 +3,15 @@ VERSION ?= $(shell git describe --tags 2>/dev/null || echo "unknown")
 RELEASE_DIR=ivan_release_$(VERSION)
 BUILDFLAGS=-ldflags '-X main.Version=${VERSION}'
 
-all: $(EXEC)
+all: $(EXEC) tags
 
 $(EXEC):
 	go build $(BUILDFLAGS)
 
-.PHONY: $(EXEC) vendor upgrade lint test coverage debian-deps release clean
+.PHONY: $(EXEC) vendor upgrade lint test coverage debian-deps release clean tags
+
+tags:
+	ctags-universal -R timer tracker input-viewer *.go
 
 clean:
 	rm -rf ivan_release_*
