@@ -12,7 +12,8 @@ Because using a mouse is slow, and you gotta go fast.
 **Ivan must be focused for keyboard input to work.**
 
 - `Esc` quits the tracker, only works when the timer is stopped (not paused) to
-  avoid accidentally closing the tracker.
+  avoid accidentally closing the tracker.  
+  When the timer is not paused, `Esc` will cancel the current input mode.
 - `Del` to reset the timer and the tracker, only works when the timer is paused.
 - `-` to undo the last action.
 - `+` to redo the last undone action.
@@ -37,7 +38,8 @@ get _Requiem_ you would press `3` as teleportation songs are in the bottom-right
 zone, then `4` because _Requiem_ is the fourth song in the pause menu).
 
 Other keys:
-- `0` to display the region highlight or reset your selection.
+- `0` to display the region highlight or cancel your selection.
+- `Esc` to cancel your selection.
 - `.` to _downgrade_ the next selected item instead of upgrading it.
 - `-` to undo the last action.
 - `+` to redo the last undone action.

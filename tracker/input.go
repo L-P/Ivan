@@ -129,8 +129,8 @@ func (tracker *Tracker) idleHandleAction(a action) {
 
 // nolint:funlen
 func (tracker *Tracker) inputAction(a action) {
-	// Ensure we can _always_ leave using KP0
-	if a == actionStartItemInput && !tracker.kbInputStateIs(inputStateIdle) {
+	// Ensure we can _always_ leave using KP0 or Escape
+	if a == actionCancel || (a == actionStartItemInput && !tracker.kbInputStateIs(inputStateIdle)) {
 		tracker.input.reset()
 		return
 	}
@@ -140,12 +140,8 @@ func (tracker *Tracker) inputAction(a action) {
 		tracker.idleHandleAction(a)
 
 	case inputStateTextInput:
-		switch a { // nolint:exhaustive
-		case actionSubmit:
+		if a == actionSubmit {
 			tracker.submitTextInput()
-		case actionCancel:
-			tracker.cancelTextInput()
-		default:
 		}
 
 	case inputStateItemKPZoneInput:
@@ -178,8 +174,7 @@ func (tracker *Tracker) inputAction(a action) {
 		defer func() {
 			// Reset / exit when all medallions are set, don't care about stones.
 			if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
-				tracker.input.curMedallion = 0
-				tracker.input.state = inputStateIdle
+				tracker.input.reset()
 			}
 		}()
 
@@ -342,10 +337,6 @@ func (tracker *Tracker) Submit() {
 
 // Cancel is called when the user presses Escape.
 func (tracker *Tracker) Cancel() {
-	if !tracker.kbInputStateIs(inputStateTextInput) {
-		return
-	}
-
 	tracker.inputAction(actionCancel)
 }
 
@@ -355,10 +346,6 @@ func (tracker *Tracker) Backspace() {
 	}
 
 	tracker.input.buf = tracker.input.buf[:len(tracker.input.buf)-1]
-}
-
-func (tracker *Tracker) cancelTextInput() {
-	tracker.input.reset()
 }
 
 // EatInput returns true if the tracker should reserve all text inputs for itself.
