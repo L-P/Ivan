@@ -81,7 +81,7 @@ func (tracker *Tracker) parseAlways(str string) (int, string) {
 		return 1, parts[1]
 	case "Ocarina of Time":
 		return 2, parts[1]
-	case "Frog 2":
+	case "Frogs 2":
 		return 3, parts[1]
 	case "30 Gold Skullutulas":
 		return 4, parts[1]
