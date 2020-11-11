@@ -86,6 +86,12 @@ when reading the altar at the _Temple of Time_.
 
 You can also use `+` and `-` to cycle through medallions and `0` to exit.
 
+## Input Viewer
+The input viewer displays your input around the timer. Button and axes IDs
+depend on your configuration and can be set in the `InputViewer` key of
+[config.json](assets/config.json).  
+If you want to disable the input viewer you can set `Enabled` to `false`.
+
 ## Customization
 The images in the [`assets`](./assets) folder can be changed if you wish to
 customize your background or your icons.  

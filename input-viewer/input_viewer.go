@@ -15,6 +15,7 @@ const (
 )
 
 type Config struct {
+	Enabled                   bool
 	A, B, Z, R, Start         InputButton
 	CUp, CRight, CDown, CLeft InputButton
 
@@ -102,6 +103,10 @@ type InputViewer struct {
 }
 
 func NewInputViewer(config Config) *InputViewer {
+	if !config.Enabled {
+		return nil
+	}
+
 	ids := ebiten.GamepadIDs()
 	if len(ids) == 0 {
 		return nil

@@ -75,7 +75,7 @@ func (app *App) Update() error {
 	_, wheel := ebiten.Wheel()
 	var shouldSave bool
 
-	if app.inputViewer == nil {
+	if app.inputViewer == nil && app.config.InputViewer.Enabled {
 		app.inputViewer = inputviewer.NewInputViewer(app.config.InputViewer)
 	}
 

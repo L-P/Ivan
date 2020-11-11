@@ -1,5 +1,6 @@
 {
     "InputViewer": {
+        "Enabled": true,
         "A": {
             "Type": "Button",
             "ID": 1,
