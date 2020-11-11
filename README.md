@@ -52,8 +52,8 @@ Other keys:
   - cycle up/down the list of dungeons on stones and medallions.
 
 ## Timer
-- `space` once to start the timer, then to pause/resume its _display_ (it still
-  runs in the background).
+- `Space` once to start the timer, then to pause/resume it.
+- `Del` when it is paused to stop it (and reset all tracker data).
 
 ## Hint tracker
 1. Press the key corresponding to your hint type (**W**otH, **B**arren, **S**ometimes,
