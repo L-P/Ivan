@@ -3,8 +3,8 @@ What's the opposite of a nagging fairy that always gets in your way and never
 tells you anything useful? Ivan.
 
 Ivan is a tailor-made, keyboard-driven _Ocarina of Time: Randomizer_ item
-tracker, hint tracker, and timer. Because using a mouse is slow, and you
-gotta go fast.
+tracker, hint tracker, timer, and input viewer.  
+Because using a mouse is slow, and you gotta go fast.
 
 # Keyboard input
 [![screenshot of ivan](./assets/home-screenshot.png)](./assets/home-screenshot.png)
@@ -13,8 +13,6 @@ gotta go fast.
 
 - `Esc` quits the tracker, only works when the timer is stopped (not paused) to
   avoid accidentally closing the tracker.
-- `Home` resets the tracker and reloads its configuration from file, only works
-  when the timer is stopped (not paused).
 - `Del` to reset the timer and the tracker, only works when the timer is paused.
 - `-` to undo the last action.
 - `+` to redo the last undone action.
@@ -41,6 +39,8 @@ zone, then `4` because _Requiem_ is the fourth song in the pause menu).
 Other keys:
 - `0` to display the region highlight or reset your selection.
 - `.` to _downgrade_ the next selected item instead of upgrading it.
+- `-` to undo the last action.
+- `+` to redo the last undone action.
 
 ### Mouse
 1. Left click to _upgrade_ an item.
@@ -81,10 +81,12 @@ when reading the altar at the _Temple of Time_.
 3. Press the KP of the medallion that originally holds the dungeon. eg. if
    _Fire Temple_ holds the _Light Medallion_, press the key for _Fire
    Medallion_, ie. `5`.
-4. Dungeon mode will advance to the next medallion and you can go back to 3.
+4. Dungeon mode will advance automatically  to the next medallion and you can
+   go back to 3.
 5. When the last medallion is entered, dungeon mode is exited automatically.
 
-You can also use `+` and `-` to cycle through medallions and `0` to exit.
+You can also use `+` and `-` to cycle through medallions to correct a mistake
+and `0` to exit.
 
 ## Input Viewer
 The input viewer displays your input around the timer. Button and axes IDs
