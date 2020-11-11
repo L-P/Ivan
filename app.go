@@ -23,6 +23,7 @@ type App struct {
 	timer       *timer.Timer
 	inputViewer *inputviewer.InputViewer
 	config      config
+	lastSave    time.Time
 
 	saveDebounce func(func())
 }
@@ -61,12 +62,17 @@ func NewApp() (*App, error) {
 		log.Printf("error: %s", err)
 	}
 
+	if err := timer.Load(); err != nil {
+		log.Printf("error: %s", err)
+	}
+
 	return &App{
 		tracker:      tracker,
 		timer:        timer,
 		inputViewer:  nil, // initialized on first frame to ensure we have a gamepad
 		config:       config,
 		saveDebounce: debounce.New(1 * time.Second),
+		lastSave:     time.Now(),
 	}, nil
 }
 
@@ -140,11 +146,15 @@ func (app *App) Update() error {
 		}
 	}
 
-	if shouldSave {
+	if shouldSave || time.Since(app.lastSave) > (10*time.Second) {
+		app.lastSave = time.Now()
 		app.saveDebounce(func() {
-			log.Printf("info: saving")
+			log.Print("info: saving")
 			if err := app.tracker.Save(); err != nil {
-				log.Printf("error: unable to write save: %s", err)
+				log.Printf("error: unable to write tracker save: %s", err)
+			}
+			if err := app.timer.Save(); err != nil {
+				log.Printf("error: unable to write timer save: %s", err)
 			}
 		})
 	}

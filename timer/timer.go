@@ -1,10 +1,13 @@
 package timer
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/freetype/truetype"
@@ -113,4 +116,64 @@ func (timer *Timer) CanReset() bool {
 
 func (timer *Timer) IsRunning() bool {
 	return timer.state != stateInitial
+}
+
+func (timer *Timer) Save() error {
+	f, err := os.OpenFile(getSavePath(), os.O_WRONLY|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	pausedAt := timer.pausedAt
+	state := statePaused
+	switch timer.state {
+	case stateInitial:
+		pausedAt = time.Time{}
+		state = stateInitial
+	case stateRunning:
+		pausedAt = time.Now()
+	}
+
+	enc := json.NewEncoder(f)
+	return enc.Encode(struct {
+		StartedAt, PausedAt time.Time
+		State               timerState
+	}{
+		StartedAt: timer.startedAt,
+		PausedAt:  pausedAt,
+		State:     state,
+	})
+}
+
+func (timer *Timer) Load() error {
+	f, err := os.Open(getSavePath())
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	var s struct {
+		StartedAt, PausedAt time.Time
+		State               timerState
+	}
+	dec := json.NewDecoder(f)
+	if err := dec.Decode(&s); err != nil {
+		return err
+	}
+
+	timer.startedAt = s.StartedAt
+	timer.pausedAt = s.PausedAt
+	timer.state = s.State
+
+	return nil
+}
+
+func getSavePath() string {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		dir = "./"
+	}
+
+	return filepath.Join(dir, "ivan.timer.state.json")
 }
