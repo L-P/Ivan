@@ -60,7 +60,7 @@ func (tracker *Tracker) getAlwaysLocations() []string {
 }
 
 func (tracker *Tracker) parseAlways(str string) (int, string) {
-	parts := strings.SplitN(str, " ", 2)
+	parts := strings.SplitN(strings.Trim(str, " "), " ", 2)
 	if len(parts) < 2 {
 		parts = append(parts, "")
 	}
