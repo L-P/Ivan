@@ -133,6 +133,8 @@ func (timer *Timer) Save() error {
 		state = stateInitial
 	case stateRunning:
 		pausedAt = time.Now()
+	case statePaused:
+		// NOP
 	}
 
 	enc := json.NewEncoder(f)
