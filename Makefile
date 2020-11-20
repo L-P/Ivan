@@ -3,7 +3,7 @@ VERSION ?= $(shell git describe --tags 2>/dev/null || echo "unknown")
 RELEASE_DIR=ivan_release_$(VERSION)
 BUILDFLAGS=-ldflags '-X main.Version=${VERSION}'
 
-all: $(EXEC) tags
+all: $(EXEC)
 
 $(EXEC):
 	go build $(BUILDFLAGS)

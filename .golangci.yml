@@ -2,8 +2,10 @@
 linters:
   enable-all: true
   disable:
+    - exhaustivestruct
+    - gochecknoglobals
     - godox
     - gomnd
-    - wsl
-    - gochecknoglobals
     - nlreturn
+    - wrapcheck
+    - wsl
