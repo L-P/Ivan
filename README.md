@@ -85,7 +85,8 @@ when reading the altar at the _Temple of Time_.
    Medallion_, ie. `5`.
 4. Dungeon mode will advance automatically  to the next medallion and you can
    go back to 3.
-5. When the last medallion is entered, dungeon mode is exited automatically.
+5. When the last medallion is entered the three stones are filled randomly and
+   dungeon mode is exited automatically.
 
 You can also use `+` and `-` to cycle through medallions to correct a mistake
 and `0` to exit.
