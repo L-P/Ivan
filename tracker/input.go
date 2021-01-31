@@ -91,6 +91,7 @@ func (tracker *Tracker) idleHandleAction(a action) {
 		tracker.input.state = inputStateItemKPZoneInput
 
 	case actionStartDungeonInput:
+		tracker.resetDungeons()
 		tracker.input.curMedallion = 0
 		tracker.input.state = inputStateDungeonInput
 
@@ -174,6 +175,7 @@ func (tracker *Tracker) inputAction(a action) {
 		defer func() {
 			// Reset / exit when all medallions are set, don't care about stones.
 			if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
+				tracker.fillMissingMedallions()
 				tracker.input.reset()
 			}
 		}()
@@ -213,6 +215,67 @@ func (tracker *Tracker) inputDungeon(a action) {
 
 	tracker.items[idx].SetDungeon(dungeon)
 	tracker.input.curMedallion++
+}
+
+func (tracker *Tracker) resetDungeons() {
+	for _, name := range tracker.getMedallionNames() {
+		idx := tracker.getItemIndexByName(name)
+		tracker.items[idx].DungeonIndex = 0
+	}
+}
+
+func (tracker *Tracker) fillMissingMedallions() {
+	meds := make(map[string]int, 9)
+	dungeons := make(map[int]struct{}, 9)
+
+	for _, v := range tracker.getMedallionNames() {
+		idx := tracker.getItemIndexByName(v)
+		meds[v] = tracker.items[idx].DungeonIndex
+		dungeons[tracker.items[idx].DungeonIndex] = struct{}{}
+	}
+
+	missingMeds := make([]string, 0, 3)
+	for k, v := range meds {
+		if v == 0 {
+			missingMeds = append(missingMeds, k)
+		}
+	}
+
+	if len(missingMeds) > 3 {
+		log.Printf("warning: not enough set medallions to infer the rest")
+		return
+	}
+
+	missingDungeons := make([]int, 0, 3)
+	for _, v := range tracker.dungeonInputDungeonKP {
+		idx := dungeonToDungeonIndex(v)
+		if _, ok := dungeons[idx]; !ok {
+			missingDungeons = append(missingDungeons, idx)
+		}
+	}
+
+	if len(missingMeds) != len(missingDungeons) {
+		log.Printf("error: meds / dungeons count mismatch")
+		return
+	}
+
+	var i int
+	for _, v := range missingDungeons {
+		idx := tracker.getItemIndexByName(missingMeds[i])
+		tracker.items[idx].DungeonIndex = v
+		i++
+	}
+}
+
+func (tracker *Tracker) getMedallionNames() []string {
+	var ret []string
+	for _, v := range tracker.items {
+		if v.IsMedallion {
+			ret = append(ret, v.Name)
+		}
+	}
+
+	return ret
 }
 
 // inputKPZoneItem triggers an upgrade (or downgrade) of an item selected using
