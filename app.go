@@ -87,7 +87,7 @@ func (app *App) Update() error {
 
 	switch {
 	case inpututil.IsKeyJustPressed(ebiten.KeyEscape):
-		if !app.timer.IsRunning() && !app.tracker.EatInput() {
+		if !app.timer.IsRunning() && app.tracker.IsIdle() {
 			return errCloseApp
 		}
 		app.tracker.Cancel()
