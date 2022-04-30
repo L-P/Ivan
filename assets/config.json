@@ -43,7 +43,7 @@
         "CUp": {
             "Type": "Axis",
             "ID": 4,
-            "Dir": 1,
+            "Dir": -1,
             "Pos": {
                 "X": 272,
                 "Y": 396
@@ -68,8 +68,9 @@
         },
 
         "CDown": {
-            "Type": "Button",
+            "Type": "Axis",
             "ID": 4,
+            "Dir": 1,
             "Pos": {
                 "X": 272,
                 "Y": 422

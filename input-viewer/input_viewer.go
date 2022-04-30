@@ -80,16 +80,14 @@ func (ij InputJoystick) axes(id ebiten.GamepadID) (float64, float64) {
 }
 
 func (ib InputButton) pressed(id ebiten.GamepadID) bool {
-	dir := 1.0
-	if dir < 0 {
-		dir = -1
-	}
-
 	switch ib.Type {
 	case "Button":
 		return ebiten.IsGamepadButtonPressed(id, ebiten.GamepadButton(ib.ID))
 	case "Axis":
-		return ebiten.GamepadAxis(id, ib.ID) > (dir * 0.15)
+		if ib.Dir < 0 {
+			return ebiten.GamepadAxis(id, ib.ID) < -0.15
+		}
+		return ebiten.GamepadAxis(id, ib.ID) > 0.15
 	}
 
 	return false
