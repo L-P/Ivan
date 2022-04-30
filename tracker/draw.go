@@ -147,8 +147,7 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 
 	case inputStateTextInput:
 		str = "> " + string(tracker.input.buf)
-		if tracker.input.textInputFor == hintTypeWOTH ||
-			tracker.input.textInputFor == hintTypeBarren {
+		if tracker.input.textInputFor == hintTypeBarren {
 			if match := tracker.matchLocation(string(tracker.input.buf)); match != "" {
 				str += " (" + match + ")"
 			}

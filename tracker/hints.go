@@ -11,17 +11,6 @@ import (
 const doubleWOTHMarker = "*"
 
 func (tracker *Tracker) AddWOTH(str string) bool {
-	// Handle Double-WOTH
-	// Each hint is doubled, two WoTH mean you have either seen all of them
-	// _or_ there might be two WoTH hints for the same area.
-	// A third WOTH will add a new line.
-	for k, v := range tracker.woths {
-		if v == str {
-			tracker.woths[k] += doubleWOTHMarker
-			return true
-		}
-	}
-
 	tracker.woths = append(tracker.woths, str)
 	return true
 }
@@ -111,8 +100,7 @@ func (tracker *Tracker) submitTextInput() {
 	}
 
 	str := string(tracker.input.buf)
-	if tracker.input.textInputFor == hintTypeWOTH ||
-		tracker.input.textInputFor == hintTypeBarren {
+	if tracker.input.textInputFor == hintTypeBarren {
 		if match := tracker.matchLocation(str); match != "" {
 			str = match
 		}
