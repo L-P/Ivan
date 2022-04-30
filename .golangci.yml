@@ -2,10 +2,32 @@
 linters:
   enable-all: true
   disable:
-    - exhaustivestruct
-    - gochecknoglobals
-    - godox
+    # Moronic linters
+    - exhaustivestruct  # Zero values are an excellent feature.
+    - godox  # No, a TODO is not an error.
     - gomnd
+    - forcetypeassert  # I panic on purpose.
+    - cyclop  # Buggy and overzealous.
+    - gosec  # I know when I'm doing crypto, thanks.
+    - forbidigo
+
+    # Unacceptable styling or incompatibilities with gofmt
+    - gci
+    - gofumpt
     - nlreturn
-    - wrapcheck
     - wsl
+    - varnamelen
+
+    # Disagreements.
+    - paralleltest
+    - gochecknoglobals
+    - goerr113  # I'm not writing a lib here.
+
+    # Deprecated
+    - maligned
+    - golint
+    - interfacer
+    - scopelint
+
+    # Local
+    - wrapcheck
