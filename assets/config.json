@@ -68,9 +68,8 @@
         },
 
         "CDown": {
-            "Type": "Axis",
+            "Type": "Button",
             "ID": 4,
-            "Dir": 1,
             "Pos": {
                 "X": 272,
                 "Y": 422
