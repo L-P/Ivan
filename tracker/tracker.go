@@ -31,7 +31,7 @@ type Tracker struct {
 	alwaysHints map[string]image.Point // name => sheet pos
 
 	woths, barrens, sometimes []string
-	always                    [7]string // in order: skull, bigg, 30, 40, 50, OOT, frogs 2
+	always                    [8]string // in order: skull, bigg, OOT, sheik at kak, frogs 2, 30, 40, 50
 
 	dungeonInputMedallionOrder, dungeonInputDungeonKP []string
 
@@ -244,7 +244,7 @@ func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
 	tracker.woths = tracker.woths[:0]
 	tracker.barrens = tracker.barrens[:0]
 	tracker.sometimes = tracker.sometimes[:0]
-	tracker.always = [7]string{}
+	tracker.always = [8]string{}
 	tracker.setInitialItems()
 
 	if err := tracker.Save(); err != nil {
@@ -286,7 +286,7 @@ func (tracker Tracker) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Items                     []Item
 		WotHs, Barrens, Sometimes []string
-		Always                    [7]string
+		Always                    [8]string
 		UndoStack, RedoStack      []undoStackEntry
 	}{
 		tracker.items,
@@ -303,7 +303,7 @@ func (tracker *Tracker) loadJSON(r io.Reader) error {
 	var tmp struct {
 		Items                     []Item
 		WotHs, Barrens, Sometimes []string
-		Always                    [7]string
+		Always                    [8]string
 		UndoStack, RedoStack      []undoStackEntry
 	}
 
