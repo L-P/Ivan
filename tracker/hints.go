@@ -100,7 +100,7 @@ func (tracker *Tracker) submitTextInput() {
 	}
 
 	str := string(tracker.input.buf)
-	if tracker.input.textInputFor == hintTypeBarren {
+	if tracker.input.textInputFor == hintTypeWOTH || tracker.input.textInputFor == hintTypeBarren {
 		if match := tracker.matchLocation(str); match != "" {
 			str = match
 		}
