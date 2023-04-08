@@ -62,6 +62,7 @@ Other keys:
 3. Press `Enter`.
 
 - `w` to enter a _WotH_ Hint (green background, fuzzy location search).
+- `g` to enter a _Goal_ Hint (green background, freeform text).
 - `b` to enter a _Barren_ Hint (red background, fuzzy location search).
 - `s` to enter a _Sometimes_ Hint (blue background, freeform text).
 - `a` to enter a _Always_ Hint (yellow background).

@@ -30,8 +30,8 @@ type Tracker struct {
 	binds       map[string]string
 	alwaysHints map[string]image.Point // name => sheet pos
 
-	woths, barrens, sometimes []string
-	always                    [8]string // in order: skull, bigg, OOT, sheik at kak, frogs 2, 30, 40, 50
+	woths, goals, barrens, sometimes []string
+	always                           [8]string // in order: skull, bigg, OOT, sheik at kak, frogs 2, 30, 40, 50
 
 	dungeonInputMedallionOrder, dungeonInputDungeonKP []string
 
@@ -242,6 +242,7 @@ func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
 	tracker.woths = tracker.woths[:0]
+	tracker.goals = tracker.goals[:0]
 	tracker.barrens = tracker.barrens[:0]
 	tracker.sometimes = tracker.sometimes[:0]
 	tracker.always = [8]string{}
@@ -284,13 +285,14 @@ func getSavePath() string {
 
 func (tracker Tracker) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Items                     []Item
-		WotHs, Barrens, Sometimes []string
-		Always                    [8]string
-		UndoStack, RedoStack      []undoStackEntry
+		Items                            []Item
+		WotHs, Goals, Barrens, Sometimes []string
+		Always                           [8]string
+		UndoStack, RedoStack             []undoStackEntry
 	}{
 		tracker.items,
 		tracker.woths,
+		tracker.goals,
 		tracker.barrens,
 		tracker.sometimes,
 		tracker.always,
@@ -301,10 +303,10 @@ func (tracker Tracker) MarshalJSON() ([]byte, error) {
 
 func (tracker *Tracker) loadJSON(r io.Reader) error {
 	var tmp struct {
-		Items                     []Item
-		WotHs, Barrens, Sometimes []string
-		Always                    [8]string
-		UndoStack, RedoStack      []undoStackEntry
+		Items                            []Item
+		WotHs, Goals, Barrens, Sometimes []string
+		Always                           [8]string
+		UndoStack, RedoStack             []undoStackEntry
 	}
 
 	dec := json.NewDecoder(r)
@@ -314,6 +316,7 @@ func (tracker *Tracker) loadJSON(r io.Reader) error {
 
 	tracker.items = tmp.Items
 	tracker.woths = tmp.WotHs
+	tracker.goals = tmp.Goals
 	tracker.barrens = tmp.Barrens
 	tracker.sometimes = tmp.Sometimes
 	tracker.always = tmp.Always

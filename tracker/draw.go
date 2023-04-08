@@ -235,11 +235,18 @@ const (
 func (tracker *Tracker) getDrawableHintList() []drawableHintEntry {
 	entries := make(
 		[]drawableHintEntry, 0,
-		len(tracker.woths)+len(tracker.barrens)+
-			len(tracker.sometimes)+len(tracker.always),
+		len(tracker.woths)+
+			len(tracker.barrens)+
+			len(tracker.sometimes)+
+			len(tracker.always)+
+			len(tracker.goals),
 	)
 
 	for _, v := range tracker.woths {
+		entries = append(entries, drawableHintEntry{text: v, bgColor: color.RGBA{212, 234, 107, 0xFF}})
+	}
+
+	for _, v := range tracker.goals {
 		entries = append(entries, drawableHintEntry{text: v, bgColor: color.RGBA{212, 234, 107, 0xFF}})
 	}
 

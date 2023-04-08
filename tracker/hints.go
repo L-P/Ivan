@@ -31,6 +31,11 @@ func (tracker *Tracker) AddBarren(str string) bool {
 	return true
 }
 
+func (tracker *Tracker) AddGoal(str string) bool {
+	tracker.goals = append(tracker.goals, str)
+	return true
+}
+
 func (tracker *Tracker) AddSometimes(str string) bool {
 	tracker.sometimes = append(tracker.sometimes, str)
 	return true
@@ -125,6 +130,8 @@ func (tracker *Tracker) submitTextInput() {
 	switch tracker.input.textInputFor {
 	case hintTypeWOTH:
 		ok = tracker.AddWOTH(str)
+	case hintTypeGoal:
+		ok = tracker.AddGoal(str)
 	case hintTypeBarren:
 		ok = tracker.AddBarren(str)
 	case hintTypeSometimes:

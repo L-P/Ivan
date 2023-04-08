@@ -26,6 +26,7 @@ type hintType int
 const (
 	_ hintType = iota
 	hintTypeWOTH
+	hintTypeGoal
 	hintTypeBarren
 	hintTypeSometimes
 	hintTypeAlways
@@ -109,6 +110,9 @@ func (tracker *Tracker) idleHandleAction(a action) {
 	case actionStartWOTHInput:
 		tracker.input.state = inputStateTextInput
 		tracker.input.textInputFor = hintTypeWOTH
+	case actionStartGoalInput:
+		tracker.input.state = inputStateTextInput
+		tracker.input.textInputFor = hintTypeGoal
 	case actionStartBarrenInput:
 		tracker.input.state = inputStateTextInput
 		tracker.input.textInputFor = hintTypeBarren
@@ -361,6 +365,7 @@ const (
 	actionDowngradeNext     action = "DowngradeNext"
 
 	actionStartWOTHInput          action = "StartWOTHInput"
+	actionStartGoalInput          action = "StartGoalInput"
 	actionStartBarrenInput        action = "StartBarrenInput"
 	actionStartAlwaysHintInput    action = "StartAlwaysHintInput"
 	actionStartSometimesHintInput action = "StartSometimesHintInput"

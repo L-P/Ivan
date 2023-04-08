@@ -133,6 +133,7 @@
         "-": "Undo",
         "+": "Redo",
         "w": "StartWOTHInput",
+        "g": "StartGoalInput",
         "b": "StartBarrenInput",
         "d": "StartDungeonInput",
         "a": "StartAlwaysHintInput",

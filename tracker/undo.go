@@ -52,6 +52,8 @@ func (tracker *Tracker) undo() {
 		switch entry.HintType {
 		case hintTypeWOTH:
 			tracker.undoWOTH(entry)
+		case hintTypeGoal:
+			tracker.goals = tracker.goals[:len(tracker.goals)-1]
 		case hintTypeBarren:
 			tracker.barrens = tracker.barrens[:len(tracker.barrens)-1]
 		case hintTypeSometimes:
@@ -101,6 +103,8 @@ func (tracker *Tracker) redo() {
 		switch entry.HintType {
 		case hintTypeWOTH:
 			tracker.AddWOTH(entry.HintText)
+		case hintTypeGoal:
+			tracker.AddGoal(entry.HintText)
 		case hintTypeBarren:
 			tracker.AddBarren(entry.HintText)
 		case hintTypeSometimes:
