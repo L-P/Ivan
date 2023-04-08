@@ -52,6 +52,7 @@ func (tracker *Tracker) getAlwaysLocations() []string {
 		"Skull Mask",
 		"Biggoron Sword",
 		"Ocarina of Time",
+		"Sheik at Kakariko",
 		"Frogs 2",
 		"30 Gold Skullutulas",
 		"40 Gold Skullutulas",
@@ -81,14 +82,16 @@ func (tracker *Tracker) parseAlways(str string) (int, string) {
 		return 1, parts[1]
 	case "Ocarina of Time":
 		return 2, parts[1]
-	case "Frogs 2":
+	case "Sheik at Kakariko":
 		return 3, parts[1]
-	case "30 Gold Skullutulas":
+	case "Frogs 2":
 		return 4, parts[1]
-	case "40 Gold Skullutulas":
+	case "30 Gold Skullutulas":
 		return 5, parts[1]
-	case "50 Gold Skullutulas":
+	case "40 Gold Skullutulas":
 		return 6, parts[1]
+	case "50 Gold Skullutulas":
+		return 7, parts[1]
 	}
 
 	return -1, ""
