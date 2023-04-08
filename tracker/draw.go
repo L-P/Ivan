@@ -204,11 +204,6 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 
 		if v.gfx != nil {
 			op.GeoM.Reset()
-
-			if v.scale != 0 {
-				op.GeoM.Scale(v.scale, v.scale)
-			}
-
 			op.GeoM.Translate(
 				float64(pos.X),
 				float64(pos.Y-margins.Y),
@@ -228,7 +223,6 @@ type drawableHintEntry struct {
 	text    string
 	gfx     *image.Rectangle
 	bgColor color.RGBA
-	scale   float64
 }
 
 var margins = image.Point{3, 15}
@@ -272,10 +266,6 @@ func (tracker *Tracker) getDrawableHintList() []drawableHintEntry {
 					tracker.alwaysHints[name].Y + itemSpriteHeight,
 				},
 			},
-		}
-
-		if name == "Sheik at Kakariko" {
-			entry.scale = 0.7
 		}
 
 		entries = append(entries, entry)
