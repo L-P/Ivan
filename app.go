@@ -14,7 +14,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-const configDir = "assets/config"
+const configDir = "./config"
 
 var errCloseApp = errors.New("user requested app close")
 
