@@ -18,18 +18,22 @@ package shaderir
 import (
 	"go/constant"
 	"go/token"
+	"sort"
 	"strings"
 )
 
 type Program struct {
 	UniformNames []string
 	Uniforms     []Type
-	TextureNum   int
+	TextureCount int
 	Attributes   []Type
 	Varyings     []Type
 	Funcs        []Func
 	VertexFunc   VertexFunc
 	FragmentFunc FragmentFunc
+
+	reachableUniforms   []bool
+	uniformUint32Counts []int
 }
 
 type Func struct {
@@ -42,7 +46,7 @@ type Func struct {
 
 // VertexFunc takes pseudo params, and the number if len(attributes) + len(varyings) + 1.
 // If 0 <= index < len(attributes), the params are in-params and represent attribute variables.
-// If index == len(attributes), the param is an out-param and repesents the position in vec4 (gl_Position in GLSL)
+// If index == len(attributes), the param is an out-param and represents the position in vec4 (gl_Position in GLSL)
 // If len(attributes) + 1 <= index < len(attributes) + len(varyings) + 1, the params are out-params and represent
 // varying variables.
 type VertexFunc struct {
@@ -51,8 +55,7 @@ type VertexFunc struct {
 
 // FragmentFunc takes pseudo params, and the number is len(varyings) + 2.
 // If index == 0, the param represents the coordinate of the fragment (gl_FragCoord in GLSL).
-// If index == len(varyings), the param represents (index-1)th verying variable.
-// If index == len(varyings)+1, the param is an out-param representing the color of the pixel (gl_FragColor in GLSL).
+// If 0 < index <= len(varyings), the param represents (index-1)th varying variable.
 type FragmentFunc struct {
 	Block *Block
 }
@@ -131,31 +134,34 @@ const (
 	Index
 )
 
-type Op string
+type Op int
 
 const (
-	Add                Op = "+"
-	Sub                Op = "-"
-	NotOp              Op = "!"
-	Mul                Op = "*"
-	Div                Op = "/"
-	ModOp              Op = "%"
-	LeftShift          Op = "<<"
-	RightShift         Op = ">>"
-	LessThanOp         Op = "<"
-	LessThanEqualOp    Op = "<="
-	GreaterThanOp      Op = ">"
-	GreaterThanEqualOp Op = ">="
-	EqualOp            Op = "=="
-	NotEqualOp         Op = "!="
-	And                Op = "&"
-	Xor                Op = "^"
-	Or                 Op = "|"
-	AndAnd             Op = "&&"
-	OrOr               Op = "||"
+	Add Op = iota
+	Sub
+	NotOp
+	ComponentWiseMul
+	MatrixMul
+	Div
+	ModOp
+	LeftShift
+	RightShift
+	LessThanOp
+	LessThanEqualOp
+	GreaterThanOp
+	GreaterThanEqualOp
+	EqualOp
+	NotEqualOp
+	VectorEqualOp
+	VectorNotEqualOp
+	And
+	Xor
+	Or
+	AndAnd
+	OrOr
 )
 
-func OpFromToken(t token.Token) (Op, bool) {
+func OpFromToken(t token.Token, lhs, rhs Type) (Op, bool) {
 	switch t {
 	case token.ADD:
 		return Add, true
@@ -164,7 +170,10 @@ func OpFromToken(t token.Token) (Op, bool) {
 	case token.NOT:
 		return NotOp, true
 	case token.MUL:
-		return Mul, true
+		if lhs.IsMatrix() || rhs.IsMatrix() {
+			return MatrixMul, true
+		}
+		return ComponentWiseMul, true
 	case token.QUO:
 		return Div, true
 	case token.REM:
@@ -182,8 +191,14 @@ func OpFromToken(t token.Token) (Op, bool) {
 	case token.GEQ:
 		return GreaterThanEqualOp, true
 	case token.EQL:
+		if lhs.IsVector() || rhs.IsVector() {
+			return VectorEqualOp, true
+		}
 		return EqualOp, true
 	case token.NEQ:
+		if lhs.IsVector() || rhs.IsVector() {
+			return VectorNotEqualOp, true
+		}
 		return NotEqualOp, true
 	case token.AND:
 		return And, true
@@ -196,24 +211,28 @@ func OpFromToken(t token.Token) (Op, bool) {
 	case token.LOR:
 		return OrOr, true
 	}
-	return "", false
+	return 0, false
 }
 
 type BuiltinFunc string
 
 const (
 	Len         BuiltinFunc = "len"
+	Cap         BuiltinFunc = "cap"
 	BoolF       BuiltinFunc = "bool"
 	IntF        BuiltinFunc = "int"
 	FloatF      BuiltinFunc = "float"
 	Vec2F       BuiltinFunc = "vec2"
 	Vec3F       BuiltinFunc = "vec3"
 	Vec4F       BuiltinFunc = "vec4"
+	IVec2F      BuiltinFunc = "ivec2"
+	IVec3F      BuiltinFunc = "ivec3"
+	IVec4F      BuiltinFunc = "ivec4"
 	Mat2F       BuiltinFunc = "mat2"
 	Mat3F       BuiltinFunc = "mat3"
 	Mat4F       BuiltinFunc = "mat4"
-	Radians     BuiltinFunc = "radians"
-	Degrees     BuiltinFunc = "degrees"
+	Radians     BuiltinFunc = "radians" // This function is not used yet (#2253)
+	Degrees     BuiltinFunc = "degrees" // This function is not used yet (#2253)
 	Sin         BuiltinFunc = "sin"
 	Cos         BuiltinFunc = "cos"
 	Tan         BuiltinFunc = "tan"
@@ -247,22 +266,28 @@ const (
 	Normalize   BuiltinFunc = "normalize"
 	Faceforward BuiltinFunc = "faceforward"
 	Reflect     BuiltinFunc = "reflect"
+	Refract     BuiltinFunc = "refract"
 	Transpose   BuiltinFunc = "transpose"
 	Texture2DF  BuiltinFunc = "texture2D"
 	Dfdx        BuiltinFunc = "dfdx"
 	Dfdy        BuiltinFunc = "dfdy"
 	Fwidth      BuiltinFunc = "fwidth"
+	DiscardF    BuiltinFunc = "discard"
 )
 
 func ParseBuiltinFunc(str string) (BuiltinFunc, bool) {
 	switch BuiltinFunc(str) {
 	case Len,
+		Cap,
 		BoolF,
 		IntF,
 		FloatF,
 		Vec2F,
 		Vec3F,
 		Vec4F,
+		IVec2F,
+		IVec3F,
+		IVec4F,
 		Mat2F,
 		Mat3F,
 		Mat4F,
@@ -299,11 +324,13 @@ func ParseBuiltinFunc(str string) (BuiltinFunc, bool) {
 		Normalize,
 		Faceforward,
 		Reflect,
+		Refract,
 		Transpose,
 		Texture2DF,
 		Dfdx,
 		Dfdy,
-		Fwidth:
+		Fwidth,
+		DiscardF:
 		return BuiltinFunc(str), true
 	}
 	return "", false
@@ -344,4 +371,123 @@ func IsValidSwizzling(s string) bool {
 		return true
 	}
 	return false
+}
+
+func (p *Program) ReachableFuncsFromBlock(block *Block) []*Func {
+	indexToFunc := map[int]*Func{}
+	for _, f := range p.Funcs {
+		f := f
+		indexToFunc[f.Index] = &f
+	}
+
+	visited := map[int]struct{}{}
+	var indices []int
+	var f func(expr *Expr)
+	f = func(expr *Expr) {
+		if expr.Type != FunctionExpr {
+			return
+		}
+		if _, ok := visited[expr.Index]; ok {
+			return
+		}
+		indices = append(indices, expr.Index)
+		visited[expr.Index] = struct{}{}
+		walkExprs(f, indexToFunc[expr.Index].Block)
+	}
+	walkExprs(f, block)
+
+	sort.Ints(indices)
+
+	funcs := make([]*Func, 0, len(indices))
+	for _, i := range indices {
+		funcs = append(funcs, indexToFunc[i])
+	}
+	return funcs
+}
+
+func walkExprs(f func(expr *Expr), block *Block) {
+	if block == nil {
+		return
+	}
+	for _, s := range block.Stmts {
+		for _, e := range s.Exprs {
+			walkExprsInExpr(f, &e)
+		}
+		for _, b := range s.Blocks {
+			walkExprs(f, b)
+		}
+	}
+}
+
+func walkExprsInExpr(f func(expr *Expr), expr *Expr) {
+	if expr == nil {
+		return
+	}
+	f(expr)
+	for _, e := range expr.Exprs {
+		walkExprsInExpr(f, &e)
+	}
+}
+
+func (p *Program) reachableUniformVariablesFromBlock(block *Block) []int {
+	indexToFunc := map[int]*Func{}
+	for _, f := range p.Funcs {
+		f := f
+		indexToFunc[f.Index] = &f
+	}
+
+	visitedFuncs := map[int]struct{}{}
+	indices := map[int]struct{}{}
+	var f func(expr *Expr)
+	f = func(expr *Expr) {
+		switch expr.Type {
+		case UniformVariable:
+			indices[expr.Index] = struct{}{}
+		case FunctionExpr:
+			if _, ok := visitedFuncs[expr.Index]; ok {
+				return
+			}
+			visitedFuncs[expr.Index] = struct{}{}
+			walkExprs(f, indexToFunc[expr.Index].Block)
+		}
+	}
+	walkExprs(f, block)
+
+	is := make([]int, 0, len(indices))
+	for i := range indices {
+		is = append(is, i)
+	}
+	sort.Ints(is)
+	return is
+}
+
+// FilterUniformVariables replaces uniform variables with nil when they are not used.
+// By minimizing uniform variables, more commands can be merged in the graphicscommand package.
+func (p *Program) FilterUniformVariables(uniforms []uint32) {
+	if p.reachableUniforms == nil {
+		p.reachableUniforms = make([]bool, len(p.Uniforms))
+		for _, i := range p.reachableUniformVariablesFromBlock(p.VertexFunc.Block) {
+			p.reachableUniforms[i] = true
+		}
+		for _, i := range p.reachableUniformVariablesFromBlock(p.FragmentFunc.Block) {
+			p.reachableUniforms[i] = true
+		}
+	}
+
+	if p.uniformUint32Counts == nil {
+		p.uniformUint32Counts = make([]int, len(p.Uniforms))
+		for i, typ := range p.Uniforms {
+			p.uniformUint32Counts[i] = typ.Uint32Count()
+		}
+	}
+
+	var idx int
+	for i, n := range p.uniformUint32Counts {
+		if !p.reachableUniforms[i] {
+			for j := 0; j < n; j++ {
+				uniforms[idx+j] = 0
+			}
+		}
+		idx += n
+	}
 }

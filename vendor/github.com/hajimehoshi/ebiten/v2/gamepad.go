@@ -15,45 +15,89 @@
 package ebiten
 
 import (
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/gamepad"
+	"github.com/hajimehoshi/ebiten/v2/internal/gamepaddb"
 )
 
-// A GamepadButton represents a gamepad button.
-type GamepadButton int
+// GamepadButton represents a gamepad button.
+type GamepadButton = gamepad.Button
 
 // GamepadButtons
 const (
-	GamepadButton0   GamepadButton = GamepadButton(driver.GamepadButton0)
-	GamepadButton1   GamepadButton = GamepadButton(driver.GamepadButton1)
-	GamepadButton2   GamepadButton = GamepadButton(driver.GamepadButton2)
-	GamepadButton3   GamepadButton = GamepadButton(driver.GamepadButton3)
-	GamepadButton4   GamepadButton = GamepadButton(driver.GamepadButton4)
-	GamepadButton5   GamepadButton = GamepadButton(driver.GamepadButton5)
-	GamepadButton6   GamepadButton = GamepadButton(driver.GamepadButton6)
-	GamepadButton7   GamepadButton = GamepadButton(driver.GamepadButton7)
-	GamepadButton8   GamepadButton = GamepadButton(driver.GamepadButton8)
-	GamepadButton9   GamepadButton = GamepadButton(driver.GamepadButton9)
-	GamepadButton10  GamepadButton = GamepadButton(driver.GamepadButton10)
-	GamepadButton11  GamepadButton = GamepadButton(driver.GamepadButton11)
-	GamepadButton12  GamepadButton = GamepadButton(driver.GamepadButton12)
-	GamepadButton13  GamepadButton = GamepadButton(driver.GamepadButton13)
-	GamepadButton14  GamepadButton = GamepadButton(driver.GamepadButton14)
-	GamepadButton15  GamepadButton = GamepadButton(driver.GamepadButton15)
-	GamepadButton16  GamepadButton = GamepadButton(driver.GamepadButton16)
-	GamepadButton17  GamepadButton = GamepadButton(driver.GamepadButton17)
-	GamepadButton18  GamepadButton = GamepadButton(driver.GamepadButton18)
-	GamepadButton19  GamepadButton = GamepadButton(driver.GamepadButton19)
-	GamepadButton20  GamepadButton = GamepadButton(driver.GamepadButton20)
-	GamepadButton21  GamepadButton = GamepadButton(driver.GamepadButton21)
-	GamepadButton22  GamepadButton = GamepadButton(driver.GamepadButton22)
-	GamepadButton23  GamepadButton = GamepadButton(driver.GamepadButton23)
-	GamepadButton24  GamepadButton = GamepadButton(driver.GamepadButton24)
-	GamepadButton25  GamepadButton = GamepadButton(driver.GamepadButton25)
-	GamepadButton26  GamepadButton = GamepadButton(driver.GamepadButton26)
-	GamepadButton27  GamepadButton = GamepadButton(driver.GamepadButton27)
-	GamepadButton28  GamepadButton = GamepadButton(driver.GamepadButton28)
-	GamepadButton29  GamepadButton = GamepadButton(driver.GamepadButton29)
-	GamepadButton30  GamepadButton = GamepadButton(driver.GamepadButton30)
-	GamepadButton31  GamepadButton = GamepadButton(driver.GamepadButton31)
+	GamepadButton0   GamepadButton = gamepad.Button0
+	GamepadButton1   GamepadButton = gamepad.Button1
+	GamepadButton2   GamepadButton = gamepad.Button2
+	GamepadButton3   GamepadButton = gamepad.Button3
+	GamepadButton4   GamepadButton = gamepad.Button4
+	GamepadButton5   GamepadButton = gamepad.Button5
+	GamepadButton6   GamepadButton = gamepad.Button6
+	GamepadButton7   GamepadButton = gamepad.Button7
+	GamepadButton8   GamepadButton = gamepad.Button8
+	GamepadButton9   GamepadButton = gamepad.Button9
+	GamepadButton10  GamepadButton = gamepad.Button10
+	GamepadButton11  GamepadButton = gamepad.Button11
+	GamepadButton12  GamepadButton = gamepad.Button12
+	GamepadButton13  GamepadButton = gamepad.Button13
+	GamepadButton14  GamepadButton = gamepad.Button14
+	GamepadButton15  GamepadButton = gamepad.Button15
+	GamepadButton16  GamepadButton = gamepad.Button16
+	GamepadButton17  GamepadButton = gamepad.Button17
+	GamepadButton18  GamepadButton = gamepad.Button18
+	GamepadButton19  GamepadButton = gamepad.Button19
+	GamepadButton20  GamepadButton = gamepad.Button20
+	GamepadButton21  GamepadButton = gamepad.Button21
+	GamepadButton22  GamepadButton = gamepad.Button22
+	GamepadButton23  GamepadButton = gamepad.Button23
+	GamepadButton24  GamepadButton = gamepad.Button24
+	GamepadButton25  GamepadButton = gamepad.Button25
+	GamepadButton26  GamepadButton = gamepad.Button26
+	GamepadButton27  GamepadButton = gamepad.Button27
+	GamepadButton28  GamepadButton = gamepad.Button28
+	GamepadButton29  GamepadButton = gamepad.Button29
+	GamepadButton30  GamepadButton = gamepad.Button30
+	GamepadButton31  GamepadButton = gamepad.Button31
 	GamepadButtonMax GamepadButton = GamepadButton31
+)
+
+// StandardGamepadButton represents a gamepad button in the standard layout.
+//
+// The layout and the button values are based on the web standard.
+// See https://www.w3.org/TR/gamepad/#remapping.
+type StandardGamepadButton = gamepaddb.StandardButton
+
+// StandardGamepadButtons
+const (
+	StandardGamepadButtonRightBottom      StandardGamepadButton = gamepaddb.StandardButtonRightBottom
+	StandardGamepadButtonRightRight       StandardGamepadButton = gamepaddb.StandardButtonRightRight
+	StandardGamepadButtonRightLeft        StandardGamepadButton = gamepaddb.StandardButtonRightLeft
+	StandardGamepadButtonRightTop         StandardGamepadButton = gamepaddb.StandardButtonRightTop
+	StandardGamepadButtonFrontTopLeft     StandardGamepadButton = gamepaddb.StandardButtonFrontTopLeft
+	StandardGamepadButtonFrontTopRight    StandardGamepadButton = gamepaddb.StandardButtonFrontTopRight
+	StandardGamepadButtonFrontBottomLeft  StandardGamepadButton = gamepaddb.StandardButtonFrontBottomLeft
+	StandardGamepadButtonFrontBottomRight StandardGamepadButton = gamepaddb.StandardButtonFrontBottomRight
+	StandardGamepadButtonCenterLeft       StandardGamepadButton = gamepaddb.StandardButtonCenterLeft
+	StandardGamepadButtonCenterRight      StandardGamepadButton = gamepaddb.StandardButtonCenterRight
+	StandardGamepadButtonLeftStick        StandardGamepadButton = gamepaddb.StandardButtonLeftStick
+	StandardGamepadButtonRightStick       StandardGamepadButton = gamepaddb.StandardButtonRightStick
+	StandardGamepadButtonLeftTop          StandardGamepadButton = gamepaddb.StandardButtonLeftTop
+	StandardGamepadButtonLeftBottom       StandardGamepadButton = gamepaddb.StandardButtonLeftBottom
+	StandardGamepadButtonLeftLeft         StandardGamepadButton = gamepaddb.StandardButtonLeftLeft
+	StandardGamepadButtonLeftRight        StandardGamepadButton = gamepaddb.StandardButtonLeftRight
+	StandardGamepadButtonCenterCenter     StandardGamepadButton = gamepaddb.StandardButtonCenterCenter
+	StandardGamepadButtonMax              StandardGamepadButton = StandardGamepadButtonCenterCenter
+)
+
+// StandardGamepadAxis represents a gamepad axis in the standard layout.
+//
+// The layout and the button values are based on the web standard.
+// See https://www.w3.org/TR/gamepad/#remapping.
+type StandardGamepadAxis = gamepaddb.StandardAxis
+
+// StandardGamepadAxes
+const (
+	StandardGamepadAxisLeftStickHorizontal  StandardGamepadAxis = gamepaddb.StandardAxisLeftStickHorizontal
+	StandardGamepadAxisLeftStickVertical    StandardGamepadAxis = gamepaddb.StandardAxisLeftStickVertical
+	StandardGamepadAxisRightStickHorizontal StandardGamepadAxis = gamepaddb.StandardAxisRightStickHorizontal
+	StandardGamepadAxisRightStickVertical   StandardGamepadAxis = gamepaddb.StandardAxisRightStickVertical
+	StandardGamepadAxisMax                  StandardGamepadAxis = StandardGamepadAxisRightStickVertical
 )

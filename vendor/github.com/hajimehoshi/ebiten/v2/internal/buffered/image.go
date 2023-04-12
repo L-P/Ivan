@@ -16,190 +16,114 @@ package buffered
 
 import (
 	"fmt"
-	"image"
-	"image/color"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/affine"
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/atlas"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
+	"github.com/hajimehoshi/ebiten/v2/internal/restorable"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
-	"github.com/hajimehoshi/ebiten/v2/internal/shareable"
 )
 
 type Image struct {
-	img    *shareable.Image
+	img    *atlas.Image
 	width  int
 	height int
 
-	hasFill   bool
-	fillColor color.RGBA
-
-	pixels               []byte
-	needsToResolvePixels bool
+	// pixels is valid only when restorable.AlwaysReadPixelsFromGPU() returns true.
+	pixels []byte
 }
 
-func BeginFrame() error {
-	if err := shareable.BeginFrame(); err != nil {
+func BeginFrame(graphicsDriver graphicsdriver.Graphics) error {
+	if err := atlas.BeginFrame(graphicsDriver); err != nil {
 		return err
 	}
-	return flushDelayedCommands()
+	flushDelayedCommands()
+	return nil
 }
 
-func EndFrame() error {
-	return shareable.EndFrame()
+func EndFrame(graphicsDriver graphicsdriver.Graphics) error {
+	return atlas.EndFrame(graphicsDriver)
 }
 
-func NewImage(width, height int) *Image {
-	i := &Image{}
-	i.initialize(width, height)
+func NewImage(width, height int, imageType atlas.ImageType) *Image {
+	i := &Image{
+		width:  width,
+		height: height,
+	}
+	i.initialize(imageType)
 	return i
 }
 
-func (i *Image) initialize(width, height int) {
+func (i *Image) initialize(imageType atlas.ImageType) {
 	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			i.initialize(width, height)
-			return nil
+		if tryAddDelayedCommand(func() {
+			i.initializeImpl(imageType)
 		}) {
 			return
 		}
 	}
-	i.img = shareable.NewImage(width, height)
-	i.width = width
-	i.height = height
+	i.initializeImpl(imageType)
 }
 
-func (i *Image) SetVolatile(volatile bool) {
-	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			i.SetVolatile(volatile)
-			return nil
-		}) {
-			return
-		}
-	}
-	i.img.SetVolatile(volatile)
+func (i *Image) initializeImpl(imageType atlas.ImageType) {
+	i.img = atlas.NewImage(i.width, i.height, imageType)
 }
 
-func NewScreenFramebufferImage(width, height int) *Image {
-	i := &Image{}
-	i.initializeAsScreenFramebuffer(width, height)
-	return i
-}
-
-func (i *Image) initializeAsScreenFramebuffer(width, height int) {
-	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			i.initializeAsScreenFramebuffer(width, height)
-			return nil
-		}) {
-			return
-		}
-	}
-
-	i.img = shareable.NewScreenFramebufferImage(width, height)
-	i.width = width
-	i.height = height
-}
-
-func (i *Image) invalidatePendingPixels() {
+func (i *Image) invalidatePixels() {
 	i.pixels = nil
-	i.needsToResolvePixels = false
-	i.hasFill = false
-}
-
-func (i *Image) resolvePendingPixels(keepPendingPixels bool) {
-	if i.needsToResolvePixels && i.hasFill {
-		panic("buffered: needsToResolvePixels and hasFill must not be true at the same time")
-	}
-	if i.needsToResolvePixels {
-		i.img.ReplacePixels(i.pixels)
-		if !keepPendingPixels {
-			i.pixels = nil
-		}
-		i.needsToResolvePixels = false
-	}
-	i.resolvePendingFill()
-}
-
-func (i *Image) resolvePendingFill() {
-	if !i.hasFill {
-		return
-	}
-	i.img.Fill(i.fillColor)
-	i.hasFill = false
 }
 
 func (i *Image) MarkDisposed() {
 	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			i.MarkDisposed()
-			return nil
+		if tryAddDelayedCommand(func() {
+			i.markDisposedImpl()
 		}) {
 			return
 		}
 	}
-	i.invalidatePendingPixels()
+	i.markDisposedImpl()
+}
+
+func (i *Image) markDisposedImpl() {
+	i.invalidatePixels()
 	i.img.MarkDisposed()
 }
 
-func (img *Image) Pixels(x, y, width, height int) (pix []byte, err error) {
-	checkDelayedCommandsFlushed("Pixels")
+func (i *Image) ReadPixels(graphicsDriver graphicsdriver.Graphics, pixels []byte, x, y, width, height int) error {
+	checkDelayedCommandsFlushed("ReadPixels")
 
-	if !image.Rect(x, y, x+width, y+height).In(image.Rect(0, 0, img.width, img.height)) {
-		return nil, fmt.Errorf("buffered: out of range")
-	}
-
-	pix = make([]byte, 4*width*height)
-
-	// If there are pixels or pending fillling that needs to be resolved, use this rather than resolving.
-	// Resolving them needs to access GPU and is expensive (#1137).
-	if img.hasFill {
-		for i := 0; i < len(pix)/4; i++ {
-			pix[4*i] = img.fillColor.R
-			pix[4*i+1] = img.fillColor.G
-			pix[4*i+2] = img.fillColor.B
-			pix[4*i+3] = img.fillColor.A
+	// If restorable.AlwaysReadPixelsFromGPU() returns false, the pixel data is cached in the restorable package.
+	if !restorable.AlwaysReadPixelsFromGPU() {
+		if err := i.img.ReadPixels(graphicsDriver, pixels, x, y, width, height); err != nil {
+			return err
 		}
-		return pix, nil
+		return nil
 	}
 
-	if img.pixels == nil {
-		pix, err := img.img.Pixels(0, 0, img.width, img.height)
-		if err != nil {
-			return nil, err
+	if i.pixels == nil {
+		pix := make([]byte, 4*i.width*i.height)
+		if err := i.img.ReadPixels(graphicsDriver, pix, 0, 0, i.width, i.height); err != nil {
+			return err
 		}
-		img.pixels = pix
+		i.pixels = pix
 	}
 
+	lineWidth := 4 * width
 	for j := 0; j < height; j++ {
-		copy(pix[4*j*width:4*(j+1)*width], img.pixels[4*((j+y)*img.width+x):])
+		dstX := 4 * j * width
+		srcX := 4 * ((y+j)*i.width + x)
+		copy(pixels[dstX:dstX+lineWidth], i.pixels[srcX:srcX+lineWidth])
 	}
-	return pix, nil
+	return nil
 }
 
-func (i *Image) Dump(name string, blackbg bool) error {
+func (i *Image) DumpScreenshot(graphicsDriver graphicsdriver.Graphics, name string, blackbg bool) (string, error) {
 	checkDelayedCommandsFlushed("Dump")
-	return i.img.Dump(name, blackbg)
+	return i.img.DumpScreenshot(graphicsDriver, name, blackbg)
 }
 
-func (i *Image) Fill(clr color.RGBA) {
-	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			i.Fill(clr)
-			return nil
-		}) {
-			return
-		}
-	}
-
-	// Defer filling the image so that successive fillings will be merged into one (#1134).
-	i.invalidatePendingPixels()
-	i.fillColor = clr
-	i.hasFill = true
-}
-
-func (i *Image) ReplacePixels(pix []byte, x, y, width, height int) error {
+// WritePixels replaces the pixels at the specified region.
+func (i *Image) WritePixels(pix []byte, x, y, width, height int) {
 	if l := 4 * width * height; len(pix) != l {
 		panic(fmt.Sprintf("buffered: len(pix) was %d but must be %d", len(pix), l))
 	}
@@ -207,48 +131,24 @@ func (i *Image) ReplacePixels(pix []byte, x, y, width, height int) error {
 	if maybeCanAddDelayedCommand() {
 		copied := make([]byte, len(pix))
 		copy(copied, pix)
-		if tryAddDelayedCommand(func() error {
-			i.ReplacePixels(copied, x, y, width, height)
-			return nil
+		if tryAddDelayedCommand(func() {
+			i.writePixelsImpl(copied, x, y, width, height)
 		}) {
-			return nil
+			return
 		}
 	}
-
-	if x == 0 && y == 0 && width == i.width && height == i.height {
-		i.invalidatePendingPixels()
-
-		// Call ReplacePixels immediately. If a lot of new images are created but they are used at different
-		// timings, pixels are sent to GPU at different timings, which is very inefficient.
-		i.img.ReplacePixels(pix)
-		return nil
-	}
-
-	i.resolvePendingFill()
-
-	// TODO: Can we use (*restorable.Image).ReplacePixels?
-	if i.pixels == nil {
-		pix, err := i.img.Pixels(0, 0, i.width, i.height)
-		if err != nil {
-			return err
-		}
-		i.pixels = pix
-	}
-	i.replacePendingPixels(pix, x, y, width, height)
-	return nil
+	i.writePixelsImpl(pix, x, y, width, height)
 }
 
-func (i *Image) replacePendingPixels(pix []byte, x, y, width, height int) {
-	for j := 0; j < height; j++ {
-		copy(i.pixels[4*((j+y)*i.width+x):], pix[4*j*width:4*(j+1)*width])
-	}
-	i.needsToResolvePixels = true
+func (i *Image) writePixelsImpl(pix []byte, x, y, width, height int) {
+	i.invalidatePixels()
+	i.img.WritePixels(pix, x, y, width, height)
 }
 
 // DrawTriangles draws the src image with the given vertices.
 //
 // Copying vertices and indices is the caller's responsibility.
-func (i *Image) DrawTriangles(srcs [graphics.ShaderImageNum]*Image, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, subimageOffsets [graphics.ShaderImageNum - 1][2]float32, shader *Shader, uniforms []interface{}) {
+func (i *Image) DrawTriangles(srcs [graphics.ShaderImageCount]*Image, vertices []float32, indices []uint16, blend graphicsdriver.Blend, dstRegion, srcRegion graphicsdriver.Region, subimageOffsets [graphics.ShaderImageCount - 1][2]float32, shader *Shader, uniforms []uint32, evenOdd bool) {
 	for _, src := range srcs {
 		if i == src {
 			panic("buffered: Image.DrawTriangles: source images must be different from the receiver")
@@ -256,49 +156,76 @@ func (i *Image) DrawTriangles(srcs [graphics.ShaderImageNum]*Image, vertices []f
 	}
 
 	if maybeCanAddDelayedCommand() {
-		if tryAddDelayedCommand(func() error {
-			// Arguments are not copied. Copying is the caller's responsibility.
-			i.DrawTriangles(srcs, vertices, indices, colorm, mode, filter, address, sourceRegion, subimageOffsets, shader, uniforms)
-			return nil
+		vs := make([]float32, len(vertices))
+		copy(vs, vertices)
+		is := make([]uint16, len(indices))
+		copy(is, indices)
+		us := make([]uint32, len(uniforms))
+		copy(us, uniforms)
+		if tryAddDelayedCommand(func() {
+			i.drawTrianglesImpl(srcs, vs, is, blend, dstRegion, srcRegion, subimageOffsets, shader, us, evenOdd)
 		}) {
 			return
 		}
 	}
+	i.drawTrianglesImpl(srcs, vertices, indices, blend, dstRegion, srcRegion, subimageOffsets, shader, uniforms, evenOdd)
+}
 
-	var s *shareable.Shader
-	var imgs [graphics.ShaderImageNum]*shareable.Image
-	if shader == nil {
-		// Fast path for rendering without a shader (#1355).
-		img := srcs[0]
-		img.resolvePendingPixels(true)
-		imgs[0] = img.img
-	} else {
-		for i, img := range srcs {
-			if img == nil {
-				continue
-			}
-			img.resolvePendingPixels(true)
-			imgs[i] = img.img
+func (i *Image) drawTrianglesImpl(srcs [graphics.ShaderImageCount]*Image, vertices []float32, indices []uint16, blend graphicsdriver.Blend, dstRegion, srcRegion graphicsdriver.Region, subimageOffsets [graphics.ShaderImageCount - 1][2]float32, shader *Shader, uniforms []uint32, evenOdd bool) {
+	var imgs [graphics.ShaderImageCount]*atlas.Image
+	for i, img := range srcs {
+		if img == nil {
+			continue
 		}
-		s = shader.shader
+		imgs[i] = img.img
 	}
-	i.resolvePendingPixels(false)
 
-	i.img.DrawTriangles(imgs, vertices, indices, colorm, mode, filter, address, sourceRegion, subimageOffsets, s, uniforms)
-	i.invalidatePendingPixels()
+	i.invalidatePixels()
+	i.img.DrawTriangles(imgs, vertices, indices, blend, dstRegion, srcRegion, subimageOffsets, shader.shader, uniforms, evenOdd)
 }
 
 type Shader struct {
-	shader *shareable.Shader
+	shader *atlas.Shader
 }
 
-func NewShader(program *shaderir.Program) *Shader {
-	return &Shader{
-		shader: shareable.NewShader(program),
+func NewShader(ir *shaderir.Program) *Shader {
+	s := &Shader{}
+	s.initialize(ir)
+	return s
+}
+
+func (s *Shader) initialize(ir *shaderir.Program) {
+	if maybeCanAddDelayedCommand() {
+		if tryAddDelayedCommand(func() {
+			s.initializeImpl(ir)
+		}) {
+			return
+		}
 	}
+	s.initializeImpl(ir)
+}
+
+func (s *Shader) initializeImpl(ir *shaderir.Program) {
+	s.shader = atlas.NewShader(ir)
 }
 
 func (s *Shader) MarkDisposed() {
+	if maybeCanAddDelayedCommand() {
+		if tryAddDelayedCommand(func() {
+			s.markDisposedImpl()
+		}) {
+			return
+		}
+	}
+	s.markDisposedImpl()
+}
+
+func (s *Shader) markDisposedImpl() {
 	s.shader.MarkDisposed()
 	s.shader = nil
 }
+
+var (
+	NearestFilterShader = &Shader{shader: atlas.NearestFilterShader}
+	LinearFilterShader  = &Shader{shader: atlas.LinearFilterShader}
+)

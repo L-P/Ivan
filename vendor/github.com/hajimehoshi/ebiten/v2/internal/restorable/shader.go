@@ -15,6 +15,12 @@
 package restorable
 
 import (
+	"fmt"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/hajimehoshi/ebiten/v2/internal/builtinshader"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicscommand"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
@@ -24,10 +30,10 @@ type Shader struct {
 	ir     *shaderir.Program
 }
 
-func NewShader(program *shaderir.Program) *Shader {
+func NewShader(ir *shaderir.Program) *Shader {
 	s := &Shader{
-		shader: graphicscommand.NewShader(program),
-		ir:     program,
+		shader: graphicscommand.NewShader(ir),
+		ir:     ir,
 	}
 	theImages.addShader(s)
 	return s
@@ -42,4 +48,49 @@ func (s *Shader) Dispose() {
 
 func (s *Shader) restore() {
 	s.shader = graphicscommand.NewShader(s.ir)
+}
+
+var (
+	NearestFilterShader *Shader
+	LinearFilterShader  *Shader
+	clearShader         *Shader
+)
+
+func init() {
+	var wg errgroup.Group
+	var nearestIR, linearIR, clearIR *shaderir.Program
+	wg.Go(func() error {
+		ir, err := graphics.CompileShader([]byte(builtinshader.Shader(builtinshader.FilterNearest, builtinshader.AddressUnsafe, false)))
+		if err != nil {
+			return fmt.Errorf("restorable: compiling the nearest shader failed: %w", err)
+		}
+		nearestIR = ir
+		return nil
+	})
+	wg.Go(func() error {
+		ir, err := graphics.CompileShader([]byte(builtinshader.Shader(builtinshader.FilterLinear, builtinshader.AddressUnsafe, false)))
+		if err != nil {
+			return fmt.Errorf("restorable: compiling the linear shader failed: %w", err)
+		}
+		linearIR = ir
+		return nil
+	})
+	wg.Go(func() error {
+		ir, err := graphics.CompileShader([]byte(`package main
+
+func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
+	return vec4(0)
+}`))
+		if err != nil {
+			return fmt.Errorf("restorable: compiling the clear shader failed: %w", err)
+		}
+		clearIR = ir
+		return nil
+	})
+	if err := wg.Wait(); err != nil {
+		panic(err)
+	}
+	NearestFilterShader = NewShader(nearestIR)
+	LinearFilterShader = NewShader(linearIR)
+	clearShader = NewShader(clearIR)
 }

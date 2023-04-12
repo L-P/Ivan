@@ -16,71 +16,92 @@ package restorable
 
 import (
 	"fmt"
-	"image/color"
+	"image"
+	"math"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/affine"
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicscommand"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 )
 
 type Pixels struct {
-	baseColor    color.RGBA
-	rectToPixels *rectToPixels
+	pixelsRecords *pixelsRecords
 }
 
 // Apply applies the Pixels state to the given image especially for restoring.
 func (p *Pixels) Apply(img *graphicscommand.Image) {
 	// Pixels doesn't clear the image. This is a caller's responsibility.
-	if p.baseColor != (color.RGBA{}) {
-		fillImage(img, p.baseColor)
-	}
 
-	if p.rectToPixels == nil {
+	if p.pixelsRecords == nil {
 		return
 	}
-	p.rectToPixels.apply(img)
+	p.pixelsRecords.apply(img)
 }
 
 func (p *Pixels) AddOrReplace(pix []byte, x, y, width, height int) {
-	if p.rectToPixels == nil {
-		p.rectToPixels = &rectToPixels{}
+	if p.pixelsRecords == nil {
+		p.pixelsRecords = &pixelsRecords{}
 	}
-	p.rectToPixels.addOrReplace(pix, x, y, width, height)
+	p.pixelsRecords.addOrReplace(pix, x, y, width, height)
 }
 
-func (p *Pixels) Remove(x, y, width, height int) {
+func (p *Pixels) Clear(x, y, width, height int) {
 	// Note that we don't care whether the region is actually removed or not here. There is an actual case that
 	// the region is allocated but nothing is rendered. See TestDisposeImmediately at shareable package.
-	if p.rectToPixels == nil {
+	if p.pixelsRecords == nil {
 		return
 	}
-	p.rectToPixels.remove(x, y, width, height)
+	p.pixelsRecords.clear(x, y, width, height)
 }
 
-func (p *Pixels) At(i, j int) (byte, byte, byte, byte) {
-	if p.rectToPixels != nil {
-		if r, g, b, a, ok := p.rectToPixels.at(i, j); ok {
-			return r, g, b, a
+func (p *Pixels) ReadPixels(pixels []byte, x, y, width, height, imageWidth, imageHeight int) {
+	if p.pixelsRecords == nil {
+		for i := range pixels {
+			pixels[i] = 0
 		}
+		return
 	}
-	return p.baseColor.R, p.baseColor.G, p.baseColor.B, p.baseColor.A
+	p.pixelsRecords.readPixels(pixels, x, y, width, height, imageWidth, imageHeight)
+}
+
+func (p *Pixels) AppendRegion(regions []image.Rectangle) []image.Rectangle {
+	if p.pixelsRecords == nil {
+		return regions
+	}
+	return p.pixelsRecords.appendRegions(regions)
 }
 
 // drawTrianglesHistoryItem is an item for history of draw-image commands.
 type drawTrianglesHistoryItem struct {
-	images       [graphics.ShaderImageNum]*Image
-	offsets      [graphics.ShaderImageNum - 1][2]float32
-	vertices     []float32
-	indices      []uint16
-	colorm       *affine.ColorM
-	mode         driver.CompositeMode
-	filter       driver.Filter
-	address      driver.Address
-	sourceRegion driver.Region
-	shader       *Shader
-	uniforms     []interface{}
+	images    [graphics.ShaderImageCount]*Image
+	offsets   [graphics.ShaderImageCount - 1][2]float32
+	vertices  []float32
+	indices   []uint16
+	blend     graphicsdriver.Blend
+	dstRegion graphicsdriver.Region
+	srcRegion graphicsdriver.Region
+	shader    *Shader
+	uniforms  []uint32
+	evenOdd   bool
 }
+
+type ImageType int
+
+const (
+	// ImageTypeRegular indicates the image is a regular image.
+	ImageTypeRegular ImageType = iota
+
+	// ImageTypeScreen indicates the image is used as an actual screen.
+	ImageTypeScreen
+
+	// ImageTypeVolatile indicates the image is cleared whenever a frame starts.
+	//
+	// Regular non-volatile images need to record drawing history or read its pixels from GPU if necessary so that all
+	// the images can be restored automatically from the context lost. However, such recording the drawing history or
+	// reading pixels from GPU are expensive operations. Volatile images can skip such operations, but the image content
+	// is cleared every frame instead.
+	ImageTypeVolatile
+)
 
 // Image represents an image that can be restored when GL context is lost.
 type Image struct {
@@ -98,180 +119,111 @@ type Image struct {
 	// stale indicates whether the image needs to be synced with GPU as soon as possible.
 	stale bool
 
-	// volatile indicates whether the image is cleared whenever a frame starts.
-	volatile bool
+	// staleRegions indicates the regions to restore.
+	// staleRegions is valid only when stale is true.
+	// staleRegions is not used when AlwaysReadPixelsFromGPU() returns true.
+	staleRegions []image.Rectangle
 
-	// screen indicates whether the image is used as an actual screen.
-	screen bool
+	// pixelsCache is cached byte slices for pixels.
+	// pixelsCache is just a cache to avoid allocations (#2375).
+	//
+	// A key is the region and a value is a byte slice for the region.
+	//
+	// It is fine to reuse the same byte slice for the same region for basePixels,
+	// as old pixels for the same region will be invalidated at basePixel.AddOrReplace.
+	pixelsCache map[image.Rectangle][]byte
 
-	// priority indicates whether the image is restored in high priority when context-lost happens.
-	priority bool
+	// regionsCache is cached regions.
+	// regionsCache is just a cache to avoid allocations (#2375).
+	regionsCache []image.Rectangle
+
+	imageType ImageType
 }
 
-var emptyImage *Image
-
-func init() {
-	// Use a big-enough image as an rendering source. By enlarging with x128, this can reach to 16384.
-	// See #907 for details.
-	const w, h = 128, 128
-	emptyImage = &Image{
-		image:    graphicscommand.NewImage(w, h),
-		width:    w,
-		height:   h,
-		priority: true,
-	}
-	pix := make([]byte, 4*w*h)
-	for i := range pix {
-		pix[i] = 0xff
-	}
-
-	// As emptyImage is the source at clearImage, initialize this with ReplacePixels, not clearImage.
-	// This operation is also important when restoring emptyImage.
-	emptyImage.ReplacePixels(pix, 0, 0, w, h)
-	theImages.add(emptyImage)
-}
-
-// NewImage creates an empty image with the given size.
+// NewImage creates a white image with the given size.
 //
 // The returned image is cleared.
 //
 // Note that Dispose is not called automatically.
-func NewImage(width, height int) *Image {
-	i := &Image{
-		image:  graphicscommand.NewImage(width, height),
-		width:  width,
-		height: height,
+func NewImage(width, height int, imageType ImageType) *Image {
+	if !graphicsDriverInitialized {
+		panic("restorable: graphics driver must be ready at NewImage but not")
 	}
-	fillImage(i.image, color.RGBA{})
+
+	i := &Image{
+		image:     graphicscommand.NewImage(width, height, imageType == ImageTypeScreen),
+		width:     width,
+		height:    height,
+		imageType: imageType,
+	}
+	clearImage(i.image)
 	theImages.add(i)
 	return i
-}
-
-// SetVolatile sets the volatile state of the image.
-//
-// Regular non-volatile images need to record drawing history or read its pixels from GPU if necessary so that all
-// the images can be restored automatically from the context lost. However, such recording the drawing history or
-// reading pixels from GPU are expensive operations. Volatile images can skip such oprations, but the image content
-// is cleared every frame instead.
-func (i *Image) SetVolatile(volatile bool) {
-	changed := i.volatile != volatile
-	i.volatile = volatile
-	if changed {
-		i.makeStale()
-	}
 }
 
 // Extend extends the image by the given size.
 // Extend creates a new image with the given size and copies the pixels of the given source image.
 // Extend disposes itself after its call.
-//
-// If the given size (width and height) is smaller than the source image, ExtendImage panics.
-//
-// The image must be ReplacePixels-only image. Extend panics when Fill or DrawTriangles are applied on the image.
-//
-// Extend panics when the image is stale.
 func (i *Image) Extend(width, height int) *Image {
-	if i.width > width || i.height > height {
-		panic(fmt.Sprintf("restorable: the original size (%d, %d) cannot be extended to (%d, %d)", i.width, i.height, width, height))
+	if i.width >= width && i.height >= height {
+		return i
 	}
 
-	if i.stale {
-		panic("restorable: Extend at a stale image is forbidden")
+	newImg := NewImage(width, height, i.imageType)
+
+	// Use DrawTriangles instead of WritePixels because the image i might be stale and not have its pixels
+	// information.
+	srcs := [graphics.ShaderImageCount]*Image{i}
+	var offsets [graphics.ShaderImageCount - 1][2]float32
+	sw, sh := i.image.InternalSize()
+	vs := quadVertices(i, 0, 0, float32(sw), float32(sh), 0, 0, float32(sw), float32(sh), 1, 1, 1, 1)
+	is := graphics.QuadIndices()
+	dr := graphicsdriver.Region{
+		X:      0,
+		Y:      0,
+		Width:  float32(sw),
+		Height: float32(sh),
 	}
-
-	if len(i.drawTrianglesHistory) > 0 {
-		panic("restorable: Extend after DrawTriangles is forbidden")
-	}
-
-	newImg := NewImage(width, height)
-	newImg.SetVolatile(i.volatile)
-	i.basePixels.Apply(newImg.image)
-
-	if i.basePixels.baseColor != (color.RGBA{}) {
-		panic("restorable: baseColor must be empty at Extend")
-	}
-	newImg.basePixels = i.basePixels
-
+	newImg.DrawTriangles(srcs, offsets, vs, is, graphicsdriver.BlendCopy, dr, graphicsdriver.Region{}, NearestFilterShader, nil, false)
 	i.Dispose()
 
 	return newImg
 }
 
-// NewScreenFramebufferImage creates a special image that framebuffer is one for the screen.
-//
-// The returned image is cleared.
-//
-// Note that Dispose is not called automatically.
-func NewScreenFramebufferImage(width, height int) *Image {
-	i := &Image{
-		image:  graphicscommand.NewScreenFramebufferImage(width, height),
-		width:  width,
-		height: height,
-		screen: true,
-	}
-	fillImage(i.image, color.RGBA{})
-	theImages.add(i)
-	return i
-}
-
 // quadVertices returns vertices to render a quad. These values are passed to graphicscommand.Image.
-func quadVertices(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1, cr, cg, cb, ca float32) []float32 {
+func quadVertices(src *Image, dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1, cr, cg, cb, ca float32) []float32 {
+	if src == nil {
+		return []float32{
+			dx0, dy0, 0, 0, cr, cg, cb, ca,
+			dx1, dy0, 0, 0, cr, cg, cb, ca,
+			dx0, dy1, 0, 0, cr, cg, cb, ca,
+			dx1, dy1, 0, 0, cr, cg, cb, ca,
+		}
+	}
+	sw, sh := src.InternalSize()
+	swf, shf := float32(sw), float32(sh)
 	return []float32{
-		dx0, dy0, sx0, sy0, cr, cg, cb, ca,
-		dx1, dy0, sx1, sy0, cr, cg, cb, ca,
-		dx0, dy1, sx0, sy1, cr, cg, cb, ca,
-		dx1, dy1, sx1, sy1, cr, cg, cb, ca,
+		dx0, dy0, sx0 / swf, sy0 / shf, cr, cg, cb, ca,
+		dx1, dy0, sx1 / swf, sy0 / shf, cr, cg, cb, ca,
+		dx0, dy1, sx0 / swf, sy1 / shf, cr, cg, cb, ca,
+		dx1, dy1, sx1 / swf, sy1 / shf, cr, cg, cb, ca,
 	}
 }
 
-// Fill fills the specified part of the image with a solid color.
-func (i *Image) Fill(clr color.RGBA) {
-	theImages.makeStaleIfDependingOn(i)
-	i.basePixels = Pixels{
-		baseColor: clr,
-	}
-	i.drawTrianglesHistory = nil
-	i.stale = false
-
-	// Do not call i.DrawTriangles as emptyImage is special (#928).
-	// baseColor is updated instead.
-	fillImage(i.image, i.basePixels.baseColor)
-}
-
-func fillImage(i *graphicscommand.Image, clr color.RGBA) {
-	if i == emptyImage.image {
-		panic("restorable: fillImage cannot be called on emptyImage")
-	}
-
-	var rf, gf, bf, af float32
-	if clr.A > 0 {
-		rf = float32(clr.R) / float32(clr.A)
-		gf = float32(clr.G) / float32(clr.A)
-		bf = float32(clr.B) / float32(clr.A)
-		af = float32(clr.A) / 0xff
-	}
-
-	// TODO: Use the previous composite mode if possible.
-	compositemode := driver.CompositeModeSourceOver
-	switch {
-	case af == 0.0:
-		compositemode = driver.CompositeModeClear
-	case af < 1.0:
-		compositemode = driver.CompositeModeCopy
-	}
-
+func clearImage(i *graphicscommand.Image) {
 	// This needs to use 'InternalSize' to render the whole region, or edges are unexpectedly cleared on some
 	// devices.
-	//
-	// TODO: Can we unexport InternalSize()?
 	dw, dh := i.InternalSize()
-	sw, sh := emptyImage.image.InternalSize()
-	// Add 1 pixels for paddings.
-	vs := quadVertices(0, 0, float32(dw), float32(dh), 1, 1, float32(sw-1), float32(sh-1), rf, gf, bf, af)
+	vs := quadVertices(nil, 0, 0, float32(dw), float32(dh), 0, 0, 0, 0, 0, 0, 0, 0)
 	is := graphics.QuadIndices()
-	srcs := [graphics.ShaderImageNum]*graphicscommand.Image{emptyImage.image}
-	var offsets [graphics.ShaderImageNum - 1][2]float32
-	i.DrawTriangles(srcs, offsets, vs, is, nil, compositemode, driver.FilterNearest, driver.AddressUnsafe, driver.Region{}, nil, nil)
+	var offsets [graphics.ShaderImageCount - 1][2]float32
+	dstRegion := graphicsdriver.Region{
+		X:      0,
+		Y:      0,
+		Width:  float32(dw),
+		Height: float32(dh),
+	}
+	i.DrawTriangles([graphics.ShaderImageCount]*graphicscommand.Image{}, offsets, vs, is, graphicsdriver.BlendClear, dstRegion, graphicsdriver.Region{}, clearShader.shader, nil, false)
 }
 
 // BasePixelsForTesting returns the image's basePixels for testing.
@@ -280,10 +232,33 @@ func (i *Image) BasePixelsForTesting() *Pixels {
 }
 
 // makeStale makes the image stale.
-func (i *Image) makeStale() {
-	i.basePixels = Pixels{}
-	i.drawTrianglesHistory = nil
+func (i *Image) makeStale(rect image.Rectangle) {
 	i.stale = true
+
+	// If ReadPixels always reads pixels from GPU, staleRegions are never used.
+	if AlwaysReadPixelsFromGPU() {
+		return
+	}
+
+	origNum := len(i.staleRegions)
+	i.staleRegions = i.appendRegionsForDrawTriangles(i.staleRegions)
+	if !rect.Empty() {
+		i.staleRegions = append(i.staleRegions, rect)
+	}
+
+	i.clearDrawTrianglesHistory()
+
+	// Clear pixels to save memory.
+	for _, r := range i.staleRegions[origNum:] {
+		if r.Empty() {
+			continue
+		}
+		i.basePixels.Clear(r.Min.X, r.Min.Y, r.Dx(), r.Dy())
+	}
+
+	// Remove duplicated regions to avoid unnecessary reading pixels from GPU.
+	n := removeDuplicatedRegions(i.staleRegions)
+	i.staleRegions = i.staleRegions[:n]
 
 	// Don't have to call makeStale recursively here.
 	// Restoring is done after topological sorting is done.
@@ -291,15 +266,19 @@ func (i *Image) makeStale() {
 	// the former image can be restored from the latest state of the latter image.
 }
 
-// ClearPixels clears the specified region by ReplacePixels.
+// ClearPixels clears the specified region by WritePixels.
 func (i *Image) ClearPixels(x, y, width, height int) {
-	i.ReplacePixels(nil, x, y, width, height)
+	i.WritePixels(nil, x, y, width, height)
 }
 
-// ReplacePixels replaces the image pixels with the given pixels slice.
+func (i *Image) needsRestoring() bool {
+	return i.imageType == ImageTypeRegular
+}
+
+// WritePixels replaces the image pixels with the given pixels slice.
 //
-// ReplacePixels for a part is forbidden if the image is rendered with DrawTriangles or Fill.
-func (i *Image) ReplacePixels(pixels []byte, x, y, width, height int) {
+// The specified region must not be overlapped with other regions by WritePixels.
+func (i *Image) WritePixels(pixels []byte, x, y, width, height int) {
 	if width <= 0 || height <= 0 {
 		panic("restorable: width/height must be positive")
 	}
@@ -309,45 +288,54 @@ func (i *Image) ReplacePixels(pixels []byte, x, y, width, height int) {
 	}
 
 	// TODO: Avoid making other images stale if possible. (#514)
-	// For this purpuse, images should remember which part of that is used for DrawTriangles.
+	// For this purpose, images should remember which part of that is used for DrawTriangles.
 	theImages.makeStaleIfDependingOn(i)
 
 	if pixels != nil {
-		i.image.ReplacePixels(pixels, x, y, width, height)
+		i.image.WritePixels(pixels, x, y, width, height)
 	} else {
 		// TODO: When pixels == nil, we don't have to care the pixel state there. In such cases, the image
-		// accepts only ReplacePixels and not Fill or DrawTriangles.
-		// TODO: Separate Image struct into two: images for only-ReplacePixels, and the others.
-		i.image.ReplacePixels(make([]byte, 4*width*height), x, y, width, height)
+		// accepts only WritePixels and not Fill or DrawTriangles.
+		// TODO: Separate Image struct into two: images for WritePixels-only, and the others.
+		i.image.WritePixels(make([]byte, 4*width*height), x, y, width, height)
+	}
+
+	// Even if the image is already stale, call makeStale to extend the stale region.
+	if !needsRestoring() || !i.needsRestoring() || i.stale {
+		i.makeStale(image.Rect(x, y, x+width, y+height))
+		return
 	}
 
 	if x == 0 && y == 0 && width == w && height == h {
 		if pixels != nil {
-			i.basePixels.AddOrReplace(pixels, 0, 0, w, h)
+			// pixels can point to a shared region.
+			// This function is responsible to copy this.
+			copiedPixels := make([]byte, len(pixels))
+			copy(copiedPixels, pixels)
+			i.basePixels.AddOrReplace(copiedPixels, 0, 0, w, h)
 		} else {
-			i.basePixels.Remove(0, 0, w, h)
+			i.basePixels.Clear(0, 0, w, h)
 		}
-		i.drawTrianglesHistory = nil
+		i.clearDrawTrianglesHistory()
 		i.stale = false
+		i.staleRegions = i.staleRegions[:0]
 		return
 	}
 
-	// It looked like ReplacePixels on a part of image deletes other region that are rendered by DrawTriangles
-	// (#593, #758).
-
+	// Records for DrawTriangles cannot come before records for WritePixels.
 	if len(i.drawTrianglesHistory) > 0 {
-		panic("restorable: ReplacePixels for a part after DrawTriangles is forbidden")
-	}
-
-	if i.stale {
-		// TODO: panic here?
+		i.makeStale(image.Rect(x, y, x+width, y+height))
 		return
 	}
 
 	if pixels != nil {
-		i.basePixels.AddOrReplace(pixels, x, y, width, height)
+		// pixels can point to a shared region.
+		// This function is responsible to copy this.
+		copiedPixels := make([]byte, len(pixels))
+		copy(copiedPixels, pixels)
+		i.basePixels.AddOrReplace(copiedPixels, x, y, width, height)
 	} else {
-		i.basePixels.Remove(x, y, width, height)
+		i.basePixels.Clear(x, y, width, height)
 	}
 }
 
@@ -355,18 +343,15 @@ func (i *Image) ReplacePixels(pixels []byte, x, y, width, height int) {
 //
 // The vertex floats are:
 //
-//   0: Destination X in pixels
-//   1: Destination Y in pixels
-//   2: Source X in pixels (not texels!)
-//   3: Source Y in pixels
-//   4: Color R [0.0-1.0]
-//   5: Color G
-//   6: Color B
-//   7: Color Y
-func (i *Image) DrawTriangles(srcs [graphics.ShaderImageNum]*Image, offsets [graphics.ShaderImageNum - 1][2]float32, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader, uniforms []interface{}) {
-	if i.priority {
-		panic("restorable: DrawTriangles cannot be called on a priority image")
-	}
+//	0: Destination X in pixels
+//	1: Destination Y in pixels
+//	2: Source X in texels
+//	3: Source Y in texels
+//	4: Color R [0.0-1.0]
+//	5: Color G
+//	6: Color B
+//	7: Color Y
+func (i *Image) DrawTriangles(srcs [graphics.ShaderImageCount]*Image, offsets [graphics.ShaderImageCount - 1][2]float32, vertices []float32, indices []uint16, blend graphicsdriver.Blend, dstRegion, srcRegion graphicsdriver.Region, shader *Shader, uniforms []uint32, evenOdd bool) {
 	if len(vertices) == 0 {
 		return
 	}
@@ -378,44 +363,42 @@ func (i *Image) DrawTriangles(srcs [graphics.ShaderImageNum]*Image, offsets [gra
 		if src == nil {
 			continue
 		}
-		if src.stale || src.volatile {
+		if src.stale || src.imageType == ImageTypeVolatile {
 			srcstale = true
 			break
 		}
 	}
 
-	if srcstale || i.screen || !needsRestoring() || i.volatile {
-		i.makeStale()
+	// Even if the image is already stale, call makeStale to extend the stale region.
+	if srcstale || !needsRestoring() || !i.needsRestoring() || i.stale {
+		i.makeStale(regionToRectangle(dstRegion))
 	} else {
-		i.appendDrawTrianglesHistory(srcs, offsets, vertices, indices, colorm, mode, filter, address, sourceRegion, shader, uniforms)
+		i.appendDrawTrianglesHistory(srcs, offsets, vertices, indices, blend, dstRegion, srcRegion, shader, uniforms, evenOdd)
 	}
 
-	var s *graphicscommand.Shader
-	var imgs [graphics.ShaderImageNum]*graphicscommand.Image
-	if shader == nil {
-		// Fast path for rendering without a shader (#1355).
-		imgs[0] = srcs[0].image
-	} else {
-		for i, src := range srcs {
-			if src == nil {
-				continue
-			}
-			imgs[i] = src.image
+	var imgs [graphics.ShaderImageCount]*graphicscommand.Image
+	for i, src := range srcs {
+		if src == nil {
+			continue
 		}
-		s = shader.shader
+		imgs[i] = src.image
 	}
-	i.image.DrawTriangles(imgs, offsets, vertices, indices, colorm, mode, filter, address, sourceRegion, s, uniforms)
+	i.image.DrawTriangles(imgs, offsets, vertices, indices, blend, dstRegion, srcRegion, shader.shader, uniforms, evenOdd)
 }
 
 // appendDrawTrianglesHistory appends a draw-image history item to the image.
-func (i *Image) appendDrawTrianglesHistory(srcs [graphics.ShaderImageNum]*Image, offsets [graphics.ShaderImageNum - 1][2]float32, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader, uniforms []interface{}) {
-	if i.stale || i.volatile || i.screen {
-		return
+func (i *Image) appendDrawTrianglesHistory(srcs [graphics.ShaderImageCount]*Image, offsets [graphics.ShaderImageCount - 1][2]float32, vertices []float32, indices []uint16, blend graphicsdriver.Blend, dstRegion, srcRegion graphicsdriver.Region, shader *Shader, uniforms []uint32, evenOdd bool) {
+	if i.stale || !i.needsRestoring() {
+		panic("restorable: an image must not be stale or need restoring at appendDrawTrianglesHistory")
 	}
+	if AlwaysReadPixelsFromGPU() {
+		panic("restorable: appendDrawTrianglesHistory must not be called when AlwaysReadPixelsFromGPU() returns true")
+	}
+
 	// TODO: Would it be possible to merge draw image history items?
-	const maxDrawTrianglesHistoryNum = 1024
-	if len(i.drawTrianglesHistory)+1 > maxDrawTrianglesHistoryNum {
-		i.makeStale()
+	const maxDrawTrianglesHistoryCount = 1024
+	if len(i.drawTrianglesHistory)+1 > maxDrawTrianglesHistoryCount {
+		i.makeStale(regionToRectangle(dstRegion))
 		return
 	}
 	// All images must be resolved and not stale each after frame.
@@ -423,53 +406,53 @@ func (i *Image) appendDrawTrianglesHistory(srcs [graphics.ShaderImageNum]*Image,
 
 	vs := make([]float32, len(vertices))
 	copy(vs, vertices)
+
 	is := make([]uint16, len(indices))
 	copy(is, indices)
 
+	us := make([]uint32, len(uniforms))
+	copy(us, uniforms)
+
 	item := &drawTrianglesHistoryItem{
-		images:       srcs,
-		offsets:      offsets,
-		vertices:     vs,
-		indices:      is,
-		colorm:       colorm,
-		mode:         mode,
-		filter:       filter,
-		address:      address,
-		sourceRegion: sourceRegion,
-		shader:       shader,
-		uniforms:     uniforms,
+		images:    srcs,
+		offsets:   offsets,
+		vertices:  vs,
+		indices:   is,
+		blend:     blend,
+		dstRegion: dstRegion,
+		srcRegion: srcRegion,
+		shader:    shader,
+		uniforms:  us,
+		evenOdd:   evenOdd,
 	}
 	i.drawTrianglesHistory = append(i.drawTrianglesHistory, item)
 }
 
-func (i *Image) readPixelsFromGPUIfNeeded() error {
+func (i *Image) readPixelsFromGPUIfNeeded(graphicsDriver graphicsdriver.Graphics) error {
 	if len(i.drawTrianglesHistory) > 0 || i.stale {
-		if err := graphicscommand.FlushCommands(); err != nil {
+		if err := i.readPixelsFromGPU(graphicsDriver); err != nil {
 			return err
 		}
-		if err := i.readPixelsFromGPU(); err != nil {
-			return err
-		}
-		i.drawTrianglesHistory = nil
-		i.stale = false
 	}
 	return nil
 }
 
-// At returns a color value at (x, y).
-//
-// Note that this must not be called until context is available.
-func (i *Image) At(x, y int) (byte, byte, byte, byte, error) {
-	if x < 0 || y < 0 || i.width <= x || i.height <= y {
-		return 0, 0, 0, 0, nil
+func (i *Image) ReadPixels(graphicsDriver graphicsdriver.Graphics, pixels []byte, x, y, width, height int) error {
+	if AlwaysReadPixelsFromGPU() {
+		if err := i.image.ReadPixels(graphicsDriver, pixels, x, y, width, height); err != nil {
+			return err
+		}
+		return nil
 	}
 
-	if err := i.readPixelsFromGPUIfNeeded(); err != nil {
-		return 0, 0, 0, 0, err
+	if err := i.readPixelsFromGPUIfNeeded(graphicsDriver); err != nil {
+		return err
 	}
-
-	r, g, b, a := i.basePixels.At(x, y)
-	return r, g, b, a, nil
+	if got, want := len(pixels), 4*width*height; got != want {
+		return fmt.Errorf("restorable: len(pixels) must be %d but %d at ReadPixels", want, got)
+	}
+	i.basePixels.ReadPixels(pixels, x, y, width, height, i.width, i.height)
+	return nil
 }
 
 // makeStaleIfDependingOn makes the image stale if the image depends on target.
@@ -478,7 +461,8 @@ func (i *Image) makeStaleIfDependingOn(target *Image) {
 		return
 	}
 	if i.dependsOn(target) {
-		i.makeStale()
+		// There is no new region to make stale.
+		i.makeStale(image.Rectangle{})
 	}
 }
 
@@ -488,39 +472,63 @@ func (i *Image) makeStaleIfDependingOnShader(shader *Shader) {
 		return
 	}
 	if i.dependsOnShader(shader) {
-		i.makeStale()
+		// There is no new region to make stale.
+		i.makeStale(image.Rectangle{})
 	}
 }
 
 // readPixelsFromGPU reads the pixels from GPU and resolves the image's 'stale' state.
-func (i *Image) readPixelsFromGPU() error {
-	pix, err := i.image.Pixels()
-	if err != nil {
-		return err
+func (i *Image) readPixelsFromGPU(graphicsDriver graphicsdriver.Graphics) error {
+	var rs []image.Rectangle
+	if i.stale {
+		rs = i.staleRegions
+	} else {
+		i.regionsCache = i.appendRegionsForDrawTriangles(i.regionsCache)
+		defer func() {
+			i.regionsCache = i.regionsCache[:0]
+		}()
+		n := removeDuplicatedRegions(i.regionsCache)
+		rs = i.regionsCache[:n]
 	}
-	i.basePixels = Pixels{}
-	i.basePixels.AddOrReplace(pix, 0, 0, i.width, i.height)
-	i.drawTrianglesHistory = nil
+
+	for _, r := range rs {
+		if r.Empty() {
+			continue
+		}
+
+		if i.pixelsCache == nil {
+			i.pixelsCache = map[image.Rectangle][]byte{}
+		}
+
+		pix, ok := i.pixelsCache[r]
+		if !ok {
+			pix = make([]byte, 4*r.Dx()*r.Dy())
+			i.pixelsCache[r] = pix
+		}
+		if err := i.image.ReadPixels(graphicsDriver, pix, r.Min.X, r.Min.Y, r.Dx(), r.Dy()); err != nil {
+			return err
+		}
+		i.basePixels.AddOrReplace(pix, r.Min.X, r.Min.Y, r.Dx(), r.Dy())
+	}
+
+	i.clearDrawTrianglesHistory()
 	i.stale = false
+	i.staleRegions = i.staleRegions[:0]
 	return nil
 }
 
 // resolveStale resolves the image's 'stale' state.
-func (i *Image) resolveStale() error {
+func (i *Image) resolveStale(graphicsDriver graphicsdriver.Graphics) error {
 	if !needsRestoring() {
 		return nil
 	}
-
-	if i.volatile {
-		return nil
-	}
-	if i.screen {
+	if !i.needsRestoring() {
 		return nil
 	}
 	if !i.stale {
 		return nil
 	}
-	return i.readPixelsFromGPU()
+	return i.readPixelsFromGPU(graphicsDriver)
 }
 
 // dependsOn reports whether the image depends on target.
@@ -548,7 +556,7 @@ func (i *Image) dependsOnShader(shader *Shader) bool {
 	return false
 }
 
-// dependingImages returns all images that is depended by the image.
+// dependingImages returns all images that is depended on the image.
 func (i *Image) dependingImages() map[*Image]struct{} {
 	r := map[*Image]struct{}{}
 	for _, c := range i.drawTrianglesHistory {
@@ -571,44 +579,38 @@ func (i *Image) hasDependency() bool {
 }
 
 // Restore restores *graphicscommand.Image from the pixels using its state.
-func (i *Image) restore() error {
+func (i *Image) restore(graphicsDriver graphicsdriver.Graphics) error {
 	w, h := i.width, i.height
 	// Do not dispose the image here. The image should be already disposed.
 
-	if i.screen {
+	switch i.imageType {
+	case ImageTypeScreen:
 		// The screen image should also be recreated because framebuffer might
 		// be changed.
-		i.image = graphicscommand.NewScreenFramebufferImage(w, h)
+		i.image = graphicscommand.NewImage(w, h, true)
 		i.basePixels = Pixels{}
-		i.drawTrianglesHistory = nil
+		i.clearDrawTrianglesHistory()
 		i.stale = false
+		i.staleRegions = i.staleRegions[:0]
+		return nil
+	case ImageTypeVolatile:
+		i.image = graphicscommand.NewImage(w, h, false)
+		clearImage(i.image)
 		return nil
 	}
-	if i.volatile {
-		i.image = graphicscommand.NewImage(w, h)
-		fillImage(i.image, color.RGBA{})
-		return nil
-	}
+
 	if i.stale {
 		panic("restorable: pixels must not be stale when restoring")
 	}
 
-	gimg := graphicscommand.NewImage(w, h)
+	gimg := graphicscommand.NewImage(w, h, false)
 	// Clear the image explicitly.
-	if i != emptyImage {
-		// As fillImage uses emptyImage, fillImage cannot be called on emptyImage.
-		// It is OK to skip this since emptyImage has its entire pixel information.
-		fillImage(gimg, color.RGBA{})
-	}
+	clearImage(gimg)
+
 	i.basePixels.Apply(gimg)
 
 	for _, c := range i.drawTrianglesHistory {
-		var s *graphicscommand.Shader
-		if c.shader != nil {
-			s = c.shader.shader
-		}
-
-		var imgs [graphics.ShaderImageNum]*graphicscommand.Image
+		var imgs [graphics.ShaderImageCount]*graphicscommand.Image
 		for i, img := range c.images {
 			if img == nil {
 				continue
@@ -618,21 +620,43 @@ func (i *Image) restore() error {
 			}
 			imgs[i] = img.image
 		}
-		gimg.DrawTriangles(imgs, c.offsets, c.vertices, c.indices, c.colorm, c.mode, c.filter, c.address, c.sourceRegion, s, c.uniforms)
+		gimg.DrawTriangles(imgs, c.offsets, c.vertices, c.indices, c.blend, c.dstRegion, c.srcRegion, c.shader.shader, c.uniforms, c.evenOdd)
 	}
 
+	// In order to clear the draw-triangles history, read pixels from GPU.
 	if len(i.drawTrianglesHistory) > 0 {
-		i.basePixels = Pixels{}
-		pix, err := gimg.Pixels()
-		if err != nil {
-			return err
+		i.regionsCache = i.appendRegionsForDrawTriangles(i.regionsCache)
+		defer func() {
+			i.regionsCache = i.regionsCache[:0]
+		}()
+		n := removeDuplicatedRegions(i.regionsCache)
+		rs := i.regionsCache[:n]
+
+		for _, r := range rs {
+			if r.Empty() {
+				continue
+			}
+
+			if i.pixelsCache == nil {
+				i.pixelsCache = map[image.Rectangle][]byte{}
+			}
+
+			pix, ok := i.pixelsCache[r]
+			if !ok {
+				pix = make([]byte, 4*r.Dx()*r.Dy())
+				i.pixelsCache[r] = pix
+			}
+			if err := gimg.ReadPixels(graphicsDriver, pix, r.Min.X, r.Min.Y, r.Dx(), r.Dy()); err != nil {
+				return err
+			}
+			i.basePixels.AddOrReplace(pix, r.Min.X, r.Min.Y, r.Dx(), r.Dy())
 		}
-		i.basePixels.AddOrReplace(pix, 0, 0, w, h)
 	}
 
 	i.image = gimg
-	i.drawTrianglesHistory = nil
+	i.clearDrawTrianglesHistory()
 	i.stale = false
+	i.staleRegions = i.staleRegions[:0]
 	return nil
 }
 
@@ -644,21 +668,86 @@ func (i *Image) Dispose() {
 	i.image.Dispose()
 	i.image = nil
 	i.basePixels = Pixels{}
-	i.drawTrianglesHistory = nil
+	i.pixelsCache = nil
+	i.clearDrawTrianglesHistory()
 	i.stale = false
+	i.staleRegions = i.staleRegions[:0]
 }
 
 // isInvalidated returns a boolean value indicating whether the image is invalidated.
 //
 // If an image is invalidated, GL context is lost and all the images should be restored asap.
-func (i *Image) isInvalidated() (bool, error) {
-	// FlushCommands is required because c.offscreen.impl might not have an actual texture.
-	if err := graphicscommand.FlushCommands(); err != nil {
-		return false, err
-	}
-	return i.image.IsInvalidated(), nil
+func (i *Image) isInvalidated(graphicsDriver graphicsdriver.Graphics) (bool, error) {
+	// IsInvalidated flushes the commands internally.
+	return i.image.IsInvalidated(graphicsDriver)
 }
 
-func (i *Image) Dump(path string, blackbg bool) error {
-	return i.image.Dump(path, blackbg)
+func (i *Image) Dump(graphicsDriver graphicsdriver.Graphics, path string, blackbg bool, rect image.Rectangle) (string, error) {
+	return i.image.Dump(graphicsDriver, path, blackbg, rect)
+}
+
+func (i *Image) clearDrawTrianglesHistory() {
+	// Clear the items explicitly, or the references might remain (#1803).
+	for idx := range i.drawTrianglesHistory {
+		i.drawTrianglesHistory[idx] = nil
+	}
+	i.drawTrianglesHistory = i.drawTrianglesHistory[:0]
+}
+
+func (i *Image) InternalSize() (int, int) {
+	return i.image.InternalSize()
+}
+
+func (i *Image) appendRegionsForDrawTriangles(regions []image.Rectangle) []image.Rectangle {
+	n := len(regions)
+	for _, d := range i.drawTrianglesHistory {
+		r := regionToRectangle(d.dstRegion)
+		if r.Empty() {
+			continue
+		}
+		regions = append(regions, r)
+	}
+
+	nn := removeDuplicatedRegions(regions[n:])
+	return regions[:n+nn]
+}
+
+func regionToRectangle(region graphicsdriver.Region) image.Rectangle {
+	return image.Rect(
+		int(math.Floor(float64(region.X))),
+		int(math.Floor(float64(region.Y))),
+		int(math.Ceil(float64(region.X+region.Width))),
+		int(math.Ceil(float64(region.Y+region.Height))))
+}
+
+// removeDuplicatedRegions removes duplicated regions and returns the new size of the slice.
+// If a region covers other regions, the covered regions are removed.
+func removeDuplicatedRegions(regions []image.Rectangle) int {
+	for i, r := range regions {
+		if r.Empty() {
+			continue
+		}
+		for j, rr := range regions {
+			if i == j {
+				continue
+			}
+			if rr.Empty() {
+				continue
+			}
+			if rr.In(r) {
+				regions[j] = image.Rectangle{}
+			}
+		}
+	}
+
+	n := 0
+	for _, r := range regions {
+		if r.Empty() {
+			continue
+		}
+		regions[n] = r
+		n++
+	}
+
+	return n
 }

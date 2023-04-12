@@ -14,31 +14,42 @@
 
 package graphics
 
-import (
-	"github.com/hajimehoshi/ebiten/v2/internal/web"
-)
-
 const (
-	ShaderImageNum = 4
+	ShaderImageCount = 4
 
-	// PreservedUniformVariablesNum represents the number of preserved uniform variables.
-	// Any shaders in Ebiten must have these uniform variables.
-	PreservedUniformVariablesNum = 1 + // the destination texture size
+	// PreservedUniformVariablesCount represents the number of preserved uniform variables.
+	// Any shaders in Ebitengine must have these uniform variables.
+	PreservedUniformVariablesCount = 1 + // the destination texture size
 		1 + // the texture sizes array
+		1 + // the texture destination region's origin
+		1 + // the texture destination region's size
 		1 + // the offsets array of the second and the following images
 		1 + // the texture source region's origin
-		1 // the texture source region's size
+		1 + // the texture source region's size
+		1 // the projection matrix
 
-	DestinationTextureSizeUniformVariableIndex    = 0
-	TextureSizesUniformVariableIndex              = 1
-	TextureSourceOffsetsUniformVariableIndex      = 2
-	TextureSourceRegionOriginUniformVariableIndex = 3
-	TextureSourceRegionSizeUniformVariableIndex   = 4
+	TextureDestinationSizeUniformVariableIndex         = 0
+	TextureSourceSizesUniformVariableIndex             = 1
+	TextureDestinationRegionOriginUniformVariableIndex = 2
+	TextureDestinationRegionSizeUniformVariableIndex   = 3
+	TextureSourceOffsetsUniformVariableIndex           = 4
+	TextureSourceRegionOriginUniformVariableIndex      = 5
+	TextureSourceRegionSizeUniformVariableIndex        = 6
+	ProjectionMatrixUniformVariableIndex               = 7
+
+	PreservedUniformUint32Count = 2 + // the destination texture size
+		2*ShaderImageCount + // the texture sizes array
+		2 + // the texture destination region's origin
+		2 + // the texture destination region's size
+		2*(ShaderImageCount-1) + // the offsets array of the second and the following images
+		2 + // the texture source region's origin
+		2 + // the texture source region's size
+		16 // the projection matrix
 )
 
 const (
-	IndicesNum     = (1 << 16) / 3 * 3 // Adjust num for triangles.
-	VertexFloatNum = 8
+	IndicesCount     = (1 << 16) / 3 * 3 // Adjust num for triangles.
+	VertexFloatCount = 8
 )
 
 var (
@@ -49,92 +60,77 @@ func QuadIndices() []uint16 {
 	return quadIndices
 }
 
-var (
-	theVerticesBackend = &verticesBackend{
-		backend: make([]float32, VertexFloatNum*1024),
-	}
-)
-
-type verticesBackend struct {
-	backend []float32
-	head    int
-}
-
-func (v *verticesBackend) slice(n int, last bool) []float32 {
-	// As this is called only on browsers, mutex is not required.
-
-	need := n * VertexFloatNum
-	if l := len(v.backend); v.head+need > l {
-		for v.head+need > l {
-			l *= 2
-		}
-		v.backend = make([]float32, l)
-		v.head = 0
-	}
-
-	s := v.backend[v.head : v.head+need]
-	if last {
-		// If last is true, the vertices backend is sent to GPU and it is fine to reuse the slice.
-		v.head = 0
-	} else {
-		v.head += need
-	}
-	return s
-}
-
-func vertexSlice(n int, last bool) []float32 {
-	if web.IsBrowser() {
-		// In Wasm, allocating memory by make is expensive. Use the backend instead.
-		return theVerticesBackend.slice(n, last)
-	}
-	return make([]float32, n*VertexFloatNum)
-}
-
-func QuadVertices(sx0, sy0, sx1, sy1 float32, a, b, c, d, tx, ty float32, cr, cg, cb, ca float32, last bool) []float32 {
+// QuadVertices sets a float32 slice for a quadrangle.
+// QuadVertices sets a slice that never overlaps with other slices returned this function,
+// and users can do optimization based on this fact.
+func QuadVertices(dst []float32, sx0, sy0, sx1, sy1 float32, a, b, c, d, tx, ty float32, cr, cg, cb, ca float32) {
 	x := sx1 - sx0
 	y := sy1 - sy0
 	ax, by, cx, dy := a*x, b*y, c*x, d*y
-	u0, v0, u1, v1 := float32(sx0), float32(sy0), float32(sx1), float32(sy1)
+	u0, v0, u1, v1 := sx0, sy0, sx1, sy1
 
 	// This function is very performance-sensitive and implement in a very dumb way.
-	vs := vertexSlice(4, last)
-	_ = vs[:32]
+	_ = dst[:4*VertexFloatCount]
 
-	vs[0] = tx
-	vs[1] = ty
-	vs[2] = u0
-	vs[3] = v0
-	vs[4] = cr
-	vs[5] = cg
-	vs[6] = cb
-	vs[7] = ca
+	dst[0] = adjustDestinationPixel(tx)
+	dst[1] = adjustDestinationPixel(ty)
+	dst[2] = u0
+	dst[3] = v0
+	dst[4] = cr
+	dst[5] = cg
+	dst[6] = cb
+	dst[7] = ca
 
-	vs[8] = ax + tx
-	vs[9] = cx + ty
-	vs[10] = u1
-	vs[11] = v0
-	vs[12] = cr
-	vs[13] = cg
-	vs[14] = cb
-	vs[15] = ca
+	dst[8] = adjustDestinationPixel(ax + tx)
+	dst[9] = adjustDestinationPixel(cx + ty)
+	dst[10] = u1
+	dst[11] = v0
+	dst[12] = cr
+	dst[13] = cg
+	dst[14] = cb
+	dst[15] = ca
 
-	vs[16] = by + tx
-	vs[17] = dy + ty
-	vs[18] = u0
-	vs[19] = v1
-	vs[20] = cr
-	vs[21] = cg
-	vs[22] = cb
-	vs[23] = ca
+	dst[16] = adjustDestinationPixel(by + tx)
+	dst[17] = adjustDestinationPixel(dy + ty)
+	dst[18] = u0
+	dst[19] = v1
+	dst[20] = cr
+	dst[21] = cg
+	dst[22] = cb
+	dst[23] = ca
 
-	vs[24] = ax + by + tx
-	vs[25] = cx + dy + ty
-	vs[26] = u1
-	vs[27] = v1
-	vs[28] = cr
-	vs[29] = cg
-	vs[30] = cb
-	vs[31] = ca
+	dst[24] = adjustDestinationPixel(ax + by + tx)
+	dst[25] = adjustDestinationPixel(cx + dy + ty)
+	dst[26] = u1
+	dst[27] = v1
+	dst[28] = cr
+	dst[29] = cg
+	dst[30] = cb
+	dst[31] = ca
+}
 
-	return vs
+func adjustDestinationPixel(x float32) float32 {
+	// Avoid the center of the pixel, which is problematic (#929, #1171).
+	// Instead, align the vertices with about 1/3 pixels.
+	//
+	// The intention here is roughly this code:
+	//
+	//     float32(math.Floor((float64(x)+1.0/6.0)*3) / 3)
+	//
+	// The actual implementation is more optimized than the above implementation.
+	ix := float32(int(x))
+	if x < 0 && x != ix {
+		ix -= 1
+	}
+	frac := x - ix
+	switch {
+	case frac < 3.0/16.0:
+		return ix
+	case frac < 8.0/16.0:
+		return ix + 5.0/16.0
+	case frac < 13.0/16.0:
+		return ix + 11.0/16.0
+	default:
+		return ix + 16.0/16.0
+	}
 }

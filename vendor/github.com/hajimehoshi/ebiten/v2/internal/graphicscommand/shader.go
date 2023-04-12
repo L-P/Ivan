@@ -15,16 +15,19 @@
 package graphicscommand
 
 import (
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
 
 type Shader struct {
-	shader driver.Shader
+	shader graphicsdriver.Shader
+	ir     *shaderir.Program
 }
 
 func NewShader(ir *shaderir.Program) *Shader {
-	s := &Shader{}
+	s := &Shader{
+		ir: ir,
+	}
 	c := &newShaderCommand{
 		result: s,
 		ir:     ir,
