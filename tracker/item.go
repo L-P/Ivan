@@ -157,7 +157,6 @@ func (item *Item) IsCountable() bool {
 	return item.CountMax != 0
 }
 
-// nolint:gochecknoglobals
 var dungeons = []string{
 	"", "Free",
 	"Deku", "DC", "Jabu",
@@ -172,7 +171,7 @@ func dungeonToDungeonIndex(str string) int {
 		"Free":             1,
 		"Deku Tree":        2,
 		"Dodongo's Cavern": 3,
-		"Jabu Jabu":        4,
+		"Jabu Jabu":        4, //nolint:dupword
 		"Forest Temple":    5,
 		"Fire Temple":      6,
 		"Water Temple":     7,

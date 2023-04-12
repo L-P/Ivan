@@ -66,7 +66,7 @@ func NewApp() (*App, error) {
 	}, nil
 }
 
-// nolint: funlen
+//nolint:funlen
 func (app *App) Update() error {
 	_, wheel := ebiten.Wheel()
 	var shouldSave bool
@@ -128,19 +128,23 @@ func (app *App) Update() error {
 	}
 
 	if shouldSave || time.Since(app.lastSave) > (10*time.Second) {
-		app.lastSave = time.Now()
-		app.saveDebounce(func() {
-			log.Print("info: saving")
-			if err := app.tracker.Save(); err != nil {
-				log.Printf("error: unable to write tracker save: %s", err)
-			}
-			if err := app.timer.Save(); err != nil {
-				log.Printf("error: unable to write timer save: %s", err)
-			}
-		})
+		app.save()
 	}
 
 	return nil
+}
+
+func (app *App) save() {
+	app.lastSave = time.Now()
+	app.saveDebounce(func() {
+		log.Print("info: saving")
+		if err := app.tracker.Save(); err != nil {
+			log.Printf("error: unable to write tracker save: %s", err)
+		}
+		if err := app.timer.Save(); err != nil {
+			log.Printf("error: unable to write timer save: %s", err)
+		}
+	})
 }
 
 func (app *App) Draw(screen *ebiten.Image) {
