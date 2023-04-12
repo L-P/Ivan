@@ -18,11 +18,12 @@ import (
 	"fmt"
 	"go/ast"
 	gconstant "go/constant"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
 
-func (cs *compileState) parseType(block *block, expr ast.Expr) (shaderir.Type, bool) {
+func (cs *compileState) parseType(block *block, fname string, expr ast.Expr) (shaderir.Type, bool) {
 	switch t := expr.(type) {
 	case *ast.Ident:
 		switch t.Name {
@@ -38,6 +39,12 @@ func (cs *compileState) parseType(block *block, expr ast.Expr) (shaderir.Type, b
 			return shaderir.Type{Main: shaderir.Vec3}, true
 		case "vec4":
 			return shaderir.Type{Main: shaderir.Vec4}, true
+		case "ivec2":
+			return shaderir.Type{Main: shaderir.IVec2}, true
+		case "ivec3":
+			return shaderir.Type{Main: shaderir.IVec3}, true
+		case "ivec4":
+			return shaderir.Type{Main: shaderir.IVec4}, true
 		case "mat2":
 			return shaderir.Type{Main: shaderir.Mat2}, true
 		case "mat3":
@@ -57,7 +64,7 @@ func (cs *compileState) parseType(block *block, expr ast.Expr) (shaderir.Type, b
 		if _, ok := t.Len.(*ast.Ellipsis); ok {
 			length = -1 // Determine the length later.
 		} else {
-			exprs, _, _, ok := cs.parseExpr(block, t.Len, true)
+			exprs, _, _, ok := cs.parseExpr(block, fname, t.Len, true)
 			if !ok {
 				return shaderir.Type{}, false
 			}
@@ -77,7 +84,7 @@ func (cs *compileState) parseType(block *block, expr ast.Expr) (shaderir.Type, b
 			length = int(l)
 		}
 
-		elm, ok := cs.parseType(block, t.Elt)
+		elm, ok := cs.parseType(block, fname, t.Elt)
 		if !ok {
 			return shaderir.Type{}, false
 		}
@@ -97,4 +104,304 @@ func (cs *compileState) parseType(block *block, expr ast.Expr) (shaderir.Type, b
 		cs.addError(t.Pos(), fmt.Sprintf("unepxected type: %v", t))
 		return shaderir.Type{}, false
 	}
+}
+
+func canBeFloatImplicitly(expr shaderir.Expr, t shaderir.Type) bool {
+	// TODO: For integers, should only constants be allowed?
+	if t.Main == shaderir.Int {
+		return true
+	}
+	if t.Main == shaderir.Float {
+		return true
+	}
+	if expr.Const != nil {
+		if expr.Const.Kind() == gconstant.Int {
+			return true
+		}
+		if expr.Const.Kind() == gconstant.Float {
+			return true
+		}
+	}
+	return false
+}
+
+func checkArgsForBoolBuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	if len(args) != 1 {
+		return fmt.Errorf("number of bool's arguments must be 1 but %d", len(args))
+	}
+	if argts[0].Main == shaderir.Bool {
+		return nil
+	}
+	if args[0].Const != nil && args[0].Const.Kind() == gconstant.Bool {
+		return nil
+	}
+	return fmt.Errorf("invalid arguments for bool: (%s)", argts[0].String())
+}
+
+func checkArgsForIntBuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	if len(args) != 1 {
+		return fmt.Errorf("number of int's arguments must be 1 but %d", len(args))
+	}
+	if argts[0].Main == shaderir.Int || argts[0].Main == shaderir.Float {
+		return nil
+	}
+	if args[0].Const != nil && canTruncateToInteger(args[0].Const) {
+		return nil
+	}
+	return fmt.Errorf("invalid arguments for int: (%s)", argts[0].String())
+}
+
+func checkArgsForFloatBuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	if len(args) != 1 {
+		return fmt.Errorf("number of float's arguments must be 1 but %d", len(args))
+	}
+	if canBeFloatImplicitly(args[0], argts[0]) {
+		return nil
+	}
+	return fmt.Errorf("invalid arguments for float: (%s)", argts[0].String())
+}
+
+func checkArgsForVec2BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 2 {
+			return nil
+		}
+	case 2:
+		if canBeFloatImplicitly(args[0], argts[0]) && canBeFloatImplicitly(args[1], argts[1]) {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for vec2")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for vec2: (%s)", strings.Join(str, ", "))
+}
+
+func checkArgsForVec3BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 3 {
+			return nil
+		}
+	case 2:
+		if canBeFloatImplicitly(args[0], argts[0]) && argts[1].IsVector() && argts[1].VectorElementCount() == 2 {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 2 && canBeFloatImplicitly(args[1], argts[1]) {
+			return nil
+		}
+	case 3:
+		if canBeFloatImplicitly(args[0], argts[0]) && canBeFloatImplicitly(args[1], argts[1]) && canBeFloatImplicitly(args[2], argts[2]) {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for vec3")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for vec3: (%s)", strings.Join(str, ", "))
+}
+
+func checkArgsForVec4BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 4 {
+			return nil
+		}
+	case 2:
+		if canBeFloatImplicitly(args[0], argts[0]) && argts[1].IsVector() && argts[1].VectorElementCount() == 3 {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 2 && argts[1].IsVector() && argts[1].VectorElementCount() == 2 {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 3 && canBeFloatImplicitly(args[1], argts[1]) {
+			return nil
+		}
+	case 3:
+		if canBeFloatImplicitly(args[0], argts[0]) && canBeFloatImplicitly(args[1], argts[1]) && argts[2].IsVector() && argts[2].VectorElementCount() == 2 {
+			return nil
+		}
+		if canBeFloatImplicitly(args[0], argts[0]) && argts[1].IsVector() && argts[1].VectorElementCount() == 2 && canBeFloatImplicitly(args[2], argts[2]) {
+			return nil
+		}
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 2 && canBeFloatImplicitly(args[1], argts[1]) && canBeFloatImplicitly(args[2], argts[2]) {
+			return nil
+		}
+	case 4:
+		if canBeFloatImplicitly(args[0], argts[0]) && canBeFloatImplicitly(args[1], argts[1]) && canBeFloatImplicitly(args[2], argts[2]) && canBeFloatImplicitly(args[3], argts[3]) {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for vec4")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for vec4: (%s)", strings.Join(str, ", "))
+}
+
+func checkArgsForMat2BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].Main == shaderir.Mat2 {
+			return nil
+		}
+	case 2:
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 2 && argts[1].IsVector() && argts[1].VectorElementCount() == 2 {
+			return nil
+		}
+	case 4:
+		ok := true
+		for i := range argts {
+			if !canBeFloatImplicitly(args[i], argts[i]) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for mat2")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for mat2: (%s)", strings.Join(str, ", "))
+}
+
+func checkArgsForMat3BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].Main == shaderir.Mat3 {
+			return nil
+		}
+	case 3:
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 3 &&
+			argts[1].IsVector() && argts[1].VectorElementCount() == 3 &&
+			argts[2].IsVector() && argts[2].VectorElementCount() == 3 {
+			return nil
+		}
+	case 9:
+		ok := true
+		for i := range argts {
+			if !canBeFloatImplicitly(args[i], argts[i]) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for mat3")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for mat3: (%s)", strings.Join(str, ", "))
+}
+
+func checkArgsForMat4BuiltinFunc(args []shaderir.Expr, argts []shaderir.Type) error {
+	if len(args) != len(argts) {
+		return fmt.Errorf("the number of arguments and types doesn't match: %d vs %d", len(args), len(argts))
+	}
+
+	switch len(args) {
+	case 1:
+		if canBeFloatImplicitly(args[0], argts[0]) {
+			return nil
+		}
+		if argts[0].Main == shaderir.Mat4 {
+			return nil
+		}
+	case 4:
+		if argts[0].IsVector() && argts[0].VectorElementCount() == 4 &&
+			argts[1].IsVector() && argts[1].VectorElementCount() == 4 &&
+			argts[2].IsVector() && argts[2].VectorElementCount() == 4 &&
+			argts[3].IsVector() && argts[3].VectorElementCount() == 4 {
+			return nil
+		}
+	case 16:
+		ok := true
+		for i := range argts {
+			if !canBeFloatImplicitly(args[i], argts[i]) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return nil
+		}
+	default:
+		return fmt.Errorf("invalid number of arguments for mat4")
+	}
+
+	var str []string
+	for _, t := range argts {
+		str = append(str, t.String())
+	}
+	return fmt.Errorf("invalid arguments for mat4: (%s)", strings.Join(str, ", "))
 }

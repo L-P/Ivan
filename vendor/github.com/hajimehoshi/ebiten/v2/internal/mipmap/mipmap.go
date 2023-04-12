@@ -16,98 +16,66 @@ package mipmap
 
 import (
 	"fmt"
-	"image/color"
 	"math"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/affine"
+	"github.com/hajimehoshi/ebiten/v2/internal/atlas"
 	"github.com/hajimehoshi/ebiten/v2/internal/buffered"
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
 
-var graphicsDriver driver.Graphics
-
-func SetGraphicsDriver(graphics driver.Graphics) {
-	graphicsDriver = graphics
-}
-
-func BeginFrame() error {
-	return buffered.BeginFrame()
-}
-
-func EndFrame() error {
-	return buffered.EndFrame()
+func canUseMipmap(imageType atlas.ImageType) bool {
+	switch imageType {
+	case atlas.ImageTypeRegular, atlas.ImageTypeUnmanaged:
+		return true
+	}
+	return false
 }
 
 // Mipmap is a set of buffered.Image sorted by the order of mipmap level.
 // The level 0 image is a regular image and higher-level images are used for mipmap.
 type Mipmap struct {
-	width    int
-	height   int
-	volatile bool
-	orig     *buffered.Image
-	imgs     map[int]*buffered.Image
+	width     int
+	height    int
+	imageType atlas.ImageType
+	orig      *buffered.Image
+	imgs      map[int]*buffered.Image
 }
 
-func New(width, height int) *Mipmap {
+func New(width, height int, imageType atlas.ImageType) *Mipmap {
 	return &Mipmap{
-		width:  width,
-		height: height,
-		orig:   buffered.NewImage(width, height),
-		imgs:   map[int]*buffered.Image{},
+		width:     width,
+		height:    height,
+		orig:      buffered.NewImage(width, height, imageType),
+		imageType: imageType,
 	}
 }
 
-func NewScreenFramebufferMipmap(width, height int) *Mipmap {
-	return &Mipmap{
-		width:  width,
-		height: height,
-		orig:   buffered.NewScreenFramebufferImage(width, height),
-		imgs:   map[int]*buffered.Image{},
-	}
+func (m *Mipmap) DumpScreenshot(graphicsDriver graphicsdriver.Graphics, name string, blackbg bool) (string, error) {
+	return m.orig.DumpScreenshot(graphicsDriver, name, blackbg)
 }
 
-func (m *Mipmap) SetVolatile(volatile bool) {
-	m.volatile = volatile
-	if m.volatile {
-		m.disposeMipmaps()
-	}
-	m.orig.SetVolatile(volatile)
-}
-
-func (m *Mipmap) Dump(name string, blackbg bool) error {
-	return m.orig.Dump(name, blackbg)
-}
-
-func (m *Mipmap) Fill(clr color.RGBA) {
-	m.orig.Fill(clr)
+func (m *Mipmap) WritePixels(pix []byte, x, y, width, height int) {
+	m.orig.WritePixels(pix, x, y, width, height)
 	m.disposeMipmaps()
 }
 
-func (m *Mipmap) ReplacePixels(pix []byte, x, y, width, height int) error {
-	if err := m.orig.ReplacePixels(pix, x, y, width, height); err != nil {
-		return err
-	}
-	m.disposeMipmaps()
-	return nil
+func (m *Mipmap) ReadPixels(graphicsDriver graphicsdriver.Graphics, pixels []byte, x, y, width, height int) error {
+	return m.orig.ReadPixels(graphicsDriver, pixels, x, y, width, height)
 }
 
-func (m *Mipmap) Pixels(x, y, width, height int) ([]byte, error) {
-	return m.orig.Pixels(x, y, width, height)
-}
-
-func (m *Mipmap) DrawTriangles(srcs [graphics.ShaderImageNum]*Mipmap, vertices []float32, indices []uint16, colorm *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, subimageOffsets [graphics.ShaderImageNum - 1][2]float32, shader *Shader, uniforms []interface{}, canSkipMipmap bool) {
+func (m *Mipmap) DrawTriangles(srcs [graphics.ShaderImageCount]*Mipmap, vertices []float32, indices []uint16, blend graphicsdriver.Blend, dstRegion, srcRegion graphicsdriver.Region, subimageOffsets [graphics.ShaderImageCount - 1][2]float32, shader *Shader, uniforms []uint32, evenOdd bool, canSkipMipmap bool) {
 	if len(indices) == 0 {
 		return
 	}
 
 	level := 0
 	// TODO: Do we need to check all the sources' states of being volatile?
-	if !canSkipMipmap && srcs[0] != nil && !srcs[0].volatile && filter != driver.FilterScreen {
+	if !canSkipMipmap && srcs[0] != nil && canUseMipmap(srcs[0].imageType) {
 		level = math.MaxInt32
 		for i := 0; i < len(indices)/3; i++ {
-			const n = graphics.VertexFloatNum
+			const n = graphics.VertexFloatCount
 			dx0 := vertices[n*indices[3*i]+0]
 			dy0 := vertices[n*indices[3*i]+1]
 			sx0 := vertices[n*indices[3*i]+2]
@@ -120,13 +88,13 @@ func (m *Mipmap) DrawTriangles(srcs [graphics.ShaderImageNum]*Mipmap, vertices [
 			dy2 := vertices[n*indices[3*i+2]+1]
 			sx2 := vertices[n*indices[3*i+2]+2]
 			sy2 := vertices[n*indices[3*i+2]+3]
-			if l := mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1, filter); level > l {
+			if l := mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1); level > l {
 				level = l
 			}
-			if l := mipmapLevelFromDistance(dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2, filter); level > l {
+			if l := mipmapLevelFromDistance(dx1, dy1, dx2, dy2, sx1, sy1, sx2, sy2); level > l {
 				level = l
 			}
-			if l := mipmapLevelFromDistance(dx2, dy2, dx0, dy0, sx2, sy2, sx0, sy0, filter); level > l {
+			if l := mipmapLevelFromDistance(dx2, dy2, dx0, dy0, sx2, sy2, sx0, sy0); level > l {
 				level = l
 			}
 		}
@@ -135,35 +103,14 @@ func (m *Mipmap) DrawTriangles(srcs [graphics.ShaderImageNum]*Mipmap, vertices [
 		}
 	}
 
-	if colorm != nil && colorm.ScaleOnly() {
-		body, _ := colorm.UnsafeElements()
-		cr := body[0]
-		cg := body[5]
-		cb := body[10]
-		ca := body[15]
-		colorm = nil
-		const n = graphics.VertexFloatNum
-		for i := 0; i < len(vertices)/n; i++ {
-			vertices[i*n+4] *= cr
-			vertices[i*n+5] *= cg
-			vertices[i*n+6] *= cb
-			vertices[i*n+7] *= ca
-		}
-	}
-
-	var s *buffered.Shader
-	if shader != nil {
-		s = shader.shader
-	}
-
-	var imgs [graphics.ShaderImageNum]*buffered.Image
+	var imgs [graphics.ShaderImageCount]*buffered.Image
 	for i, src := range srcs {
 		if src == nil {
 			continue
 		}
 		if level != 0 {
 			if img := src.level(level); img != nil {
-				const n = graphics.VertexFloatNum
+				const n = graphics.VertexFloatCount
 				s := float32(pow2(level))
 				for i := 0; i < len(vertices)/n; i++ {
 					vertices[i*n+2] /= s
@@ -176,17 +123,24 @@ func (m *Mipmap) DrawTriangles(srcs [graphics.ShaderImageNum]*Mipmap, vertices [
 		imgs[i] = src.orig
 	}
 
-	m.orig.DrawTriangles(imgs, vertices, indices, colorm, mode, filter, address, sourceRegion, subimageOffsets, s, uniforms)
+	m.orig.DrawTriangles(imgs, vertices, indices, blend, dstRegion, srcRegion, subimageOffsets, shader.shader, uniforms, evenOdd)
 	m.disposeMipmaps()
+}
+
+func (m *Mipmap) setImg(level int, img *buffered.Image) {
+	if m.imgs == nil {
+		m.imgs = map[int]*buffered.Image{}
+	}
+	m.imgs[level] = img
 }
 
 func (m *Mipmap) level(level int) *buffered.Image {
 	if level == 0 {
-		panic("ebiten: level must be non-zero at level")
+		panic("mipmap: level must be non-zero at level")
 	}
 
-	if m.volatile {
-		panic("ebiten: mipmap images for a volatile image is not implemented yet")
+	if !canUseMipmap(m.imageType) {
+		panic("mipmap: mipmap images for a volatile or a screen image is not implemented yet")
 	}
 
 	if img, ok := m.imgs[level]; ok {
@@ -194,74 +148,61 @@ func (m *Mipmap) level(level int) *buffered.Image {
 	}
 
 	var src *buffered.Image
-	var vs []float32
-	var filter driver.Filter
+	vs := make([]float32, 4*graphics.VertexFloatCount)
+	shader := NearestFilterShader
 	switch {
 	case level == 1:
 		src = m.orig
-		vs = graphics.QuadVertices(0, 0, float32(m.width), float32(m.height), 0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1, false)
-		filter = driver.FilterLinear
+		graphics.QuadVertices(vs, 0, 0, float32(m.width), float32(m.height), 0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1)
+		shader = LinearFilterShader
 	case level > 1:
 		src = m.level(level - 1)
 		if src == nil {
-			m.imgs[level] = nil
+			m.setImg(level, nil)
 			return nil
 		}
 		w := sizeForLevel(m.width, level-1)
 		h := sizeForLevel(m.height, level-1)
-		vs = graphics.QuadVertices(0, 0, float32(w), float32(h), 0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1, false)
-		filter = driver.FilterLinear
-	case level == -1:
-		src = m.orig
-		vs = graphics.QuadVertices(0, 0, float32(m.width), float32(m.height), 2, 0, 0, 2, 0, 0, 1, 1, 1, 1, false)
-		filter = driver.FilterNearest
-	case level < -1:
-		src = m.level(level + 1)
-		if src == nil {
-			m.imgs[level] = nil
-			return nil
-		}
-		w := sizeForLevel(m.width, level-1)
-		h := sizeForLevel(m.height, level-1)
-		vs = graphics.QuadVertices(0, 0, float32(w), float32(h), 2, 0, 0, 2, 0, 0, 1, 1, 1, 1, false)
-		filter = driver.FilterNearest
+		graphics.QuadVertices(vs, 0, 0, float32(w), float32(h), 0.5, 0, 0, 0.5, 0, 0, 1, 1, 1, 1)
+		shader = LinearFilterShader
 	default:
-		panic(fmt.Sprintf("ebiten: invalid level: %d", level))
+		panic(fmt.Sprintf("mipmap: invalid level: %d", level))
 	}
 	is := graphics.QuadIndices()
 
 	w2 := sizeForLevel(m.width, level-1)
 	h2 := sizeForLevel(m.height, level-1)
 	if w2 == 0 || h2 == 0 {
-		m.imgs[level] = nil
+		m.setImg(level, nil)
 		return nil
 	}
 	// buffered.NewImage panics with a too big size when actual allocation happens.
 	// 4096 should be a safe size in most environments (#1399).
 	// Unfortunately a precise max image size cannot be obtained here since this requires GPU access.
 	if w2 > 4096 || h2 > 4096 {
-		m.imgs[level] = nil
+		m.setImg(level, nil)
 		return nil
 	}
-	s := buffered.NewImage(w2, h2)
-	s.SetVolatile(m.volatile)
-	s.DrawTriangles([graphics.ShaderImageNum]*buffered.Image{src}, vs, is, nil, driver.CompositeModeCopy, filter, driver.AddressUnsafe, driver.Region{}, [graphics.ShaderImageNum - 1][2]float32{}, nil, nil)
-	m.imgs[level] = s
+
+	s := buffered.NewImage(w2, h2, m.imageType)
+
+	dstRegion := graphicsdriver.Region{
+		X:      0,
+		Y:      0,
+		Width:  float32(w2),
+		Height: float32(h2),
+	}
+	s.DrawTriangles([graphics.ShaderImageCount]*buffered.Image{src}, vs, is, graphicsdriver.BlendCopy, dstRegion, graphicsdriver.Region{}, [graphics.ShaderImageCount - 1][2]float32{}, shader.shader, nil, false)
+	m.setImg(level, s)
 
 	return m.imgs[level]
 }
 
 func sizeForLevel(x int, level int) int {
-	if level > 0 {
-		for i := 0; i < level; i++ {
-			x /= 2
-			if x == 0 {
-				return 0
-			}
-		}
-	} else {
-		for i := 0; i < -level; i++ {
-			x *= 2
+	for i := 0; i < level; i++ {
+		x /= 2
+		if x == 0 {
+			return 0
 		}
 	}
 	return x
@@ -285,12 +226,8 @@ func (m *Mipmap) disposeMipmaps() {
 }
 
 // mipmapLevel returns an appropriate mipmap level for the given distance.
-func mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1 float32, filter driver.Filter) int {
+func mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1 float32) int {
 	const maxLevel = 6
-
-	if filter == driver.FilterScreen {
-		return 0
-	}
 
 	d := (dx1-dx0)*(dx1-dx0) + (dy1-dy0)*(dy1-dy0)
 	s := (sx1-sx0)*(sx1-sx0) + (sy1-sy0)*(sy1-sy0)
@@ -301,54 +238,11 @@ func mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1 float32, fil
 
 	// Scale can be infinite when the specified scale is extremely big (#1398).
 	if math.IsInf(float64(scale), 0) {
-		if filter == driver.FilterNearest {
-			return -maxLevel
-		}
 		return 0
 	}
 
 	// Scale can be zero when the specified scale is extremely small (#1398).
 	if scale == 0 {
-		return 0
-	}
-
-	// Use 'negative' mipmap to render edges correctly (#611, #907).
-	// It looks like 128 is the enlargement factor that causes edge missings to pass the test TestImageStretch,
-	// but we use 32 here for environments where the float precision is low (#1044, #1270).
-	var tooBigScale float32 = 32
-
-	if scale >= tooBigScale*tooBigScale {
-		// If the filter is not nearest, the target needs to be rendered with graduation. Don't use mipmaps.
-		if filter != driver.FilterNearest {
-			return 0
-		}
-
-		const mipmapMaxSize = 1024
-		w, h := sx1-sx0, sy1-sy0
-		if w >= mipmapMaxSize || h >= mipmapMaxSize {
-			return 0
-		}
-
-		level := 0
-		for scale >= tooBigScale*tooBigScale {
-			level--
-			scale /= 4
-			w *= 2
-			h *= 2
-			if w >= mipmapMaxSize || h >= mipmapMaxSize {
-				break
-			}
-		}
-
-		// If tooBigScale is 32, level -6 means that the maximum scale is 32 * 2^6 = 2048. This should be
-		// enough.
-		if level < -maxLevel {
-			level = -maxLevel
-		}
-		return level
-	}
-
-	if filter != driver.FilterLinear {
 		return 0
 	}
 
@@ -384,25 +278,17 @@ func mipmapLevelFromDistance(dx0, dy0, dx1, dy1, sx0, sy0, sx1, sy1 float32, fil
 }
 
 func pow2(power int) float32 {
-	if power >= 0 {
-		x := 1
-		return float32(x << uint(power))
-	}
-
-	x := float32(1)
-	for i := 0; i < -power; i++ {
-		x /= 2
-	}
-	return x
+	x := 1
+	return float32(x << uint(power))
 }
 
 type Shader struct {
 	shader *buffered.Shader
 }
 
-func NewShader(program *shaderir.Program) *Shader {
+func NewShader(ir *shaderir.Program) *Shader {
 	return &Shader{
-		shader: buffered.NewShader(program),
+		shader: buffered.NewShader(ir),
 	}
 }
 
@@ -410,3 +296,8 @@ func (s *Shader) MarkDisposed() {
 	s.shader.MarkDisposed()
 	s.shader = nil
 }
+
+var (
+	NearestFilterShader = &Shader{shader: buffered.NearestFilterShader}
+	LinearFilterShader  = &Shader{shader: buffered.LinearFilterShader}
+)

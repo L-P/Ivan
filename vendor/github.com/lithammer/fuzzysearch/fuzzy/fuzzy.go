@@ -13,7 +13,7 @@ import (
 )
 
 func noopTransformer() transform.Transformer {
-	return transform.Nop
+	return nopTransformer{}
 }
 
 func foldTransformer() transform.Transformer {
@@ -27,7 +27,6 @@ func normalizeTransformer() transform.Transformer {
 func normalizedFoldTransformer() transform.Transformer {
 	return transform.Chain(normalizeTransformer(), foldTransformer())
 }
-
 
 // Match returns true if source matches target using a fuzzy-searching
 // algorithm. Note that it doesn't implement Levenshtein distance (see
@@ -235,6 +234,11 @@ func (r Ranks) Less(i, j int) bool {
 }
 
 func stringTransform(s string, t transform.Transformer) (transformed string) {
+	// Fast path for the nop transformer to prevent unnecessary allocations.
+	if _, ok := t.(nopTransformer); ok {
+		return s
+	}
+
 	var err error
 	transformed, _, err = transform.String(t, s)
 	if err != nil {
@@ -244,7 +248,7 @@ func stringTransform(s string, t transform.Transformer) (transformed string) {
 	return
 }
 
-type unicodeFoldTransformer struct{}
+type unicodeFoldTransformer struct{ transform.NopResetter }
 
 func (unicodeFoldTransformer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc int, err error) {
 	runes := bytes.Runes(src)
@@ -262,4 +266,8 @@ func (unicodeFoldTransformer) Transform(dst, src []byte, atEOF bool) (nDst, nSrc
 	return n, n, err
 }
 
-func (unicodeFoldTransformer) Reset() {}
+type nopTransformer struct{ transform.NopResetter }
+
+func (nopTransformer) Transform(dst []byte, src []byte, atEOF bool) (int, int, error) {
+	return 0, len(src), nil
+}

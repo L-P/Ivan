@@ -15,39 +15,44 @@
 package thread
 
 import (
-	"errors"
+	"context"
+	"runtime"
 )
 
-// Thread represents an OS thread.
-type Thread struct {
-	funcs   chan func() error
-	results chan error
+// OSThread represents an OS thread.
+type OSThread struct {
+	funcs chan func()
+	done  chan struct{}
 }
 
-// New creates a new thread.
-//
-// It is assumed that the OS thread is fixed by runtime.LockOSThread when New is called.
-func New() *Thread {
-	return &Thread{
-		funcs:   make(chan func() error),
-		results: make(chan error),
+// NewOSThread creates a new thread.
+func NewOSThread() *OSThread {
+	return &OSThread{
+		funcs: make(chan func()),
+		done:  make(chan struct{}),
 	}
 }
 
-// BreakLoop represents an termination of the loop.
-var BreakLoop = errors.New("break loop")
-
-// Loop starts the thread loop until a posted function returns BreakLoop.
+// Loop starts the thread loop until Stop is called on the current OS thread.
 //
 // Loop must be called on the thread.
-func (t *Thread) Loop() {
-	for f := range t.funcs {
-		err := f()
-		if err == BreakLoop {
-			t.results <- nil
-			return
+func (t *OSThread) Loop(ctx context.Context) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	for {
+		select {
+		case fn := <-t.funcs:
+			func() {
+				defer func() {
+					t.done <- struct{}{}
+				}()
+
+				fn()
+			}()
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		t.results <- err
 	}
 }
 
@@ -55,10 +60,24 @@ func (t *Thread) Loop() {
 //
 // Do not call this from the same thread. This would block forever.
 //
-// If f returns BreakLoop, Loop returns.
-//
 // Call blocks if Loop is not called.
-func (t *Thread) Call(f func() error) error {
+func (t *OSThread) Call(f func()) {
 	t.funcs <- f
-	return <-t.results
+	<-t.done
 }
+
+// NoopThread is used to disable threading.
+type NoopThread struct{}
+
+// NewNoopThread creates a new thread that does no threading.
+func NewNoopThread() *NoopThread {
+	return &NoopThread{}
+}
+
+// Loop does nothing
+func (t *NoopThread) Loop(ctx context.Context) error {
+	return nil
+}
+
+// Call executes the func immediately
+func (t *NoopThread) Call(f func()) { f() }

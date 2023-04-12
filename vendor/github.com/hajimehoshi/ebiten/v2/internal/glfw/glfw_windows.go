@@ -15,436 +15,386 @@
 package glfw
 
 import (
+	"errors"
 	"image"
 	"image/draw"
-	"math/bits"
-	"runtime"
-	"sync"
-	"unsafe"
 
-	"golang.org/x/sys/windows"
+	"github.com/hajimehoshi/ebiten/v2/internal/goglfw"
 )
 
-type glfwImage struct {
-	width  int32
-	height int32
-	pixels uintptr
-}
+type Cursor goglfw.Cursor
 
-type glfwWindows map[uintptr]*Window
-
-var (
-	theGLFWWindows = glfwWindows{}
-	glfwWindowsM   sync.Mutex
-)
-
-func (w glfwWindows) add(win uintptr) *Window {
-	if win == 0 {
-		return nil
+func CreateStandardCursor(shape StandardCursor) *Cursor {
+	c, err := goglfw.CreateStandardCursor(goglfw.StandardCursor(shape))
+	if err != nil {
+		panic(err)
 	}
-	ww := &Window{win}
-	glfwWindowsM.Lock()
-	w[win] = ww
-	glfwWindowsM.Unlock()
-	return ww
+	return (*Cursor)(c)
 }
 
-func (w glfwWindows) remove(win uintptr) {
-	glfwWindowsM.Lock()
-	delete(w, win)
-	glfwWindowsM.Unlock()
-}
+type Monitor goglfw.Monitor
 
-func (w glfwWindows) get(win uintptr) *Window {
-	if win == 0 {
-		return nil
-	}
-	glfwWindowsM.Lock()
-	ww := w[win]
-	glfwWindowsM.Unlock()
-	return ww
-}
-
-type Monitor struct {
-	m uintptr
+func (m *Monitor) GetContentScale() (float32, float32, error) {
+	return (*goglfw.Monitor)(m).GetContentScale()
 }
 
 func (m *Monitor) GetPos() (int, int) {
-	var x, y int32
-	glfwDLL.call("glfwGetMonitorPos", m.m, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)))
-	panicError()
-	return int(x), int(y)
+	x, y, err := (*goglfw.Monitor)(m).GetPos()
+	if err != nil {
+		panic(err)
+	}
+	return x, y
 }
 
 func (m *Monitor) GetVideoMode() *VidMode {
-	v := glfwDLL.call("glfwGetVideoMode", m.m)
-	panicError()
-	return &VidMode{
-		Width:       int(*(*int32)(unsafe.Pointer(v))),
-		Height:      int(*(*int32)(unsafe.Pointer(v + 4))),
-		RedBits:     int(*(*int32)(unsafe.Pointer(v + 8))),
-		GreenBits:   int(*(*int32)(unsafe.Pointer(v + 12))),
-		BlueBits:    int(*(*int32)(unsafe.Pointer(v + 16))),
-		RefreshRate: int(*(*int32)(unsafe.Pointer(v + 20))),
+	v, err := (*goglfw.Monitor)(m).GetVideoMode()
+	if err != nil {
+		panic(err)
+	}
+	return (*VidMode)(v)
+}
+
+type Window goglfw.Window
+
+func (w *Window) Destroy() {
+	if err := (*goglfw.Window)(w).Destroy(); err != nil {
+		panic(err)
 	}
 }
 
-type Window struct {
-	w uintptr
-}
-
-func (w *Window) Destroy() {
-	glfwDLL.call("glfwDestroyWindow", w.w)
-	panicError()
-	theGLFWWindows.remove(w.w)
+func (w *Window) Focus() {
+	if err := (*goglfw.Window)(w).Focus(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) GetAttrib(attrib Hint) int {
-	r := glfwDLL.call("glfwGetWindowAttrib", w.w, uintptr(attrib))
-	panicError()
-	return int(r)
-}
-
-func (w *Window) SetAttrib(attrib Hint, value int) {
-	glfwDLL.call("glfwSetWindowAttrib", w.w, uintptr(attrib), uintptr(value))
-	panicError()
+	r, err := (*goglfw.Window)(w).GetAttrib(goglfw.Hint(attrib))
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func (w *Window) GetCursorPos() (x, y float64) {
-	glfwDLL.call("glfwGetCursorPos", w.w, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)))
-	panicError()
-	return
+	x, y, err := (*goglfw.Window)(w).GetCursorPos()
+	if err != nil {
+		panic(err)
+	}
+	return x, y
 }
 
 func (w *Window) GetInputMode(mode InputMode) int {
-	r := glfwDLL.call("glfwGetInputMode", w.w, uintptr(mode))
-	panicError()
-	return int(r)
+	r, err := (*goglfw.Window)(w).GetInputMode(goglfw.InputMode(mode))
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func (w *Window) GetKey(key Key) Action {
-	r := glfwDLL.call("glfwGetKey", w.w, uintptr(key))
-	panicError()
+	r, err := (*goglfw.Window)(w).GetKey(goglfw.Key(key))
+	if err != nil {
+		panic(err)
+	}
 	return Action(r)
 }
 
 func (w *Window) GetMonitor() *Monitor {
-	m := glfwDLL.call("glfwGetWindowMonitor", w.w)
-	panicError()
-	if m == 0 {
-		return nil
+	m, err := (*goglfw.Window)(w).GetMonitor()
+	if err != nil {
+		panic(err)
 	}
-	return &Monitor{m}
+	return (*Monitor)(m)
 }
 
 func (w *Window) GetMouseButton(button MouseButton) Action {
-	r := glfwDLL.call("glfwGetMouseButton", w.w, uintptr(button))
-	panicError()
+	r, err := (*goglfw.Window)(w).GetMouseButton(goglfw.MouseButton(button))
+	if err != nil {
+		panic(err)
+	}
 	return Action(r)
 }
 
 func (w *Window) GetPos() (int, int) {
-	var x, y int32
-	glfwDLL.call("glfwGetWindowPos", w.w, uintptr(unsafe.Pointer(&x)), uintptr(unsafe.Pointer(&y)))
-	panicError()
-	return int(x), int(y)
+	x, y, err := (*goglfw.Window)(w).GetPos()
+	if err != nil {
+		panic(err)
+	}
+	return x, y
 }
 
 func (w *Window) GetSize() (int, int) {
-	var width, height int32
-	glfwDLL.call("glfwGetWindowSize", w.w, uintptr(unsafe.Pointer(&width)), uintptr(unsafe.Pointer(&height)))
-	panicError()
-	return int(width), int(height)
+	width, height, err := (*goglfw.Window)(w).GetSize()
+	if err != nil {
+		panic(err)
+	}
+	return width, height
+}
+
+func (w *Window) Hide() {
+	if err := (*goglfw.Window)(w).Hide(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) Iconify() {
-	glfwDLL.call("glfwIconifyWindow", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).Iconify(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) MakeContextCurrent() {
-	glfwDLL.call("glfwMakeContextCurrent", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).MakeContextCurrent(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) Maximize() {
-	glfwDLL.call("glfwMaximizeWindow", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).Maximize(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) Restore() {
-	glfwDLL.call("glfwRestoreWindow", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).Restore(); err != nil {
+		panic(err)
+	}
+}
+
+func (w *Window) SetAttrib(attrib Hint, value int) {
+	if err := (*goglfw.Window)(w).SetAttrib(goglfw.Hint(attrib), value); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetCharModsCallback(cbfun CharModsCallback) (previous CharModsCallback) {
-	var gcb uintptr
-	if cbfun != nil {
-		gcb = windows.NewCallbackCDecl(func(window uintptr, char rune, mods ModifierKey) uintptr {
-			cbfun(theGLFWWindows.get(window), char, mods)
-			return 0
-		})
+	f, err := (*goglfw.Window)(w).SetCharModsCallback(cbfun)
+	if err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetCharModsCallback", w.w, gcb)
-	panicError()
-	return nil // TODO
+	return f
+}
+
+func (w *Window) SetCloseCallback(cbfun CloseCallback) (previous CloseCallback) {
+	f, err := (*goglfw.Window)(w).SetCloseCallback(cbfun)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func (w *Window) SetDropCallback(cbfun DropCallback) (previous DropCallback) {
+	f, err := (*goglfw.Window)(w).SetDropCallback(cbfun)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func (w *Window) SetCursor(cursor *Cursor) {
+	if err := (*goglfw.Window)(w).SetCursor((*goglfw.Cursor)(cursor)); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetFramebufferSizeCallback(cbfun FramebufferSizeCallback) (previous FramebufferSizeCallback) {
-	var gcb uintptr
-	if cbfun != nil {
-		gcb = windows.NewCallbackCDecl(func(window uintptr, width int, height int) uintptr {
-			cbfun(theGLFWWindows.get(window), width, height)
-			return 0
-		})
+	f, err := (*goglfw.Window)(w).SetFramebufferSizeCallback(cbfun)
+	if err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetFramebufferSizeCallback", w.w, gcb)
-	panicError()
-	return nil // TODO
+	return f
 }
 
 func (w *Window) SetScrollCallback(cbfun ScrollCallback) (previous ScrollCallback) {
-	var gcb uintptr
-	if cbfun != nil {
-		gcb = windows.NewCallbackCDecl(func(window uintptr, xoff *float64, yoff *float64) uintptr {
-			// xoff and yoff were originally float64, but there is no good way to pass them on 32bit
-			// machines via NewCallback. We've fixed GLFW side to use pointer values.
-			cbfun(theGLFWWindows.get(window), *xoff, *yoff)
-			return 0
-		})
+	f, err := (*goglfw.Window)(w).SetScrollCallback(cbfun)
+	if err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetScrollCallback", w.w, gcb)
-	panicError()
-	return nil // TODO
+	return f
 }
 
-func (w *Window) SetSizeCallback(cbfun SizeCallback) (previous FramebufferSizeCallback) {
-	var gcb uintptr
-	if cbfun != nil {
-		gcb = windows.NewCallbackCDecl(func(window uintptr, width int, height int) uintptr {
-			cbfun(theGLFWWindows.get(window), width, height)
-			return 0
-		})
+func (w *Window) SetShouldClose(value bool) {
+	if err := (*goglfw.Window)(w).SetShouldClose(value); err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetWindowSizeCallback", w.w, gcb)
-	panicError()
-	return nil // TODO
+}
+
+func (w *Window) SetSizeCallback(cbfun SizeCallback) (previous SizeCallback) {
+	f, err := (*goglfw.Window)(w).SetSizeCallback(cbfun)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+func (w *Window) SetSizeLimits(minw, minh, maxw, maxh int) {
+	if err := (*goglfw.Window)(w).SetSizeLimits(minw, minh, maxw, maxh); err != nil {
+		panic(err)
+	}
+}
+
+func (w *Window) SetAspectRatio(numer, denom int) {
+	if err := (*goglfw.Window)(w).SetAspectRatio(numer, denom); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetIcon(images []image.Image) {
-	gimgs := make([]glfwImage, len(images))
-	defer runtime.KeepAlive(gimgs)
-
+	gimgs := make([]*goglfw.Image, len(images))
 	for i, img := range images {
 		b := img.Bounds()
 		m := image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
 		draw.Draw(m, m.Bounds(), img, b.Min, draw.Src)
-		gimgs[i].width = int32(b.Dx())
-		gimgs[i].height = int32(b.Dy())
-		gimgs[i].pixels = uintptr(unsafe.Pointer(&m.Pix[0]))
+		gimgs[i] = &goglfw.Image{
+			Width:  b.Dx(),
+			Height: b.Dy(),
+			Pixels: m.Pix,
+		}
 	}
 
-	glfwDLL.call("glfwSetWindowIcon", w.w, uintptr(len(gimgs)), uintptr(unsafe.Pointer(&gimgs[0])))
-	panicError()
+	if err := (*goglfw.Window)(w).SetIcon(gimgs); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetInputMode(mode InputMode, value int) {
-	glfwDLL.call("glfwSetInputMode", w.w, uintptr(mode), uintptr(value))
-	panicError()
+	if err := (*goglfw.Window)(w).SetInputMode(goglfw.InputMode(mode), value); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetMonitor(monitor *Monitor, xpos, ypos, width, height, refreshRate int) {
-	var m uintptr
-	if monitor != nil {
-		m = monitor.m
+	if err := (*goglfw.Window)(w).SetMonitor((*goglfw.Monitor)(monitor), xpos, ypos, width, height, refreshRate); err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetWindowMonitor", w.w, m, uintptr(xpos), uintptr(ypos), uintptr(width), uintptr(height), uintptr(refreshRate))
-	panicError()
 }
 
 func (w *Window) SetPos(xpos, ypos int) {
-	glfwDLL.call("glfwSetWindowPos", w.w, uintptr(xpos), uintptr(ypos))
-	panicError()
+	if err := (*goglfw.Window)(w).SetPos(xpos, ypos); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetSize(width, height int) {
-	glfwDLL.call("glfwSetWindowSize", w.w, uintptr(width), uintptr(height))
-	panicError()
+	if err := (*goglfw.Window)(w).SetSize(width, height); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SetTitle(title string) {
-	s := []byte(title)
-	s = append(s, 0)
-	defer runtime.KeepAlive(s)
-	glfwDLL.call("glfwSetWindowTitle", w.w, uintptr(unsafe.Pointer(&s[0])))
-	panicError()
+	if err := (*goglfw.Window)(w).SetTitle(title); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) ShouldClose() bool {
-	r := glfwDLL.call("glfwWindowShouldClose", w.w)
-	panicError()
-	return r == True
+	r, err := (*goglfw.Window)(w).ShouldClose()
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func (w *Window) Show() {
-	glfwDLL.call("glfwShowWindow", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).Show(); err != nil {
+		panic(err)
+	}
 }
 
 func (w *Window) SwapBuffers() {
-	glfwDLL.call("glfwSwapBuffers", w.w)
-	panicError()
+	if err := (*goglfw.Window)(w).SwapBuffers(); err != nil {
+		panic(err)
+	}
 }
 
 func CreateWindow(width, height int, title string, monitor *Monitor, share *Window) (*Window, error) {
-	s := []byte(title)
-	s = append(s, 0)
-	defer runtime.KeepAlive(s)
-
-	var gm uintptr
-	if monitor != nil {
-		gm = monitor.m
-	}
-	var gw uintptr
-	if share != nil {
-		gw = share.w
-	}
-
-	w := glfwDLL.call("glfwCreateWindow", uintptr(width), uintptr(height), uintptr(unsafe.Pointer(&s[0])), gm, gw)
-	if w == 0 {
-		return nil, acceptError(APIUnavailable, VersionUnavailable)
-	}
-	return theGLFWWindows.add(w), nil
+	w, err := goglfw.CreateWindow(width, height, title, (*goglfw.Monitor)(monitor), (*goglfw.Window)(share))
+	// TODO: acceptError(APIUnavailable, VersionUnavailable)?
+	return (*Window)(w), err
 }
 
-func (j Joystick) GetGUID() string {
-	ptr := glfwDLL.call("glfwGetJoystickGUID", uintptr(j))
-	panicError()
-	var backed [256]byte
-	as := backed[:0]
-	for i := int32(0); ; i++ {
-		b := *(*byte)(unsafe.Pointer(ptr))
-		ptr += unsafe.Sizeof(byte(0))
-		if b == 0 {
-			break
-		}
-		as = append(as, b)
+func GetKeyName(key Key, scancode int) string {
+	name, err := goglfw.GetKeyName(goglfw.Key(key), scancode)
+	if err != nil {
+		panic(err)
 	}
-	r := string(as)
-	return r
-}
-
-func (j Joystick) GetName() string {
-	ptr := glfwDLL.call("glfwGetJoystickName", uintptr(j))
-	panicError()
-	var backed [256]byte
-	as := backed[:0]
-	for i := int32(0); ; i++ {
-		b := *(*byte)(unsafe.Pointer(ptr))
-		ptr += unsafe.Sizeof(byte(0))
-		if b == 0 {
-			break
-		}
-		as = append(as, b)
-	}
-	r := string(as)
-	return r
-}
-
-func (j Joystick) GetAxes() []float32 {
-	var l int32
-	ptr := glfwDLL.call("glfwGetJoystickAxes", uintptr(j), uintptr(unsafe.Pointer(&l)))
-	panicError()
-	as := make([]float32, l)
-	for i := int32(0); i < l; i++ {
-		as[i] = *(*float32)(unsafe.Pointer(ptr))
-		ptr += unsafe.Sizeof(float32(0))
-	}
-	return as
-}
-
-func (j Joystick) GetButtons() []byte {
-	var l int32
-	ptr := glfwDLL.call("glfwGetJoystickButtons", uintptr(j), uintptr(unsafe.Pointer(&l)))
-	panicError()
-	bs := make([]byte, l)
-	for i := int32(0); i < l; i++ {
-		bs[i] = *(*byte)(unsafe.Pointer(ptr))
-		ptr++
-	}
-	return bs
+	return name
 }
 
 func GetMonitors() []*Monitor {
-	var l int32
-	ptr := glfwDLL.call("glfwGetMonitors", uintptr(unsafe.Pointer(&l)))
-	panicError()
-	ms := make([]*Monitor, l)
-	for i := int32(0); i < l; i++ {
-		m := *(*unsafe.Pointer)(unsafe.Pointer(ptr))
-		if m != nil {
-			ms[i] = &Monitor{uintptr(m)}
-		}
-		ptr += bits.UintSize / 8
+	ms, err := goglfw.GetMonitors()
+	if err != nil {
+		panic(err)
 	}
-	return ms
+	result := make([]*Monitor, 0, len(ms))
+	for _, m := range ms {
+		result = append(result, (*Monitor)(m))
+	}
+	return result
 }
 
 func GetPrimaryMonitor() *Monitor {
-	m := glfwDLL.call("glfwGetPrimaryMonitor")
-	panicError()
-	if m == 0 {
-		return nil
+	m, err := goglfw.GetPrimaryMonitor()
+	if err != nil {
+		panic(err)
 	}
-	return &Monitor{m}
+	return (*Monitor)(m)
 }
 
 func Init() error {
-	glfwDLL.call("glfwInit")
-	return acceptError(APIUnavailable)
-}
-
-func (j Joystick) Present() bool {
-	r := glfwDLL.call("glfwJoystickPresent", uintptr(j))
-	panicError()
-	return r == True
+	// InvalidValue can happen when specific joysticks are used. This issue
+	// will be fixed in GLFW 3.3.5. As a temporary fix, ignore this error.
+	// See go-gl/glfw#292, go-gl/glfw#324, and glfw/glfw#1763
+	// (#1229).
+	// TODO: acceptError(APIUnavailable, InvalidValue)?
+	err := goglfw.Init()
+	if err != nil && !errors.Is(err, goglfw.InvalidValue) {
+		return err
+	}
+	return nil
 }
 
 func PollEvents() {
-	glfwDLL.call("glfwPollEvents")
-	panicError()
+	if err := goglfw.PollEvents(); err != nil && !errors.Is(err, goglfw.InvalidValue) {
+		panic(err)
+	}
 }
 
-func SetMonitorCallback(cbfun func(monitor *Monitor, event PeripheralEvent)) {
-	var gcb uintptr
-	if cbfun != nil {
-		gcb = windows.NewCallbackCDecl(func(monitor uintptr, event PeripheralEvent) uintptr {
-			var m *Monitor
-			if monitor != 0 {
-				m = &Monitor{monitor}
-			}
-			cbfun(m, event)
-			return 0
-		})
+func PostEmptyEvent() {
+	if err := goglfw.PostEmptyEvent(); err != nil {
+		panic(err)
 	}
-	glfwDLL.call("glfwSetMonitorCallback", gcb)
-	panicError()
+}
+
+func SetMonitorCallback(cbfun MonitorCallback) MonitorCallback {
+	f, err := goglfw.SetMonitorCallback(cbfun)
+	if err != nil {
+		panic(err)
+	}
+	return f
 }
 
 func SwapInterval(interval int) {
-	glfwDLL.call("glfwSwapInterval", uintptr(interval))
-	panicError()
+	if err := goglfw.SwapInterval(interval); err != nil {
+		panic(err)
+	}
 }
 
 func Terminate() {
-	flushErrors()
-	glfwDLL.call("glfwTerminate")
-	if err := glfwDLL.unload(); err != nil {
+	if err := goglfw.Terminate(); err != nil {
+		panic(err)
+	}
+}
+
+func WaitEvents() {
+	if err := goglfw.WaitEvents(); err != nil {
 		panic(err)
 	}
 }
 
 func WindowHint(target Hint, hint int) {
-	glfwDLL.call("glfwWindowHint", uintptr(target), uintptr(hint))
-	panicError()
+	if err := goglfw.WindowHint(goglfw.Hint(target), hint); err != nil {
+		panic(err)
+	}
 }
