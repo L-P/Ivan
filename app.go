@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"ivan/config"
 	inputviewer "ivan/input-viewer"
 	"ivan/timer"
 	"ivan/tracker"
@@ -23,38 +22,28 @@ type App struct {
 	tracker     *tracker.Tracker
 	timer       *timer.Timer
 	inputViewer *inputviewer.InputViewer
-	config      config.Config
+	config      tracker.Config
 	lastSave    time.Time
 
 	saveDebounce func(func())
 }
 
 func NewApp() (*App, error) {
-	cfg, err := config.NewFromDir(configDir)
+	cfg, err := tracker.NewConfigFromDir(configDir)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load initial config: %w", err)
+		return nil, fmt.Errorf("unable to load config: %w", err)
 	}
 
-	size := cfg.WindowSize()
+	size := cfg.Layout.WindowSize()
 	ebiten.SetWindowSize(size.X, size.Y)
 	ebiten.SetWindowPosition(1920-size.X, 0)
 
-	timer, err := timer.New(cfg.Dimensions.Timer)
+	timer, err := timer.New(cfg.Layout.Timer)
 	if err != nil {
 		return nil, err
 	}
 
-	tracker, err := tracker.New(
-		cfg.Dimensions.ItemTracker,
-		cfg.Dimensions.HintTracker,
-		cfg.Items,
-		cfg.ItemTracker.ZoneItemMap,
-		cfg.Locations,
-		cfg.Binds,
-		cfg.HintTracker.AlwaysHints,
-		cfg.ItemTracker.DungeonInputMedallionOrder,
-		cfg.ItemTracker.DungeonInputDungeonKP,
-	)
+	tracker, err := tracker.New(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -93,15 +82,6 @@ func (app *App) Update() error {
 		}
 		app.tracker.Cancel()
 
-	case inpututil.IsKeyJustPressed(ebiten.KeyHome):
-		if !app.timer.IsRunning() {
-			config, err := config.NewFromDir(configDir)
-			if err != nil {
-				return fmt.Errorf("unable to load config: %w", err)
-			}
-			app.config = config
-		}
-
 	case inpututil.IsKeyJustPressed(ebiten.KeyEnter):
 		app.tracker.Submit()
 		shouldSave = true
@@ -116,7 +96,7 @@ func (app *App) Update() error {
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
 		if app.timer.CanReset() {
 			app.timer.Reset()
-			app.tracker.Reset(app.config.Items, app.config.ItemTracker.ZoneItemMap)
+			app.tracker.Reset()
 			shouldSave = true
 		}
 

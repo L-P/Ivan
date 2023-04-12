@@ -1,47 +1,50 @@
-package config
+package tracker
 
 import (
 	"encoding/json"
 	"fmt"
 	"image"
 	inputviewer "ivan/input-viewer"
-	"ivan/tracker"
 	"os"
 	"path/filepath"
 )
 
-type HintTracker struct {
+type hintTrackerConfig struct {
 	AlwaysHints map[string]image.Point
 }
 
-type ItemTracker struct {
+type itemTrackerConfig struct {
 	DungeonInputMedallionOrder []string
 	DungeonInputDungeonKP      []string
-	ZoneItemMap                [9][9]string
+	ZoneItemMap                ZoneItemMap
 }
+
+type ZoneItemMap [9][9]string
 
 type Config struct {
 	Binds       map[string]string
-	HintTracker HintTracker
-	ItemTracker ItemTracker
+	HintTracker hintTrackerConfig
+	ItemTracker itemTrackerConfig
 
-	Items     []tracker.Item
+	Items     []Item
 	Locations []string // regions and dungeons.
 
 	InputViewer inputviewer.Config
-	Dimensions  struct {
-		ItemTracker image.Rectangle
-		Timer       image.Rectangle
-		HintTracker image.Rectangle
-	}
+	Layout      layout
 }
 
-func (c Config) WindowSize() image.Point {
+type layout struct {
+	ItemTracker image.Rectangle
+	Timer       image.Rectangle
+	HintTracker image.Rectangle
+}
+
+func (l layout) WindowSize() image.Point {
 	var ret image.Rectangle
 	for _, v := range []image.Rectangle{
-		c.Dimensions.ItemTracker,
-		c.Dimensions.Timer,
-		c.Dimensions.HintTracker,
+		l.ItemTracker,
+		l.Timer,
+		l.HintTracker,
 	} {
 		ret = ret.Union(v)
 	}
@@ -49,7 +52,7 @@ func (c Config) WindowSize() image.Point {
 	return ret.Size()
 }
 
-func NewFromDir(dir string) (Config, error) {
+func NewConfigFromDir(dir string) (Config, error) {
 	var cfg Config
 	src := map[string]interface{}{
 		"binds.json":        &cfg.Binds,
@@ -57,7 +60,7 @@ func NewFromDir(dir string) (Config, error) {
 		"input_viewer.json": &cfg.InputViewer,
 		"item_tracker.json": &cfg.ItemTracker,
 		"items.json":        &cfg.Items,
-		"layout.json":       &cfg.Dimensions,
+		"layout.json":       &cfg.Layout,
 		"locations.json":    &cfg.Locations,
 	}
 

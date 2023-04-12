@@ -19,7 +19,9 @@ func (tracker *Tracker) Draw(screen *ebiten.Image) {
 				continue
 			}
 
-			pos := tracker.items[k].Rect().Min.Add(tracker.pos)
+			pos := tracker.cfg.Layout.ItemTracker.Min.Add(
+				tracker.items[k].Rect().Min,
+			)
 			op.GeoM.Reset()
 			op.GeoM.Translate(float64(pos.X), float64(pos.Y))
 
@@ -132,7 +134,6 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 }
 
 func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
-	pos := tracker.pos.Add(image.Point{10, 15 + 9*gridSize})
 	var str string
 
 	switch tracker.input.state {
@@ -162,7 +163,7 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	case inputStateDungeonInput:
 		str = "dungeon for: "
 		idx := tracker.getItemIndexByName(
-			tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
+			tracker.cfg.ItemTracker.DungeonInputMedallionOrder[tracker.input.curMedallion],
 		)
 		str += tracker.items[idx].Name
 
@@ -181,25 +182,31 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 		return
 	}
 
+	pos := tracker.cfg.Layout.ItemTracker.Min.Add(
+		image.Point{10, 15 + 9*gridSize},
+	)
 	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
 }
 
 func (tracker *Tracker) drawHints(screen *ebiten.Image) {
-	hintIconOffsetY := 1
-	lineHeight := tracker.hintSize.Y / maxHintsPerRow
-	pos := tracker.hintPos.Add(margins)
+	var (
+		iconOffsetY = 1
+		size        = tracker.cfg.Layout.HintTracker.Size()
+		pos         = tracker.cfg.Layout.HintTracker.Min.Add(margins)
+		lineHeight  = size.Y / maxHintsPerRow
+	)
 	op := ebiten.DrawImageOptions{}
 
 	for k, v := range tracker.getDrawableHintList() {
 		if k > 0 && k%maxHintsPerRow == 0 {
-			pos = pos.Add(image.Point{tracker.hintSize.X / 2, -maxHintsPerRow * lineHeight})
+			pos = pos.Add(image.Point{size.X / 2, -maxHintsPerRow * lineHeight})
 		}
 
 		ebitenutil.DrawRect(
 			screen,
 			float64(pos.X-margins.X), float64(pos.Y-margins.Y),
-			float64(tracker.hintSize.X/2),
-			float64(tracker.hintSize.Y/maxHintsPerRow),
+			float64(size.X/2),
+			float64(size.Y/maxHintsPerRow),
 			v.bgColor,
 		)
 
@@ -207,7 +214,7 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 			op.GeoM.Reset()
 			op.GeoM.Translate(
 				float64(pos.X),
-				float64(pos.Y-margins.Y+hintIconOffsetY),
+				float64(pos.Y-margins.Y+iconOffsetY),
 			)
 
 			screen.DrawImage(tracker.sheetEnabled.SubImage(*v.gfx).(*ebiten.Image), &op)
@@ -268,10 +275,10 @@ func (tracker *Tracker) getDrawableHintList() []drawableHintEntry {
 			text:    v,
 			bgColor: color.RGBA{255, 230, 153, 0xFF},
 			gfx: &image.Rectangle{
-				tracker.alwaysHints[name],
+				tracker.cfg.HintTracker.AlwaysHints[name],
 				image.Point{
-					tracker.alwaysHints[name].X + itemSpriteWidth,
-					tracker.alwaysHints[name].Y + itemSpriteHeight,
+					tracker.cfg.HintTracker.AlwaysHints[name].X + itemSpriteWidth,
+					tracker.cfg.HintTracker.AlwaysHints[name].Y + itemSpriteHeight,
 				},
 			},
 		}

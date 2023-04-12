@@ -182,7 +182,7 @@ func (tracker *Tracker) inputAction(a action) {
 	case inputStateDungeonInput:
 		defer func() {
 			// Reset / exit when all medallions are set, don't care about stones.
-			if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
+			if tracker.input.curMedallion >= len(tracker.cfg.ItemTracker.DungeonInputMedallionOrder) {
 				tracker.fillMissingMedallions()
 				tracker.input.reset()
 			}
@@ -194,11 +194,11 @@ func (tracker *Tracker) inputAction(a action) {
 			case actionUndo:
 				tracker.input.curMedallion--
 				if tracker.input.curMedallion < 0 {
-					tracker.input.curMedallion = len(tracker.dungeonInputMedallionOrder) - 1
+					tracker.input.curMedallion = len(tracker.cfg.ItemTracker.DungeonInputMedallionOrder) - 1
 				}
 			case actionRedo:
 				tracker.input.curMedallion++
-				if tracker.input.curMedallion >= len(tracker.dungeonInputMedallionOrder) {
+				if tracker.input.curMedallion >= len(tracker.cfg.ItemTracker.DungeonInputMedallionOrder) {
 					tracker.input.curMedallion = 0
 				}
 			}
@@ -218,7 +218,7 @@ func (tracker *Tracker) inputDungeon(a action) {
 	}
 
 	idx := tracker.getItemIndexByName(
-		tracker.dungeonInputMedallionOrder[tracker.input.curMedallion],
+		tracker.cfg.ItemTracker.DungeonInputMedallionOrder[tracker.input.curMedallion],
 	)
 
 	tracker.items[idx].SetDungeon(dungeon)
@@ -255,7 +255,7 @@ func (tracker *Tracker) fillMissingMedallions() {
 	}
 
 	missingDungeons := make([]int, 0, 3)
-	for _, v := range tracker.dungeonInputDungeonKP {
+	for _, v := range tracker.cfg.ItemTracker.DungeonInputDungeonKP {
 		idx := dungeonToDungeonIndex(v)
 		if _, ok := dungeons[idx]; !ok {
 			missingDungeons = append(missingDungeons, idx)
@@ -348,7 +348,7 @@ func (tracker *Tracker) matchLocation(str string) string {
 		str = "Spirit Temple"
 	}
 
-	matches := fuzzy.RankFindFold(str, tracker.locations)
+	matches := fuzzy.RankFindFold(str, tracker.cfg.Locations)
 	if len(matches) == 0 {
 		return ""
 	}
@@ -390,7 +390,7 @@ const (
 // keys we already are qwerty/azerty compatible but can't distinguish the main
 // keyboard from keypad.
 func (tracker *Tracker) runeToAction(r rune) action {
-	a, ok := tracker.binds[string([]rune{r})]
+	a, ok := tracker.cfg.Binds[string([]rune{r})]
 	if !ok {
 		return actionIgnore
 	}
