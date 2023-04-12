@@ -1,33 +1,44 @@
 ---
+run:
+  timeout: 5m
+
 linters:
-  enable-all: true
-  disable:
-    # Moronic linters
-    - exhaustivestruct  # Zero values are an excellent feature.
-    - godox  # No, a TODO is not an error.
-    - gomnd
-    - forcetypeassert  # I panic on purpose.
-    - cyclop  # Buggy and overzealous.
-    - gosec  # I know when I'm doing crypto, thanks.
-    - forbidigo
+  disable-all: true
+  presets:
+    - bugs
+    - unused
 
-    # Unacceptable styling or incompatibilities with gofmt
-    - gci
-    - gofumpt
-    - nlreturn
-    - wsl
-    - varnamelen
+  enable:
+    - containedctx
+    - cyclop
+    - dogsled
+    - dupl
+    - dupword
+    - funlen
+    - gocognit
+    - godot
+    - gofmt
+    - goimports
+    - gosimple
+    - goprintffuncname
+    - grouper
+    - importas
+    - interfacebloat
+    - lll
+    - misspell
+    - nilnil
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - reassign
+    - tenv
+    - testpackage
+    - unconvert
+    - usestdlibvars
+    - wastedassign
 
-    # Disagreements.
-    - paralleltest
-    - gochecknoglobals
-    - goerr113  # I'm not writing a lib here.
-
-    # Deprecated
-    - maligned
-    - golint
-    - interfacer
-    - scopelint
-
-    # Local
-    - wrapcheck
+linter-settigns:
+  staticcheck:
+    checks: ["all"]
