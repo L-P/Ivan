@@ -1,0 +1,22 @@
+{
+    "0": "StartItemInput",
+    ".": "DowngradeNext",
+    "-": "Undo",
+    "+": "Redo",
+    "w": "StartWOTHInput",
+    "g": "StartGoalInput",
+    "b": "StartBarrenInput",
+    "d": "StartDungeonInput",
+    "a": "StartAlwaysHintInput",
+    "s": "StartSometimesHintInput",
+    "7": "TopLeft",
+    "8": "Top",
+    "9": "TopRight",
+    "4": "Left",
+    "5": "Middle",
+    "6": "Right",
+    "1": "BottomLeft",
+    "2": "Bottom",
+    "3": "BottomRight"
+  }
+}

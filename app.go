@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"ivan/config"
 	inputviewer "ivan/input-viewer"
 	"ivan/timer"
 	"ivan/tracker"
@@ -14,7 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-const configPath = "assets/config.json"
+const configDir = "assets/config"
 
 var errCloseApp = errors.New("user requested app close")
 
@@ -22,37 +23,37 @@ type App struct {
 	tracker     *tracker.Tracker
 	timer       *timer.Timer
 	inputViewer *inputviewer.InputViewer
-	config      config
+	config      config.Config
 	lastSave    time.Time
 
 	saveDebounce func(func())
 }
 
 func NewApp() (*App, error) {
-	config, err := loadConfig(configPath)
+	cfg, err := config.NewFromDir(configDir)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load initial config: %w", err)
 	}
 
-	size := config.windowSize()
+	size := cfg.WindowSize()
 	ebiten.SetWindowSize(size.X, size.Y)
 	ebiten.SetWindowPosition(1920-size.X, 0)
 
-	timer, err := timer.New(config.Dimensions.Timer)
+	timer, err := timer.New(cfg.Dimensions.Timer)
 	if err != nil {
 		return nil, err
 	}
 
 	tracker, err := tracker.New(
-		config.Dimensions.ItemTracker,
-		config.Dimensions.HintTracker,
-		config.Items,
-		config.ZoneItemMap,
-		config.Locations,
-		config.Binds,
-		config.AlwaysHints,
-		config.DungeonInputMedallionOrder,
-		config.DungeonInputDungeonKP,
+		cfg.Dimensions.ItemTracker,
+		cfg.Dimensions.HintTracker,
+		cfg.Items,
+		cfg.ItemTracker.ZoneItemMap,
+		cfg.Locations,
+		cfg.Binds,
+		cfg.HintTracker.AlwaysHints,
+		cfg.ItemTracker.DungeonInputMedallionOrder,
+		cfg.ItemTracker.DungeonInputDungeonKP,
 	)
 	if err != nil {
 		return nil, err
@@ -70,7 +71,7 @@ func NewApp() (*App, error) {
 		tracker:      tracker,
 		timer:        timer,
 		inputViewer:  nil, // initialized on first frame to ensure we have a gamepad
-		config:       config,
+		config:       cfg,
 		saveDebounce: debounce.New(1 * time.Second),
 		lastSave:     time.Now(),
 	}, nil
@@ -94,7 +95,7 @@ func (app *App) Update() error {
 
 	case inpututil.IsKeyJustPressed(ebiten.KeyHome):
 		if !app.timer.IsRunning() {
-			config, err := loadConfig(configPath)
+			config, err := config.NewFromDir(configDir)
 			if err != nil {
 				return fmt.Errorf("unable to load config: %w", err)
 			}
@@ -115,7 +116,7 @@ func (app *App) Update() error {
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
 		if app.timer.CanReset() {
 			app.timer.Reset()
-			app.tracker.Reset(app.config.Items, app.config.ZoneItemMap)
+			app.tracker.Reset(app.config.Items, app.config.ItemTracker.ZoneItemMap)
 			shouldSave = true
 		}
 

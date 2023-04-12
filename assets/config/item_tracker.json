@@ -1,0 +1,62 @@
+{
+  "DungeonInputMedallionOrder": [
+    "Light Medallion",
+    "Forest Medallion",
+    "Fire Medallion",
+    "Water Medallion",
+    "Shadow Medallion",
+    "Spirit Medallion"
+  ],
+
+  "DungeonInputDungeonKP": [
+    "Spirit Temple", "Shadow Temple", "Free",
+    "Forest Temple", "Fire Temple", "Water Temple",
+    "Deku Tree", "Dodongo's Cavern", "Jabu Jabu"
+  ],
+
+  "ZoneItemMap": [
+    [
+      "Kokiri Boots", "Iron Boots", "Hover Boots",
+      "Kokiri Tunic", "Goron Tunic", "Zora Tunic",
+      "Deku Shield", "Hylian Shield", "Mirror Shield"
+    ],
+    [
+      "Spirit Medallion", "Shadow Medallion", "Light Medallion",
+      "Forest Medallion", "Fire Medallion", "Water Medallion",
+      "Kokiri Emerald", "Goron Ruby", "Zora Sapphire"
+    ],
+    [
+      "Minuet of Forest", "Bolero of Fire", "Serenade of Water",
+      "Requiem of Spirit", "Nocturne of Shadow", "Prelude of Light"
+    ],
+    [
+      "Kokiri Sword", "Master Sword", "Biggoron Sword",
+      "Magic Meter", "Progressive Force", "Progressive Scale",
+      "Wallet", "Gerudo Membership Card", "Stone of Agony"
+    ],
+    [
+      "Rutos Letter", "Trade Sequence", "Mask Trade Sequence",
+      "", "Gold Skulltula Token", "",
+      "Bottle 1", "Bottle 2", "Bottle 3"
+    ],
+    [],
+    [
+      "Boomerang", "Lens of Truth", "Magic Bean",
+      "Slingshot", "Ocarina", "Bombchu",
+      "Deku Stick", "Deku Nut", "Bomb Bag"
+    ],
+    [
+      "Hammer", "Light Arrows", "Nayrus Love",
+      "Progressive Hookshot", "Ice Arrows", "Farores Wind",
+      "Bow", "Fire Arrows", "Dins Fire"
+    ],
+    [
+      "Zeldas Lullaby",
+      "Eponas Song",
+      "Sarias Song",
+      "Suns Song",
+      "Song of Time",
+      "Song of Storms"
+    ]
+  ]
+}
