@@ -136,7 +136,7 @@ func (tracker *Tracker) IsIdle() bool {
 	return tracker.kbInputStateIs(inputStateIdle)
 }
 
-// nolint:funlen
+//nolint:funlen
 func (tracker *Tracker) inputAction(a action) {
 	// Ensure we can _always_ leave using KP0 or Escape
 	if a == actionCancel || (a == actionStartItemInput && !tracker.kbInputStateIs(inputStateIdle)) {
@@ -154,7 +154,7 @@ func (tracker *Tracker) inputAction(a action) {
 		}
 
 	case inputStateItemKPZoneInput:
-		switch a { // nolint:exhaustive
+		switch a { //nolint:exhaustive
 		case actionDowngradeNext:
 			tracker.input.downgradeNextItem = !tracker.input.downgradeNextItem
 		case actionTopLeft, actionTop, actionTopRight,
@@ -190,7 +190,7 @@ func (tracker *Tracker) inputAction(a action) {
 
 		if zone := actionToKPZone(a); zone == -1 {
 			// +/- to go back/forward in the Medallion list (cycles around).
-			switch a { // nolint:exhaustive
+			switch a { //nolint:exhaustive
 			case actionUndo:
 				tracker.input.curMedallion--
 				if tracker.input.curMedallion < 0 {
@@ -301,7 +301,7 @@ func (tracker *Tracker) inputKPZoneItem(zoneKP, itemKP int) error {
 }
 
 func actionToKPZone(a action) int {
-	switch a { // nolint:exhaustive
+	switch a { //nolint:exhaustive
 	case actionTopLeft:
 		return 7
 	case actionTop:

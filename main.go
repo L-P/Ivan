@@ -13,7 +13,6 @@ import (
 )
 
 // Version holds the compile-time version string of Ivan.
-// nolint:gochecknoglobals
 var Version = "unknown"
 
 func main() {

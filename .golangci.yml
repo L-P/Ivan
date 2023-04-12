@@ -3,14 +3,12 @@ run:
   timeout: 5m
 
 linters:
-  disable-all: true
   presets:
     - bugs
     - unused
 
   enable:
     - containedctx
-    - cyclop
     - dogsled
     - dupl
     - dupword
@@ -38,6 +36,9 @@ linters:
     - unconvert
     - usestdlibvars
     - wastedassign
+
+  disable:
+    - musttag
 
 linter-settigns:
   staticcheck:
