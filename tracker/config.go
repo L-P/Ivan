@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	inputviewer "ivan/input-viewer"
+	"ivan/inputviewer"
 	"os"
 	"path/filepath"
 )

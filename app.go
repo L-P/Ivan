@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	inputviewer "ivan/input-viewer"
+	"ivan/inputviewer"
 	"ivan/timer"
 	"ivan/tracker"
 	"log"
