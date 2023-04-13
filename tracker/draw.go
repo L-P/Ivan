@@ -190,6 +190,7 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 
 func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 	var (
+		margins     = image.Point{3, 15}
 		iconOffsetY = 1
 		size        = tracker.cfg.Layout.HintTracker.Size()
 		pos         = tracker.cfg.Layout.HintTracker.Min.Add(margins)
@@ -232,8 +233,6 @@ type drawableHintEntry struct {
 	gfx     *image.Rectangle
 	bgColor color.RGBA
 }
-
-var margins = image.Point{3, 15}
 
 const (
 	maxHintsPerRow = 10
