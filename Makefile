@@ -11,7 +11,7 @@ $(EXEC):
 .PHONY: $(EXEC) vendor upgrade lint test coverage debian-deps release clean tags
 
 tags:
-	ctags-universal -R timer tracker input-viewer *.go
+	ctags-universal -R timer tracker inputviewer *.go
 
 clean:
 	rm -rf ivan_release_*
