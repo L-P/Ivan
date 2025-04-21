@@ -7,6 +7,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -76,7 +77,7 @@ func (ij InputJoystick) SheetRect() image.Rectangle {
 }
 
 func (ij InputJoystick) axes(id ebiten.GamepadID) (float64, float64) {
-	return ebiten.GamepadAxis(id, ij.IDX), ebiten.GamepadAxis(id, ij.IDY)
+	return ebiten.GamepadAxisValue(id, ij.IDX), ebiten.GamepadAxisValue(id, ij.IDY)
 }
 
 func (ib InputButton) pressed(id ebiten.GamepadID) bool {
@@ -85,9 +86,9 @@ func (ib InputButton) pressed(id ebiten.GamepadID) bool {
 		return ebiten.IsGamepadButtonPressed(id, ebiten.GamepadButton(ib.ID))
 	case "Axis":
 		if ib.Dir < 0 {
-			return ebiten.GamepadAxis(id, ib.ID) < -0.15
+			return ebiten.GamepadAxisValue(id, ib.ID) < -0.15
 		}
-		return ebiten.GamepadAxis(id, ib.ID) > 0.15
+		return ebiten.GamepadAxisValue(id, ib.ID) > 0.15
 	}
 
 	return false
@@ -105,7 +106,7 @@ func NewInputViewer(config Config) *InputViewer {
 		return nil
 	}
 
-	ids := ebiten.GamepadIDs()
+	ids := ebiten.AppendGamepadIDs(nil)
 	if len(ids) == 0 {
 		return nil
 	}
@@ -159,12 +160,13 @@ func (iv *InputViewer) drawJoystick(screen *ebiten.Image) {
 		&op,
 	)
 	x, y := j.axes(iv.id)
-	ebitenutil.DrawRect(
+	vector.DrawFilledRect(
 		screen,
-		float64(j.Pos.X)+14.0*x-1,
-		float64(j.Pos.Y)+14.0*y-1,
+		float32(j.Pos.X)+14.0*float32(x)-1,
+		float32(j.Pos.Y)+14.0*float32(y)-1,
 		2, 2,
 		color.RGBA{j.Color.R, j.Color.G, j.Color.B, 0xFF},
+		false,
 	)
 }
 
@@ -200,11 +202,12 @@ func (iv *InputViewer) legacyDraw(screen *ebiten.Image) {
 			continue
 		}
 
-		ebitenutil.DrawRect(
+		vector.DrawFilledRect(
 			screen,
-			float64(v.Pos.X), float64(v.Pos.Y),
+			float32(v.Pos.X), float32(v.Pos.Y),
 			2, 2,
 			color.RGBA{v.Color.R, v.Color.G, v.Color.B, 0xFF},
+			false,
 		)
 	}
 }

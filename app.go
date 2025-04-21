@@ -120,7 +120,7 @@ func (app *App) Update() error {
 		shouldSave = true
 
 	default:
-		input := ebiten.InputChars()
+		input := ebiten.AppendInputChars(nil)
 		if len(input) > 0 {
 			app.tracker.Input(input)
 			shouldSave = true

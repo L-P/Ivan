@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 func (tracker *Tracker) Draw(screen *ebiten.Image) {
@@ -79,11 +79,12 @@ func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 		size.Y = pos.Y
 	}
 
-	ebitenutil.DrawRect(
+	vector.DrawFilledRect(
 		screen,
-		float64(pos.X), float64(pos.Y),
-		float64(size.X), float64(size.Y),
+		float32(pos.X), float32(pos.Y),
+		float32(size.X), float32(size.Y),
 		color.RGBA{0xFF, 0xFF, 0xFF, 0x50},
+		false,
 	)
 }
 
@@ -170,11 +171,12 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 		// Highlight corresponding medallion.
 		rect := tracker.items[idx].Rect()
 		size := rect.Size()
-		ebitenutil.DrawRect(
+		vector.DrawFilledRect(
 			screen,
-			float64(rect.Min.X), float64(rect.Min.Y),
-			float64(size.X), float64(size.Y),
+			float32(rect.Min.X), float32(rect.Min.Y),
+			float32(size.X), float32(size.Y),
 			color.RGBA{0xFF, 0xFF, 0xFF, 0x50},
+			false,
 		)
 	}
 
@@ -203,12 +205,13 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 			pos = pos.Add(image.Point{size.X / 2, -maxHintsPerRow * lineHeight})
 		}
 
-		ebitenutil.DrawRect(
+		vector.DrawFilledRect(
 			screen,
-			float64(pos.X-margins.X), float64(pos.Y-margins.Y),
-			float64(size.X/2),
-			float64(size.Y/maxHintsPerRow),
+			float32(pos.X-margins.X), float32(pos.Y-margins.Y),
+			float32(size.X/2),
+			float32(size.Y/maxHintsPerRow),
 			v.bgColor,
+			false,
 		)
 
 		if v.gfx != nil {
