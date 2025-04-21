@@ -31,7 +31,7 @@ release:
 
 	GOOS="windows" GOARCH="amd64" make $(EXEC)
 	mv "$(EXEC).exe" "$(RELEASE_DIR)/ivan.exe"
-	zip -r "$(RELEASE_DIR)_window64.zip" "$(RELEASE_DIR)"
+	zip -r "$(RELEASE_DIR)_windows64.zip" "$(RELEASE_DIR)"
 
 debian-deps:
 	# Ebiten
