@@ -19,8 +19,9 @@ clean:
 
 release:
 	rm -rf "$(RELEASE_DIR)"
-	mkdir -p "$(RELEASE_DIR)/assets"
-	cp assets/*.png assets/*.json assets/LICENSE.md "$(RELEASE_DIR)/assets"
+	mkdir -p "$(RELEASE_DIR)/assets" "$(RELEASE_DIR)/config"
+	cp assets/*.png  assets/LICENSE.md "$(RELEASE_DIR)/assets"
+	cp config/*.json "$(RELEASE_DIR)/config"
 	pandoc -M "pagetitle=Ivan Item Tracker" -s -o "$(RELEASE_DIR)/readme.html" < README.md
 
 	GOOS="linux" GOARCH="amd64" make $(EXEC)
