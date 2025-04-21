@@ -16,372 +16,88 @@ package graphicscommand
 
 import (
 	"fmt"
+	"image"
 	"math"
 	"strings"
 
-	"github.com/hajimehoshi/ebiten/v2/internal/affine"
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
-
-var theGraphicsDriver driver.Graphics
-
-func SetGraphicsDriver(driver driver.Graphics) {
-	theGraphicsDriver = driver
-}
-
-func NeedsRestoring() bool {
-	if theGraphicsDriver == nil {
-		// This happens on initialization.
-		// Return true for fail-safe
-		return true
-	}
-	return theGraphicsDriver.NeedsRestoring()
-}
 
 // command represents a drawing command.
 //
 // A command for drawing that is created when Image functions are called like DrawTriangles,
 // or Fill.
-// A command is not immediately executed after created. Instaed, it is queued after created,
+// A command is not immediately executed after created. Instead, it is queued after created,
 // and executed only when necessary.
 type command interface {
 	fmt.Stringer
 
-	Exec(indexOffset int) error
-	NumVertices() int
-	NumIndices() int
-	AddNumVertices(n int)
-	AddNumIndices(n int)
-	CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool
+	Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error
+	NeedsSync() bool
 }
 
-type size struct {
-	width  float32
-	height float32
+type drawTrianglesCommandPool struct {
+	pool []*drawTrianglesCommand
 }
 
-// commandQueue is a command queue for drawing commands.
-type commandQueue struct {
-	// commands is a queue of drawing commands.
-	commands []command
-
-	// vertices represents a vertices data in OpenGL's array buffer.
-	vertices []float32
-
-	// nvertices represents the current length of vertices.
-	// nvertices must <= len(vertices).
-	// vertices is never shrunk since re-extending a vertices buffer is heavy.
-	//
-	// TODO: This is a number of float32 values, not a number of vertices.
-	// Rename or fix the program.
-	nvertices int
-
-	srcSizes []size
-
-	indices  []uint16
-	nindices int
-
-	tmpNumIndices int
-	nextIndex     int
-
-	err error
+func (p *drawTrianglesCommandPool) get() *drawTrianglesCommand {
+	if len(p.pool) == 0 {
+		return &drawTrianglesCommand{}
+	}
+	v := p.pool[len(p.pool)-1]
+	p.pool[len(p.pool)-1] = nil
+	p.pool = p.pool[:len(p.pool)-1]
+	return v
 }
 
-// theCommandQueue is the command queue for the current process.
-var theCommandQueue = &commandQueue{}
-
-// appendVertices appends vertices to the queue.
-func (q *commandQueue) appendVertices(vertices []float32, src *Image) {
-	if len(q.vertices) < q.nvertices+len(vertices) {
-		n := q.nvertices + len(vertices) - len(q.vertices)
-		q.vertices = append(q.vertices, make([]float32, n)...)
-		q.srcSizes = append(q.srcSizes, make([]size, n/graphics.VertexFloatNum)...)
+func (p *drawTrianglesCommandPool) put(v *drawTrianglesCommand) {
+	if len(p.pool) >= 1024 {
+		return
 	}
-	copy(q.vertices[q.nvertices:], vertices)
-
-	n := len(vertices) / graphics.VertexFloatNum
-	base := q.nvertices / graphics.VertexFloatNum
-
-	width := float32(1)
-	height := float32(1)
-	// src is nil when a shader is used and there are no specified images.
-	if src != nil {
-		w, h := src.InternalSize()
-		width = float32(w)
-		height = float32(h)
-	}
-	for i := 0; i < n; i++ {
-		idx := base + i
-		q.srcSizes[idx].width = width
-		q.srcSizes[idx].height = height
-	}
-	q.nvertices += len(vertices)
-}
-
-func (q *commandQueue) appendIndices(indices []uint16, offset uint16) {
-	if len(q.indices) < q.nindices+len(indices) {
-		n := q.nindices + len(indices) - len(q.indices)
-		q.indices = append(q.indices, make([]uint16, n)...)
-	}
-	for i := range indices {
-		q.indices[q.nindices+i] = indices[i] + offset
-	}
-	q.nindices += len(indices)
-}
-
-// EnqueueDrawTrianglesCommand enqueues a drawing-image command.
-func (q *commandQueue) EnqueueDrawTrianglesCommand(dst *Image, srcs [graphics.ShaderImageNum]*Image, offsets [graphics.ShaderImageNum - 1][2]float32, vertices []float32, indices []uint16, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader, uniforms []interface{}) {
-	if len(indices) > graphics.IndicesNum {
-		panic(fmt.Sprintf("graphicscommand: len(indices) must be <= graphics.IndicesNum but not at EnqueueDrawTrianglesCommand: len(indices): %d, graphics.IndicesNum: %d", len(indices), graphics.IndicesNum))
-	}
-
-	split := false
-	if q.tmpNumIndices+len(indices) > graphics.IndicesNum {
-		q.tmpNumIndices = 0
-		q.nextIndex = 0
-		split = true
-	}
-
-	// Assume that all the image sizes are same.
-	// Assume that the images are packed from the front in the slice srcs.
-	q.appendVertices(vertices, srcs[0])
-	q.appendIndices(indices, uint16(q.nextIndex))
-	q.nextIndex += len(vertices) / graphics.VertexFloatNum
-	q.tmpNumIndices += len(indices)
-
-	if srcs[0] != nil {
-		w, h := srcs[0].InternalSize()
-		sourceRegion.X /= float32(w)
-		sourceRegion.Y /= float32(h)
-		sourceRegion.Width /= float32(w)
-		sourceRegion.Height /= float32(h)
-		for i := range offsets {
-			offsets[i][0] /= float32(w)
-			offsets[i][1] /= float32(h)
-		}
-	}
-
-	// TODO: If dst is the screen, reorder the command to be the last.
-	if !split && 0 < len(q.commands) {
-		// TODO: Pass offsets and uniforms when merging considers the shader.
-		if last := q.commands[len(q.commands)-1]; last.CanMergeWithDrawTrianglesCommand(dst, srcs, color, mode, filter, address, sourceRegion, shader) {
-			last.AddNumVertices(len(vertices))
-			last.AddNumIndices(len(indices))
-			return
-		}
-	}
-
-	c := &drawTrianglesCommand{
-		dst:          dst,
-		srcs:         srcs,
-		offsets:      offsets,
-		nvertices:    len(vertices),
-		nindices:     len(indices),
-		color:        color,
-		mode:         mode,
-		filter:       filter,
-		address:      address,
-		sourceRegion: sourceRegion,
-		shader:       shader,
-		uniforms:     uniforms,
-	}
-	q.commands = append(q.commands, c)
-}
-
-// Enqueue enqueues a drawing command other than a draw-triangles command.
-//
-// For a draw-triangles command, use EnqueueDrawTrianglesCommand.
-func (q *commandQueue) Enqueue(command command) {
-	// TODO: If dst is the screen, reorder the command to be the last.
-	q.commands = append(q.commands, command)
-}
-
-// Flush flushes the command queue.
-func (q *commandQueue) Flush() error {
-	if len(q.commands) == 0 {
-		return nil
-	}
-
-	es := q.indices
-	vs := q.vertices
-	if recordLog() {
-		fmt.Println("--")
-	}
-
-	if theGraphicsDriver.HasHighPrecisionFloat() {
-		n := q.nvertices / graphics.VertexFloatNum
-		for i := 0; i < n; i++ {
-			s := q.srcSizes[i]
-
-			// Convert pixels to texels.
-			vs[i*graphics.VertexFloatNum+2] /= s.width
-			vs[i*graphics.VertexFloatNum+3] /= s.height
-
-			// Avoid the center of the pixel, which is problematic (#929, #1171).
-			// Instead, align the vertices with about 1/3 pixels.
-			for idx := 0; idx < 2; idx++ {
-				x := vs[i*graphics.VertexFloatNum+idx]
-				int := float32(math.Floor(float64(x)))
-				frac := x - int
-				switch {
-				case frac < 3.0/16.0:
-					vs[i*graphics.VertexFloatNum+idx] = int
-				case frac < 8.0/16.0:
-					vs[i*graphics.VertexFloatNum+idx] = int + 5.0/16.0
-				case frac < 13.0/16.0:
-					vs[i*graphics.VertexFloatNum+idx] = int + 11.0/16.0
-				default:
-					vs[i*graphics.VertexFloatNum+idx] = int + 16.0/16.0
-				}
-			}
-		}
-	} else {
-		n := q.nvertices / graphics.VertexFloatNum
-		for i := 0; i < n; i++ {
-			s := q.srcSizes[i]
-
-			// Convert pixels to texels.
-			vs[i*graphics.VertexFloatNum+2] /= s.width
-			vs[i*graphics.VertexFloatNum+3] /= s.height
-		}
-	}
-
-	theGraphicsDriver.Begin()
-	cs := q.commands
-	for len(cs) > 0 {
-		nv := 0
-		ne := 0
-		nc := 0
-		for _, c := range cs {
-			if c.NumIndices() > graphics.IndicesNum {
-				panic(fmt.Sprintf("graphicscommand: c.NumIndices() must be <= graphics.IndicesNum but not at Flush: c.NumIndices(): %d, graphics.IndicesNum: %d", c.NumIndices(), graphics.IndicesNum))
-			}
-			if ne+c.NumIndices() > graphics.IndicesNum {
-				break
-			}
-			nv += c.NumVertices()
-			ne += c.NumIndices()
-			nc++
-		}
-		if 0 < ne {
-			theGraphicsDriver.SetVertices(vs[:nv], es[:ne])
-			es = es[ne:]
-			vs = vs[nv:]
-		}
-		indexOffset := 0
-		for _, c := range cs[:nc] {
-			if err := c.Exec(indexOffset); err != nil {
-				return err
-			}
-			if recordLog() {
-				fmt.Printf("%s\n", c)
-			}
-			// TODO: indexOffset should be reset if the command type is different
-			// from the previous one. This fix is needed when another drawing command is
-			// introduced than drawTrianglesCommand.
-			indexOffset += c.NumIndices()
-		}
-		cs = cs[nc:]
-	}
-	theGraphicsDriver.End()
-	q.commands = q.commands[:0]
-	q.nvertices = 0
-	q.nindices = 0
-	q.tmpNumIndices = 0
-	q.nextIndex = 0
-	return nil
-}
-
-// FlushCommands flushes the command queue.
-func FlushCommands() error {
-	return theCommandQueue.Flush()
+	p.pool = append(p.pool, v)
 }
 
 // drawTrianglesCommand represents a drawing command to draw an image on another image.
 type drawTrianglesCommand struct {
-	dst          *Image
-	srcs         [graphics.ShaderImageNum]*Image
-	offsets      [graphics.ShaderImageNum - 1][2]float32
-	nvertices    int
-	nindices     int
-	color        *affine.ColorM
-	mode         driver.CompositeMode
-	filter       driver.Filter
-	address      driver.Address
-	sourceRegion driver.Region
-	shader       *Shader
-	uniforms     []interface{}
+	dst        *Image
+	srcs       [graphics.ShaderSrcImageCount]*Image
+	vertices   []float32
+	blend      graphicsdriver.Blend
+	dstRegions []graphicsdriver.DstRegion
+	shader     *Shader
+	uniforms   []uint32
+	fillRule   graphicsdriver.FillRule
 }
 
 func (c *drawTrianglesCommand) String() string {
-	mode := ""
-	switch c.mode {
-	case driver.CompositeModeSourceOver:
-		mode = "source-over"
-	case driver.CompositeModeClear:
-		mode = "clear"
-	case driver.CompositeModeCopy:
-		mode = "copy"
-	case driver.CompositeModeDestination:
-		mode = "destination"
-	case driver.CompositeModeDestinationOver:
-		mode = "destination-over"
-	case driver.CompositeModeSourceIn:
-		mode = "source-in"
-	case driver.CompositeModeDestinationIn:
-		mode = "destination-in"
-	case driver.CompositeModeSourceOut:
-		mode = "source-out"
-	case driver.CompositeModeDestinationOut:
-		mode = "destination-out"
-	case driver.CompositeModeSourceAtop:
-		mode = "source-atop"
-	case driver.CompositeModeDestinationAtop:
-		mode = "destination-atop"
-	case driver.CompositeModeXor:
-		mode = "xor"
-	case driver.CompositeModeLighter:
-		mode = "lighter"
+	var blend string
+	switch c.blend {
+	case graphicsdriver.BlendSourceOver:
+		blend = "(source-over)"
+	case graphicsdriver.BlendClear:
+		blend = "(clear)"
+	case graphicsdriver.BlendCopy:
+		blend = "(copy)"
 	default:
-		panic(fmt.Sprintf("graphicscommand: invalid composite mode: %d", c.mode))
+		blend = fmt.Sprintf("{src-rgb: %d, src-alpha: %d, dst-rgb: %d, dst-alpha: %d, op-rgb: %d, op-alpha: %d}",
+			c.blend.BlendFactorSourceRGB,
+			c.blend.BlendFactorSourceAlpha,
+			c.blend.BlendFactorDestinationRGB,
+			c.blend.BlendFactorDestinationAlpha,
+			c.blend.BlendOperationRGB,
+			c.blend.BlendOperationAlpha)
 	}
 
 	dst := fmt.Sprintf("%d", c.dst.id)
 	if c.dst.screen {
 		dst += " (screen)"
+	} else if c.dst.attribute != "" {
+		dst += " (" + c.dst.attribute + ")"
 	}
 
-	if c.shader != nil {
-		return fmt.Sprintf("draw-triangles: dst: %s, shader, num of indices: %d, mode %s", dst, c.nindices, mode)
-	}
-
-	filter := ""
-	switch c.filter {
-	case driver.FilterNearest:
-		filter = "nearest"
-	case driver.FilterLinear:
-		filter = "linear"
-	case driver.FilterScreen:
-		filter = "screen"
-	default:
-		panic(fmt.Sprintf("graphicscommand: invalid filter: %d", c.filter))
-	}
-
-	address := ""
-	switch c.address {
-	case driver.AddressClampToZero:
-		address = "clamp_to_zero"
-	case driver.AddressRepeat:
-		address = "repeat"
-	case driver.AddressUnsafe:
-		address = "unsafe"
-	default:
-		panic(fmt.Sprintf("graphicscommand: invalid address: %d", c.address))
-	}
-
-	var srcstrs [graphics.ShaderImageNum]string
+	var srcstrs [graphics.ShaderSrcImageCount]string
 	for i, src := range c.srcs {
 		if src == nil {
 			srcstrs[i] = "(nil)"
@@ -390,58 +106,71 @@ func (c *drawTrianglesCommand) String() string {
 		srcstrs[i] = fmt.Sprintf("%d", src.id)
 		if src.screen {
 			srcstrs[i] += " (screen)"
+		} else if src.attribute != "" {
+			srcstrs[i] += " (" + src.attribute + ")"
 		}
 	}
 
-	return fmt.Sprintf("draw-triangles: dst: %s <- src: [%s], num of indices: %d, colorm: %v, mode %s, filter: %s, address: %s", dst, strings.Join(srcstrs[:], ", "), c.nindices, c.color, mode, filter, address)
+	shader := fmt.Sprintf("%d", c.shader.id)
+	if c.shader.name != "" {
+		shader += " (" + c.shader.name + ")"
+	}
+
+	return fmt.Sprintf("draw-triangles: dst: %s <- src: [%s], num of dst regions: %d, num of indices: %d, blend: %s, fill rule: %s, shader: %s", dst, strings.Join(srcstrs[:], ", "), len(c.dstRegions), c.numIndices(), blend, c.fillRule, shader)
 }
 
 // Exec executes the drawTrianglesCommand.
-func (c *drawTrianglesCommand) Exec(indexOffset int) error {
+func (c *drawTrianglesCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
 	// TODO: Is it ok not to bind any framebuffer here?
-	if c.nindices == 0 {
+	if len(c.dstRegions) == 0 {
 		return nil
 	}
 
-	if c.shader != nil {
-		var imgs [graphics.ShaderImageNum]driver.ImageID
-		for i, src := range c.srcs {
-			if src == nil {
-				imgs[i] = theGraphicsDriver.InvalidImageID()
-				continue
-			}
-			imgs[i] = src.image.ID()
+	var imgs [graphics.ShaderSrcImageCount]graphicsdriver.ImageID
+	for i, src := range c.srcs {
+		if src == nil {
+			imgs[i] = graphicsdriver.InvalidImageID
+			continue
 		}
-
-		return theGraphicsDriver.DrawShader(c.dst.image.ID(), imgs, c.offsets, c.shader.shader.ID(), c.nindices, indexOffset, c.sourceRegion, c.mode, c.uniforms)
+		imgs[i] = src.image.ID()
 	}
-	return theGraphicsDriver.Draw(c.dst.image.ID(), c.srcs[0].image.ID(), c.nindices, indexOffset, c.mode, c.color, c.filter, c.address, c.sourceRegion)
+
+	return graphicsDriver.DrawTriangles(c.dst.image.ID(), imgs, c.shader.shader.ID(), c.dstRegions, indexOffset, c.blend, c.uniforms, c.fillRule)
 }
 
-func (c *drawTrianglesCommand) NumVertices() int {
-	return c.nvertices
+func (c *drawTrianglesCommand) NeedsSync() bool {
+	return false
 }
 
-func (c *drawTrianglesCommand) NumIndices() int {
-	return c.nindices
+func (c *drawTrianglesCommand) numVertices() int {
+	return len(c.vertices)
 }
 
-func (c *drawTrianglesCommand) AddNumVertices(n int) {
-	c.nvertices += n
+func (c *drawTrianglesCommand) numIndices() int {
+	var nindices int
+	for _, dstRegion := range c.dstRegions {
+		nindices += dstRegion.IndexCount
+	}
+	return nindices
 }
 
-func (c *drawTrianglesCommand) AddNumIndices(n int) {
-	c.nindices += n
+func (c *drawTrianglesCommand) setVertices(vertices []float32) {
+	c.vertices = vertices
 }
 
 // CanMergeWithDrawTrianglesCommand returns a boolean value indicating whether the other drawTrianglesCommand can be merged
 // with the drawTrianglesCommand c.
-func (c *drawTrianglesCommand) CanMergeWithDrawTrianglesCommand(dst *Image, srcs [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
-	// If a shader is used, commands are not merged.
-	//
-	// TODO: Merge shader commands considering uniform variables.
-	if c.shader != nil || shader != nil {
+func (c *drawTrianglesCommand) CanMergeWithDrawTrianglesCommand(dst *Image, srcs [graphics.ShaderSrcImageCount]*Image, vertices []float32, blend graphicsdriver.Blend, shader *Shader, uniforms []uint32, fillRule graphicsdriver.FillRule) bool {
+	if c.shader != shader {
 		return false
+	}
+	if len(c.uniforms) != len(uniforms) {
+		return false
+	}
+	for i := range c.uniforms {
+		if c.uniforms[i] != uniforms[i] {
+			return false
+		}
 	}
 	if c.dst != dst {
 		return false
@@ -449,93 +178,125 @@ func (c *drawTrianglesCommand) CanMergeWithDrawTrianglesCommand(dst *Image, srcs
 	if c.srcs != srcs {
 		return false
 	}
-	if !c.color.Equals(color) {
+	if c.blend != blend {
 		return false
 	}
-	if c.mode != mode {
+	if c.fillRule != fillRule {
 		return false
 	}
-	if c.filter != filter {
-		return false
-	}
-	if c.address != address {
-		return false
-	}
-	if c.sourceRegion != sourceRegion {
+	if c.fillRule != graphicsdriver.FillRuleFillAll && mightOverlapDstRegions(c.vertices, vertices) {
 		return false
 	}
 	return true
 }
 
-// replacePixelsCommand represents a command to replace pixels of an image.
-type replacePixelsCommand struct {
+var (
+	posInf32 = float32(math.Inf(1))
+	negInf32 = float32(math.Inf(-1))
+)
+
+func dstRegionFromVertices(vertices []float32) (minX, minY, maxX, maxY float32) {
+	minX = posInf32
+	minY = posInf32
+	maxX = negInf32
+	maxY = negInf32
+
+	for i := 0; i < len(vertices); i += graphics.VertexFloatCount {
+		x := vertices[i]
+		y := vertices[i+1]
+		if x < minX {
+			minX = x
+		}
+		if y < minY {
+			minY = y
+		}
+		if maxX < x {
+			maxX = x
+		}
+		if maxY < y {
+			maxY = y
+		}
+	}
+	return
+}
+
+func mightOverlapDstRegions(vertices1, vertices2 []float32) bool {
+	minX1, minY1, maxX1, maxY1 := dstRegionFromVertices(vertices1)
+	minX2, minY2, maxX2, maxY2 := dstRegionFromVertices(vertices2)
+	const margin = 1
+	return minX1 < maxX2+margin && minX2 < maxX1+margin && minY1 < maxY2+margin && minY2 < maxY1+margin
+}
+
+// writePixelsCommand represents a command to replace pixels of an image.
+type writePixelsCommand struct {
 	dst  *Image
-	args []*driver.ReplacePixelsArgs
+	args []writePixelsCommandArgs
 }
 
-func (c *replacePixelsCommand) String() string {
-	return fmt.Sprintf("replace-pixels: dst: %d, len(args): %d", c.dst.id, len(c.args))
+type writePixelsCommandArgs struct {
+	pixels *graphics.ManagedBytes
+	region image.Rectangle
 }
 
-// Exec executes the replacePixelsCommand.
-func (c *replacePixelsCommand) Exec(indexOffset int) error {
-	c.dst.image.ReplacePixels(c.args)
-	return nil
+func (c *writePixelsCommand) String() string {
+	var args []string
+	for _, a := range c.args {
+		args = append(args, fmt.Sprintf("region: %s", a.region.String()))
+	}
+	return fmt.Sprintf("write-pixels: dst: %d, args: %s", c.dst.id, strings.Join(args, ", "))
 }
 
-func (c *replacePixelsCommand) NumVertices() int {
-	return 0
-}
-
-func (c *replacePixelsCommand) NumIndices() int {
-	return 0
-}
-
-func (c *replacePixelsCommand) AddNumVertices(n int) {
-}
-
-func (c *replacePixelsCommand) AddNumIndices(n int) {
-}
-
-func (c *replacePixelsCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
-	return false
-}
-
-type pixelsCommand struct {
-	result []byte
-	img    *Image
-}
-
-// Exec executes a pixelsCommand.
-func (c *pixelsCommand) Exec(indexOffset int) error {
-	p, err := c.img.image.Pixels()
-	if err != nil {
+// Exec executes the writePixelsCommand.
+func (c *writePixelsCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
+	if len(c.args) == 0 {
+		return nil
+	}
+	args := make([]graphicsdriver.PixelsArgs, 0, len(c.args))
+	for _, a := range c.args {
+		pix, f := a.pixels.GetAndRelease()
+		// A finalizer is executed when flushing the queue at the end of the frame.
+		// At the end of the frame, the last command is rendering triangles onto the screen,
+		// so the bytes are already sent to GPU and synced.
+		// TODO: This might be fragile. When is the better time to call finalizers by a command queue?
+		commandQueue.addFinalizer(f)
+		args = append(args, graphicsdriver.PixelsArgs{
+			Pixels: pix,
+			Region: a.region,
+		})
+	}
+	if err := c.dst.image.WritePixels(args); err != nil {
 		return err
 	}
-	c.result = p
 	return nil
 }
 
-func (c *pixelsCommand) String() string {
-	return fmt.Sprintf("pixels: image: %d", c.img.id)
-}
-
-func (c *pixelsCommand) NumVertices() int {
-	return 0
-}
-
-func (c *pixelsCommand) NumIndices() int {
-	return 0
-}
-
-func (c *pixelsCommand) AddNumVertices(n int) {
-}
-
-func (c *pixelsCommand) AddNumIndices(n int) {
-}
-
-func (c *pixelsCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
+func (c *writePixelsCommand) NeedsSync() bool {
 	return false
+}
+
+type readPixelsCommand struct {
+	img  *Image
+	args []graphicsdriver.PixelsArgs
+}
+
+// Exec executes a readPixelsCommand.
+func (c *readPixelsCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
+	if err := c.img.image.ReadPixels(c.args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *readPixelsCommand) NeedsSync() bool {
+	return true
+}
+
+func (c *readPixelsCommand) String() string {
+	var args []string
+	for _, a := range c.args {
+		args = append(args, fmt.Sprintf("region: %s", a.Region.String()))
+	}
+	return fmt.Sprintf("read-pixels: image: %d, args: %v", c.img.id, strings.Join(args, ", "))
 }
 
 // disposeImageCommand represents a command to dispose an image.
@@ -548,26 +309,12 @@ func (c *disposeImageCommand) String() string {
 }
 
 // Exec executes the disposeImageCommand.
-func (c *disposeImageCommand) Exec(indexOffset int) error {
+func (c *disposeImageCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
 	c.target.image.Dispose()
 	return nil
 }
 
-func (c *disposeImageCommand) NumVertices() int {
-	return 0
-}
-
-func (c *disposeImageCommand) NumIndices() int {
-	return 0
-}
-
-func (c *disposeImageCommand) AddNumVertices(n int) {
-}
-
-func (c *disposeImageCommand) AddNumIndices(n int) {
-}
-
-func (c *disposeImageCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
+func (c *disposeImageCommand) NeedsSync() bool {
 	return false
 }
 
@@ -577,106 +324,49 @@ type disposeShaderCommand struct {
 }
 
 func (c *disposeShaderCommand) String() string {
-	return fmt.Sprintf("dispose-shader: target")
+	return "dispose-shader: target"
 }
 
 // Exec executes the disposeShaderCommand.
-func (c *disposeShaderCommand) Exec(indexOffset int) error {
+func (c *disposeShaderCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
 	c.target.shader.Dispose()
 	return nil
 }
 
-func (c *disposeShaderCommand) NumVertices() int {
-	return 0
-}
-
-func (c *disposeShaderCommand) NumIndices() int {
-	return 0
-}
-
-func (c *disposeShaderCommand) AddNumVertices(n int) {
-}
-
-func (c *disposeShaderCommand) AddNumIndices(n int) {
-}
-
-func (c *disposeShaderCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
+func (c *disposeShaderCommand) NeedsSync() bool {
 	return false
 }
 
 // newImageCommand represents a command to create an empty image with given width and height.
 type newImageCommand struct {
-	result *Image
-	width  int
-	height int
+	result    *Image
+	width     int
+	height    int
+	screen    bool
+	attribute string
 }
 
 func (c *newImageCommand) String() string {
-	return fmt.Sprintf("new-image: result: %d, width: %d, height: %d", c.result.id, c.width, c.height)
+	str := fmt.Sprintf("new-image: result: %d, width: %d, height: %d, screen: %t", c.result.id, c.width, c.height, c.screen)
+	if c.attribute != "" {
+		str += ", attribute: " + c.attribute
+	}
+	return str
 }
 
 // Exec executes a newImageCommand.
-func (c *newImageCommand) Exec(indexOffset int) error {
-	i, err := theGraphicsDriver.NewImage(c.width, c.height)
-	if err != nil {
-		return err
-	}
-	c.result.image = i
-	return nil
-}
-
-func (c *newImageCommand) NumVertices() int {
-	return 0
-}
-
-func (c *newImageCommand) NumIndices() int {
-	return 0
-}
-
-func (c *newImageCommand) AddNumVertices(n int) {
-}
-
-func (c *newImageCommand) AddNumIndices(n int) {
-}
-
-func (c *newImageCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
-	return false
-}
-
-// newScreenFramebufferImageCommand is a command to create a special image for the screen.
-type newScreenFramebufferImageCommand struct {
-	result *Image
-	width  int
-	height int
-}
-
-func (c *newScreenFramebufferImageCommand) String() string {
-	return fmt.Sprintf("new-screen-framebuffer-image: result: %d, width: %d, height: %d", c.result.id, c.width, c.height)
-}
-
-// Exec executes a newScreenFramebufferImageCommand.
-func (c *newScreenFramebufferImageCommand) Exec(indexOffset int) error {
+func (c *newImageCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
 	var err error
-	c.result.image, err = theGraphicsDriver.NewScreenFramebufferImage(c.width, c.height)
+	if c.screen {
+		c.result.image, err = graphicsDriver.NewScreenFramebufferImage(c.width, c.height)
+	} else {
+		c.result.image, err = graphicsDriver.NewImage(c.width, c.height)
+	}
 	return err
 }
 
-func (c *newScreenFramebufferImageCommand) NumVertices() int {
-	return 0
-}
-
-func (c *newScreenFramebufferImageCommand) NumIndices() int {
-	return 0
-}
-
-func (c *newScreenFramebufferImageCommand) AddNumVertices(n int) {
-}
-
-func (c *newScreenFramebufferImageCommand) AddNumIndices(n int) {
-}
-
-func (c *newScreenFramebufferImageCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
-	return false
+func (c *newImageCommand) NeedsSync() bool {
+	return true
 }
 
 // newShaderCommand is a command to create a shader.
@@ -686,35 +376,47 @@ type newShaderCommand struct {
 }
 
 func (c *newShaderCommand) String() string {
-	return fmt.Sprintf("new-shader-image")
+	return "new-shader"
 }
 
 // Exec executes a newShaderCommand.
-func (c *newShaderCommand) Exec(indexOffset int) error {
-	var err error
-	c.result.shader, err = theGraphicsDriver.NewShader(c.ir)
-	return err
+func (c *newShaderCommand) Exec(commandQueue *commandQueue, graphicsDriver graphicsdriver.Graphics, indexOffset int) error {
+	s, err := graphicsDriver.NewShader(c.ir)
+	if err != nil {
+		return err
+	}
+	c.result.shader = s
+	return nil
 }
 
-func (c *newShaderCommand) NumVertices() int {
-	return 0
+func (c *newShaderCommand) NeedsSync() bool {
+	return true
 }
 
-func (c *newShaderCommand) NumIndices() int {
-	return 0
+// InitializeGraphicsDriverState initialize the current graphics driver state.
+func InitializeGraphicsDriverState(graphicsDriver graphicsdriver.Graphics) (err error) {
+	runOnRenderThread(func() {
+		err = graphicsDriver.Initialize()
+	}, true)
+	return
 }
 
-func (c *newShaderCommand) AddNumVertices(n int) {
+// ResetGraphicsDriverState resets the current graphics driver state.
+// If the graphics driver doesn't have an API to reset, ResetGraphicsDriverState does nothing.
+func ResetGraphicsDriverState(graphicsDriver graphicsdriver.Graphics) (err error) {
+	if r, ok := graphicsDriver.(graphicsdriver.Resetter); ok {
+		runOnRenderThread(func() {
+			err = r.Reset()
+		}, true)
+	}
+	return nil
 }
 
-func (c *newShaderCommand) AddNumIndices(n int) {
-}
-
-func (c *newShaderCommand) CanMergeWithDrawTrianglesCommand(dst *Image, src [graphics.ShaderImageNum]*Image, color *affine.ColorM, mode driver.CompositeMode, filter driver.Filter, address driver.Address, sourceRegion driver.Region, shader *Shader) bool {
-	return false
-}
-
-// ResetGraphicsDriverState resets or initializes the current graphics driver state.
-func ResetGraphicsDriverState() error {
-	return theGraphicsDriver.Reset()
+// MaxImageSize returns the maximum size of an image.
+func MaxImageSize(graphicsDriver graphicsdriver.Graphics) int {
+	var size int
+	runOnRenderThread(func() {
+		size = graphicsDriver.MaxImageSize()
+	}, true)
+	return size
 }

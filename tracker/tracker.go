@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"bytes"
 	"encoding/json"
 	"image"
 	"io"
@@ -8,80 +9,49 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"golang.org/x/image/font"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
 type Tracker struct {
-	pos, size         image.Point
-	hintPos, hintSize image.Point
+	cfg   Config
+	input kbInput
 
 	background, backgroundHelp  *ebiten.Image
 	sheetDisabled, sheetEnabled *ebiten.Image
-	font, fontSmall             font.Face
+	font, fontSmall             text.Face
 
-	items       []Item
-	zoneItemMap ZoneItemMap
-	locations   []string
-	input       kbInput
-	binds       map[string]string
-	alwaysHints map[string]image.Point // name => sheet pos
-
+	items                            []Item
 	woths, goals, barrens, sometimes []string
 	always                           [8]string // in order: skull, bigg, OOT, sheik at kak, frogs 2, 30, 40, 50
-
-	dungeonInputMedallionOrder, dungeonInputDungeonKP []string
 
 	undoStack, redoStack []undoStackEntry
 }
 
-const (
-	capacityFontSize = 20
-	templeFontSize   = 13
-)
-
-type ZoneItemMap [9][9]string
-
-func New( // TODO pass config
-	dimensions image.Rectangle,
-	hintDimensions image.Rectangle,
-	items []Item,
-	zoneItemMap ZoneItemMap,
-	locations []string,
-	binds map[string]string,
-	alwaysHints map[string]image.Point,
-	dungeonInputMedallionOrder []string,
-	dungeonInputDungeonKP []string,
-) (*Tracker, error) {
-	tracker := &Tracker{
-		pos:      dimensions.Min,
-		size:     dimensions.Size(),
-		hintPos:  hintDimensions.Min,
-		hintSize: hintDimensions.Size(),
-
-		dungeonInputMedallionOrder: dungeonInputMedallionOrder,
-		dungeonInputDungeonKP:      dungeonInputDungeonKP,
-
-		locations:   locations,
-		binds:       binds,
-		alwaysHints: alwaysHints,
-		zoneItemMap: zoneItemMap,
-	}
-
-	tracker.items = make([]Item, len(items))
-	copy(tracker.items, items)
+func New(cfg Config) (*Tracker, error) {
+	tracker := &Tracker{cfg: cfg}
 
 	if err := tracker.loadResources(); err != nil {
 		return nil, err
 	}
 
+	tracker.resetItems()
 	tracker.setInitialItems()
 
 	return tracker, nil
 }
+
+func (tracker *Tracker) resetItems() {
+	tracker.items = make([]Item, len(tracker.cfg.Items))
+	copy(tracker.items, tracker.cfg.Items)
+}
+
+const (
+	trackerFontSize      = 20
+	trackerSmallFontSize = 13
+)
 
 func (tracker *Tracker) loadResources() (err error) {
 	images := []struct {
@@ -101,19 +71,19 @@ func (tracker *Tracker) loadResources() (err error) {
 		}
 	}
 
-	ttf, err := truetype.Parse(goregular.TTF)
+	ttf, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
 	if err != nil {
 		return err
 	}
 
-	tracker.font = truetype.NewFace(ttf, &truetype.Options{
-		Size:    capacityFontSize,
-		Hinting: font.HintingFull,
-	})
-	tracker.fontSmall = truetype.NewFace(ttf, &truetype.Options{
-		Size:    templeFontSize,
-		Hinting: font.HintingFull,
-	})
+	tracker.font = &text.GoTextFace{
+		Source: ttf,
+		Size:   trackerFontSize,
+	}
+	tracker.fontSmall = &text.GoTextFace{
+		Source: ttf,
+		Size:   trackerSmallFontSize,
+	}
 
 	return nil
 }
@@ -126,7 +96,7 @@ func (tracker *Tracker) GetZoneItem(zoneKP, itemKP int) (string, error) {
 		return "", errInvalidZone{zoneKP, itemKP}
 	}
 
-	name := tracker.zoneItemMap[zoneKP-1][itemKP-1]
+	name := tracker.cfg.ItemTracker.ZoneItemMap[zoneKP-1][itemKP-1]
 	if name == "" {
 		return "", errNoDefinition{zoneKP, itemKP}
 	}
@@ -139,7 +109,7 @@ func (tracker *Tracker) GetZoneDungeon(zoneKP int) (string, error) {
 		return "", errInvalidZone{zoneKP, 0}
 	}
 
-	dungeon := tracker.dungeonInputDungeonKP[zoneKP-1]
+	dungeon := tracker.cfg.ItemTracker.DungeonInputDungeonKP[zoneKP-1]
 	if dungeon == "" {
 		return "", errNoDefinition{-1, zoneKP}
 	}
@@ -234,11 +204,10 @@ func (tracker *Tracker) Wheel(x, y int, up bool) {
 	}
 }
 
-func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
-	tracker.items = make([]Item, len(items))
-	copy(tracker.items, items)
+func (tracker *Tracker) Reset() {
+	tracker.resetItems()
+	tracker.setInitialItems()
 
-	tracker.zoneItemMap = zoneItemMap
 	tracker.undoStack = tracker.undoStack[:0]
 	tracker.redoStack = tracker.redoStack[:0]
 	tracker.woths = tracker.woths[:0]
@@ -246,7 +215,6 @@ func (tracker *Tracker) Reset(items []Item, zoneItemMap ZoneItemMap) {
 	tracker.barrens = tracker.barrens[:0]
 	tracker.sometimes = tracker.sometimes[:0]
 	tracker.always = [8]string{}
-	tracker.setInitialItems()
 
 	if err := tracker.Save(); err != nil {
 		log.Printf("error: %s", err)

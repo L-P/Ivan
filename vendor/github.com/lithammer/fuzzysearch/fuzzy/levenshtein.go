@@ -10,10 +10,10 @@ package fuzzy
 // http://en.wikibooks.org/wiki/Algorithm_implementation/Strings/Levenshtein_distance#C
 func LevenshteinDistance(s, t string) int {
 	r1, r2 := []rune(s), []rune(t)
-	column := make([]int, len(r1)+1)
+	column := make([]int, 1, 64)
 
 	for y := 1; y <= len(r1); y++ {
-		column[y] = y
+		column = append(column, y)
 	}
 
 	for x := 1; x <= len(r2); x++ {
@@ -33,11 +33,13 @@ func LevenshteinDistance(s, t string) int {
 	return column[len(r1)]
 }
 
-func min(a, b, c int) int {
-	if a < b && a < c {
+func min2(a, b int) int {
+	if a < b {
 		return a
-	} else if b < c {
-		return b
 	}
-	return c
+	return b
+}
+
+func min(a, b, c int) int {
+	return min2(min2(a, b), c)
 }

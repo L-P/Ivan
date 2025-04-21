@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build darwin
-// +build ios
-
 package metal
 
-// #cgo CFLAGS: -x objective-c
-// #cgo LDFLAGS: -framework UIKit
+// Suppress the warnings about availability guard with -Wno-unguarded-availability-new.
+// It is because old Xcode (8 or older?) does not accept @available syntax.
+
+// #cgo CFLAGS: -Wno-unguarded-availability-new -x objective-c
+// #cgo LDFLAGS: -framework UIKit -framework QuartzCore -framework Foundation -framework CoreGraphics
 //
 // #import <UIKit/UIKit.h>
 //
@@ -28,7 +28,10 @@ package metal
 // }
 //
 // static void setFrame(void* cametal, void* uiview) {
-//   CGSize size = ((UIView*)uiview).frame.size;
+//   __block CGSize size;
+//   dispatch_sync(dispatch_get_main_queue(), ^{
+//     size = ((UIView*)uiview).frame.size;
+//   });
 //   ((CALayer*)cametal).frame = CGRectMake(0, 0, size.width, size.height);
 // }
 import "C"
@@ -61,3 +64,8 @@ const (
 	storageMode         = mtl.StorageModeShared
 	resourceStorageMode = mtl.ResourceStorageModeShared
 )
+
+func (v *view) maximumDrawableCount() int {
+	// TODO: Is 2 available for iOS?
+	return 3
+}

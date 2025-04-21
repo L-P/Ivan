@@ -12,41 +12,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package opengl
 
 import (
-	"github.com/hajimehoshi/ebiten/v2/internal/driver"
+	"errors"
+
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gl"
 )
 
 type Image struct {
-	id            driver.ImageID
-	graphics      *Graphics
-	textureNative textureNative
-	framebuffer   *framebuffer
-	pbo           buffer
-	width         int
-	height        int
-	screen        bool
+	id          graphicsdriver.ImageID
+	graphics    *Graphics
+	texture     textureNative
+	stencil     renderbufferNative
+	framebuffer *framebuffer
+	width       int
+	height      int
+	screen      bool
 }
 
-func (i *Image) ID() driver.ImageID {
+// framebuffer is a wrapper of OpenGL's framebuffer.
+type framebuffer struct {
+	native         framebufferNative
+	viewportWidth  int
+	viewportHeight int
+}
+
+func (i *Image) ID() graphicsdriver.ImageID {
 	return i.id
 }
 
-func (i *Image) IsInvalidated() bool {
-	return !i.graphics.context.isTexture(i.textureNative)
-}
-
 func (i *Image) Dispose() {
-	if !i.pbo.equal(*new(buffer)) {
-		i.graphics.context.deleteBuffer(i.pbo)
-	}
 	if i.framebuffer != nil {
-		i.framebuffer.delete(&i.graphics.context)
+		i.graphics.context.deleteFramebuffer(i.framebuffer.native)
 	}
-	if !i.textureNative.equal(*new(textureNative)) {
-		i.graphics.context.deleteTexture(i.textureNative)
+	if i.texture != 0 {
+		i.graphics.context.deleteTexture(i.texture)
+	}
+	if i.stencil != 0 {
+		i.graphics.context.deleteRenderbuffer(i.stencil)
 	}
 
 	i.graphics.removeImage(i)
@@ -60,18 +68,19 @@ func (i *Image) setViewport() error {
 	return nil
 }
 
-func (i *Image) Pixels() ([]byte, error) {
+func (i *Image) ReadPixels(args []graphicsdriver.PixelsArgs) error {
 	if err := i.ensureFramebuffer(); err != nil {
-		return nil, err
+		return err
 	}
-	p, err := i.graphics.context.framebufferPixels(i.framebuffer, i.width, i.height)
-	if err != nil {
-		return nil, err
+	for _, arg := range args {
+		if err := i.graphics.context.framebufferPixels(arg.Pixels, i.framebuffer, arg.Region); err != nil {
+			return err
+		}
 	}
-	return p, nil
+	return nil
 }
 
-func (i *Image) framebufferSize() (int, int) {
+func (i *Image) viewportSize() (int, int) {
 	if i.screen {
 		// The (default) framebuffer size can't be converted to a power of 2.
 		// On browsers, i.width and i.height are used as viewport size and
@@ -86,12 +95,13 @@ func (i *Image) ensureFramebuffer() error {
 		return nil
 	}
 
-	w, h := i.framebufferSize()
+	w, h := i.viewportSize()
 	if i.screen {
-		i.framebuffer = newScreenFramebuffer(&i.graphics.context, w, h)
+		i.framebuffer = i.graphics.context.newScreenFramebuffer(w, h)
 		return nil
 	}
-	f, err := newFramebufferFromTexture(&i.graphics.context, i.textureNative, w, h)
+
+	f, err := i.graphics.context.newFramebuffer(i.texture, w, h)
 	if err != nil {
 		return err
 	}
@@ -99,32 +109,50 @@ func (i *Image) ensureFramebuffer() error {
 	return nil
 }
 
-func (i *Image) ReplacePixels(args []*driver.ReplacePixelsArgs) {
+func (i *Image) ensureStencilBuffer() error {
+	if i.stencil != 0 {
+		return nil
+	}
+
+	if err := i.ensureFramebuffer(); err != nil {
+		return err
+	}
+
+	r, err := i.graphics.context.newRenderbuffer(i.viewportSize())
+	if err != nil {
+		return err
+	}
+	i.stencil = r
+
+	if err := i.graphics.context.bindStencilBuffer(i.framebuffer.native, i.stencil); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (i *Image) WritePixels(args []graphicsdriver.PixelsArgs) error {
 	if i.screen {
-		panic("opengl: ReplacePixels cannot be called on the screen, that doesn't have a texture")
+		return errors.New("opengl: WritePixels cannot be called on the screen")
 	}
 	if len(args) == 0 {
-		return
+		return nil
 	}
 
 	// glFlush is necessary on Android.
 	// glTexSubImage2D didn't work without this hack at least on Nexus 5x and NuAns NEO [Reloaded] (#211).
 	if i.graphics.drawCalled {
-		i.graphics.context.flush()
+		i.graphics.context.ctx.Flush()
 	}
 	i.graphics.drawCalled = false
 
-	w, h := i.width, i.height
-	if !i.graphics.context.canUsePBO() {
-		i.graphics.context.texSubImage2D(i.textureNative, w, h, args)
-		return
-	}
-	if i.pbo.equal(*new(buffer)) {
-		i.pbo = i.graphics.context.newPixelBufferObject(w, h)
-	}
-	if i.pbo.equal(*new(buffer)) {
-		panic("opengl: newPixelBufferObject failed")
+	i.graphics.context.bindTexture(i.texture)
+	for _, a := range args {
+		x := int32(a.Region.Min.X)
+		y := int32(a.Region.Min.Y)
+		width := int32(a.Region.Dx())
+		height := int32(a.Region.Dy())
+		i.graphics.context.ctx.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, a.Pixels)
 	}
 
-	i.graphics.context.replacePixelsWithPBO(i.pbo, i.textureNative, w, h, args)
+	return nil
 }

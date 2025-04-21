@@ -1,3 +1,2 @@
 - `items-disabled.png`, `items.png`: Copyright Nintendo.
-- `items.json`: Initial busywork by LinSoraK.
 - Keyboard keys derivated from public domain https://commons.wikimedia.org/wiki/File:Computer_keyboard_US.svg

@@ -13,7 +13,6 @@ import (
 )
 
 // Version holds the compile-time version string of Ivan.
-// nolint:gochecknoglobals
 var Version = "unknown"
 
 func main() {
@@ -23,7 +22,7 @@ func main() {
 
 	ebiten.SetWindowTitle("Ivan")
 	ebiten.SetRunnableOnUnfocused(true)
-	ebiten.SetWindowResizable(true)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	// Undecorated windows can't be moved under Windows or Darwin.
 	if runtime.GOOS == "linux" {

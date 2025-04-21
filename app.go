@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	inputviewer "ivan/input-viewer"
+	"ivan/inputviewer"
 	"ivan/timer"
 	"ivan/tracker"
 	"log"
@@ -14,7 +14,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-const configPath = "assets/config.json"
+const configDir = "./config"
 
 var errCloseApp = errors.New("user requested app close")
 
@@ -22,38 +22,28 @@ type App struct {
 	tracker     *tracker.Tracker
 	timer       *timer.Timer
 	inputViewer *inputviewer.InputViewer
-	config      config
+	config      tracker.Config
 	lastSave    time.Time
 
 	saveDebounce func(func())
 }
 
 func NewApp() (*App, error) {
-	config, err := loadConfig(configPath)
+	cfg, err := tracker.NewConfigFromDir(configDir)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load initial config: %w", err)
+		return nil, fmt.Errorf("unable to load config: %w", err)
 	}
 
-	size := config.windowSize()
+	size := cfg.Layout.WindowSize()
 	ebiten.SetWindowSize(size.X, size.Y)
 	ebiten.SetWindowPosition(1920-size.X, 0)
 
-	timer, err := timer.New(config.Dimensions.Timer)
+	timer, err := timer.New(cfg.Layout.Timer)
 	if err != nil {
 		return nil, err
 	}
 
-	tracker, err := tracker.New(
-		config.Dimensions.ItemTracker,
-		config.Dimensions.HintTracker,
-		config.Items,
-		config.ZoneItemMap,
-		config.Locations,
-		config.Binds,
-		config.AlwaysHints,
-		config.DungeonInputMedallionOrder,
-		config.DungeonInputDungeonKP,
-	)
+	tracker, err := tracker.New(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -70,13 +60,13 @@ func NewApp() (*App, error) {
 		tracker:      tracker,
 		timer:        timer,
 		inputViewer:  nil, // initialized on first frame to ensure we have a gamepad
-		config:       config,
+		config:       cfg,
 		saveDebounce: debounce.New(1 * time.Second),
 		lastSave:     time.Now(),
 	}, nil
 }
 
-// nolint: funlen
+//nolint:funlen
 func (app *App) Update() error {
 	_, wheel := ebiten.Wheel()
 	var shouldSave bool
@@ -92,15 +82,6 @@ func (app *App) Update() error {
 		}
 		app.tracker.Cancel()
 
-	case inpututil.IsKeyJustPressed(ebiten.KeyHome):
-		if !app.timer.IsRunning() {
-			config, err := loadConfig(configPath)
-			if err != nil {
-				return fmt.Errorf("unable to load config: %w", err)
-			}
-			app.config = config
-		}
-
 	case inpututil.IsKeyJustPressed(ebiten.KeyEnter):
 		app.tracker.Submit()
 		shouldSave = true
@@ -115,7 +96,7 @@ func (app *App) Update() error {
 	case inpututil.IsKeyJustPressed(ebiten.KeyDelete):
 		if app.timer.CanReset() {
 			app.timer.Reset()
-			app.tracker.Reset(app.config.Items, app.config.ZoneItemMap)
+			app.tracker.Reset()
 			shouldSave = true
 		}
 
@@ -139,7 +120,7 @@ func (app *App) Update() error {
 		shouldSave = true
 
 	default:
-		input := ebiten.InputChars()
+		input := ebiten.AppendInputChars(nil)
 		if len(input) > 0 {
 			app.tracker.Input(input)
 			shouldSave = true
@@ -147,19 +128,23 @@ func (app *App) Update() error {
 	}
 
 	if shouldSave || time.Since(app.lastSave) > (10*time.Second) {
-		app.lastSave = time.Now()
-		app.saveDebounce(func() {
-			log.Print("info: saving")
-			if err := app.tracker.Save(); err != nil {
-				log.Printf("error: unable to write tracker save: %s", err)
-			}
-			if err := app.timer.Save(); err != nil {
-				log.Printf("error: unable to write timer save: %s", err)
-			}
-		})
+		app.save()
 	}
 
 	return nil
+}
+
+func (app *App) save() {
+	app.lastSave = time.Now()
+	app.saveDebounce(func() {
+		log.Print("info: saving")
+		if err := app.tracker.Save(); err != nil {
+			log.Printf("error: unable to write tracker save: %s", err)
+		}
+		if err := app.timer.Save(); err != nil {
+			log.Printf("error: unable to write timer save: %s", err)
+		}
+	})
 }
 
 func (app *App) Draw(screen *ebiten.Image) {

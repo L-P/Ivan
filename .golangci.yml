@@ -1,33 +1,67 @@
----
+version: "2"
 linters:
-  enable-all: true
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - funlen
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocognit
+    - godot
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - grouper
+    - importas
+    - interfacebloat
+    - lll
+    - loggercheck
+    - makezero
+    - misspell
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - rowserrcheck
+    - spancheck
+    - sqlclosecheck
+    - testifylint
+    - testpackage
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - zerologlint
   disable:
-    # Moronic linters
-    - exhaustivestruct  # Zero values are an excellent feature.
-    - godox  # No, a TODO is not an error.
-    - gomnd
-    - forcetypeassert  # I panic on purpose.
-    - cyclop  # Buggy and overzealous.
-    - gosec  # I know when I'm doing crypto, thanks.
-    - forbidigo
+    - musttag
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
 
-    # Unacceptable styling or incompatibilities with gofmt
-    - gci
-    - gofumpt
-    - nlreturn
-    - wsl
-    - varnamelen
-
-    # Disagreements.
-    - paralleltest
-    - gochecknoglobals
-    - goerr113  # I'm not writing a lib here.
-
-    # Deprecated
-    - maligned
-    - golint
-    - interfacer
-    - scopelint
-
-    # Local
-    - wrapcheck
+formatters:
+  enable:
+    - gofmt
+    - goimports
