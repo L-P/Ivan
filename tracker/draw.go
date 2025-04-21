@@ -69,11 +69,12 @@ func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 	}
 	size := image.Point{126, 126}
 
-	if slot == 2 { // KP 9
+	switch slot {
+	case 2: // KP 9
 		pos.Y = 0
 		size.X = gridSize
 		size.Y = 4*gridSize + (gridSize / 2)
-	} else if slot == 8 { // KP 3
+	case 8: // KP 3
 		pos.Y = 4*gridSize + (gridSize / 2)
 		size.X = gridSize
 		size.Y = pos.Y
@@ -159,12 +160,12 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 
 	case inputStateTextInput:
 		str = "> " + string(tracker.input.buf)
-		if tracker.input.textInputFor == hintTypeWOTH ||
-			tracker.input.textInputFor == hintTypeBarren {
+		switch tracker.input.textInputFor { //nolint:exhaustive
+		case hintTypeWOTH, hintTypeBarren:
 			if match := tracker.matchLocation(string(tracker.input.buf)); match != "" {
 				str += " (" + match + ")"
 			}
-		} else if tracker.input.textInputFor == hintTypeAlways {
+		case hintTypeAlways:
 			index, _ := tracker.parseAlways(string(tracker.input.buf))
 			if index > -1 {
 				str += fmt.Sprintf(` (%s)`, tracker.getAlwaysLocations()[index])

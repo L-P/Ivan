@@ -24,7 +24,7 @@ type Item struct {
 
 // Capacity returns the currently selected capacity of the item or -1 if it has
 // no capacity to display.
-func (item Item) Capacity() int {
+func (item *Item) Capacity() int {
 	if !item.HasCapacity() {
 		return -1
 	}
@@ -48,7 +48,7 @@ const (
 )
 
 // Rect returns the position of the item relative to the background origin.
-func (item Item) Rect() image.Rectangle {
+func (item *Item) Rect() image.Rectangle {
 	return image.Rect(
 		marginLeft+item.X,
 		marginTop+item.Y,
@@ -58,7 +58,7 @@ func (item Item) Rect() image.Rectangle {
 }
 
 // SheetRect returns the position of the item sprite on the spritesheet.
-func (item Item) SheetRect() image.Rectangle {
+func (item *Item) SheetRect() image.Rectangle {
 	x, y := item.SheetX, item.SheetY
 
 	if len(item.ItemProgression) > 0 {
@@ -91,18 +91,18 @@ func (item *Item) Upgrade() bool {
 		return true
 	}
 
-	var max int
+	var maxProgression int
 	if len(item.ItemProgression) > 0 {
-		max = len(item.ItemProgression)
+		maxProgression = len(item.ItemProgression)
 	} else if len(item.CapacityProgression) > 0 {
-		max = len(item.CapacityProgression)
+		maxProgression = len(item.CapacityProgression)
 	}
 
-	if max == 0 || ((item.UpgradeIndex + 1) >= max) {
+	if maxProgression == 0 || ((item.UpgradeIndex + 1) >= maxProgression) {
 		return false // not upgradable, skip
 	}
 
-	item.UpgradeIndex = (item.UpgradeIndex + 1) % max
+	item.UpgradeIndex = (item.UpgradeIndex + 1) % maxProgression
 	return true
 }
 
@@ -118,19 +118,19 @@ func (item *Item) Downgrade() bool {
 		return true
 	}
 
-	var max int
+	var maxProgression int
 	if len(item.ItemProgression) > 0 {
-		max = len(item.ItemProgression)
+		maxProgression = len(item.ItemProgression)
 	} else if len(item.CapacityProgression) > 0 {
-		max = len(item.CapacityProgression)
+		maxProgression = len(item.CapacityProgression)
 	}
 
-	if max == 0 || (item.UpgradeIndex-1) < 0 {
+	if maxProgression == 0 || (item.UpgradeIndex-1) < 0 {
 		item.Enabled = false
 		return true
 	}
 
-	item.UpgradeIndex = (item.UpgradeIndex - 1) % max
+	item.UpgradeIndex = (item.UpgradeIndex - 1) % maxProgression
 	return true
 }
 
