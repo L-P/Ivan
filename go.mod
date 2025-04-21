@@ -6,7 +6,6 @@ toolchain go1.24.2
 
 require (
 	github.com/bep/debounce v1.2.1
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/hajimehoshi/ebiten/v2 v2.8.7
 	github.com/lithammer/fuzzysearch v1.1.8
 	golang.org/x/image v0.26.0
