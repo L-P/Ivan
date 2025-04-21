@@ -243,6 +243,7 @@ type nativeGamepad interface {
 	axisCount() int
 	buttonCount() int
 	hatCount() int
+	isAxisReady(axis int) bool
 	axisValue(axis int) float64
 	buttonValue(button int) float64
 	isButtonPressed(button int) bool
@@ -294,6 +295,14 @@ func (g *Gamepad) HatCount() int {
 	defer g.m.Unlock()
 
 	return g.native.hatCount()
+}
+
+// IsAxisReady is concurrent-safe.
+func (g *Gamepad) IsAxisReady(axis int) bool {
+	g.m.Lock()
+	defer g.m.Unlock()
+
+	return g.native.isAxisReady(axis)
 }
 
 // Axis is concurrent-safe.
@@ -356,8 +365,13 @@ func (g *Gamepad) IsStandardButtonAvailable(button gamepaddb.StandardButton) boo
 // StandardAxisValue is concurrent-safe.
 func (g *Gamepad) StandardAxisValue(axis gamepaddb.StandardAxis) float64 {
 	if gamepaddb.HasStandardLayoutMapping(g.sdlID) {
-		return gamepaddb.AxisValue(g.sdlID, axis, g)
+		// StandardAxisValue invokes g.Axis, g.Button, or g.Hat so this cannot be locked.
+		return gamepaddb.StandardAxisValue(g.sdlID, axis, g)
 	}
+
+	g.m.Lock()
+	defer g.m.Unlock()
+
 	if m := g.native.standardAxisInOwnMapping(axis); m != nil {
 		return m.Value()*2 - 1
 	}
@@ -367,8 +381,13 @@ func (g *Gamepad) StandardAxisValue(axis gamepaddb.StandardAxis) float64 {
 // StandardButtonValue is concurrent-safe.
 func (g *Gamepad) StandardButtonValue(button gamepaddb.StandardButton) float64 {
 	if gamepaddb.HasStandardLayoutMapping(g.sdlID) {
-		return gamepaddb.ButtonValue(g.sdlID, button, g)
+		// StandardButtonValue invokes g.Axis, g.Button, or g.Hat so this cannot be locked.
+		return gamepaddb.StandardButtonValue(g.sdlID, button, g)
 	}
+
+	g.m.Lock()
+	defer g.m.Unlock()
+
 	if m := g.native.standardButtonInOwnMapping(button); m != nil {
 		return m.Value()
 	}
@@ -378,8 +397,13 @@ func (g *Gamepad) StandardButtonValue(button gamepaddb.StandardButton) float64 {
 // IsStandardButtonPressed is concurrent-safe.
 func (g *Gamepad) IsStandardButtonPressed(button gamepaddb.StandardButton) bool {
 	if gamepaddb.HasStandardLayoutMapping(g.sdlID) {
-		return gamepaddb.IsButtonPressed(g.sdlID, button, g)
+		// IsStandardButtonPressed invokes g.Axis, g.Button, or g.Hat so this cannot be locked.
+		return gamepaddb.IsStandardButtonPressed(g.sdlID, button, g)
 	}
+
+	g.m.Lock()
+	defer g.m.Unlock()
+
 	if m := g.native.standardButtonInOwnMapping(button); m != nil {
 		return m.Pressed()
 	}

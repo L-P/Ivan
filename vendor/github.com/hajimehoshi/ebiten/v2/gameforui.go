@@ -21,57 +21,14 @@ import (
 	"sync/atomic"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/atlas"
+	"github.com/hajimehoshi/ebiten/v2/internal/builtinshader"
 	"github.com/hajimehoshi/ebiten/v2/internal/ui"
 )
 
-const screenShaderSrc = `package main
+var screenFilterEnabled atomic.Bool
 
-func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
-	// TODO: Calculate the scale in the shader after pixels become the main unit in shaders (#1431)
-	_, dr := imageDstRegionOnTexture()
-	_, sr := imageSrcRegionOnTexture()
-	scale := (imageDstTextureSize() * dr) / (imageSrcTextureSize() * sr)
-
-	sourceSize := imageSrcTextureSize()
-	// texelSize is one pixel size in texel sizes.
-	texelSize := 1 / sourceSize
-	halfScaledTexelSize := texelSize / 2 / scale
-
-	// Shift 1/512 [texel] to avoid the tie-breaking issue.
-	pos := texCoord
-	p0 := pos - halfScaledTexelSize + (texelSize / 512)
-	p1 := pos + halfScaledTexelSize + (texelSize / 512)
-
-	// Texels must be in the source rect, so it is not necessary to check.
-	c0 := imageSrc0UnsafeAt(p0)
-	c1 := imageSrc0UnsafeAt(vec2(p1.x, p0.y))
-	c2 := imageSrc0UnsafeAt(vec2(p0.x, p1.y))
-	c3 := imageSrc0UnsafeAt(p1)
-
-	// p is the p1 value in one pixel assuming that the pixel's upper-left is (0, 0) and the lower-right is (1, 1).
-	p := fract(p1 * sourceSize)
-
-	// rate indicates how much the 4 colors are mixed. rate is in between [0, 1].
-	//
-	//     0 <= p <= 1/Scale: The rate is in between [0, 1]
-	//     1/Scale < p:       Don't care. Adjacent colors (e.g. c0 vs c1 in an X direction) should be the same.
-	rate := clamp(p*scale, 0, 1)
-	return mix(mix(c0, c1, rate.x), mix(c2, c3, rate.x), rate.y)
-}
-`
-
-var screenFilterEnabled = int32(1)
-
-func isScreenFilterEnabled() bool {
-	return atomic.LoadInt32(&screenFilterEnabled) != 0
-}
-
-func setScreenFilterEnabled(enabled bool) {
-	v := int32(0)
-	if enabled {
-		v = 1
-	}
-	atomic.StoreInt32(&screenFilterEnabled, v)
+func init() {
+	screenFilterEnabled.Store(true)
 }
 
 type gameForUI struct {
@@ -89,7 +46,7 @@ func newGameForUI(game Game, transparent bool) *gameForUI {
 		transparent: transparent,
 	}
 
-	s, err := NewShader([]byte(screenShaderSrc))
+	s, err := newShader(builtinshader.ScreenShaderSource, "screen")
 	if err != nil {
 		panic(fmt.Sprintf("ebiten: compiling the screen shader failed: %v", err))
 	}
@@ -100,7 +57,7 @@ func newGameForUI(game Game, transparent bool) *gameForUI {
 
 func (g *gameForUI) NewOffscreenImage(width, height int) *ui.Image {
 	if g.offscreen != nil {
-		g.offscreen.Dispose()
+		g.offscreen.Deallocate()
 		g.offscreen = nil
 	}
 
@@ -109,8 +66,8 @@ func (g *gameForUI) NewOffscreenImage(width, height int) *ui.Image {
 	// An image on an atlas is surrounded by a transparent edge,
 	// and the shader program unexpectedly picks the pixel on the edges.
 	imageType := atlas.ImageTypeUnmanaged
-	if ui.IsScreenClearedEveryFrame() {
-		// A violatile image is also always isolated.
+	if ui.Get().IsScreenClearedEveryFrame() {
+		// A volatile image is also always isolated.
 		imageType = atlas.ImageTypeVolatile
 	}
 	g.offscreen = newImage(image.Rect(0, 0, width, height), imageType)
@@ -119,7 +76,7 @@ func (g *gameForUI) NewOffscreenImage(width, height int) *ui.Image {
 
 func (g *gameForUI) NewScreenImage(width, height int) *ui.Image {
 	if g.screen != nil {
-		g.screen.Dispose()
+		g.screen.Deallocate()
 		g.screen = nil
 	}
 
@@ -180,7 +137,7 @@ func (g *gameForUI) DrawFinalScreen(scale, offsetX, offsetY float64) {
 	}
 
 	switch {
-	case !isScreenFilterEnabled(), math.Floor(scale) == scale:
+	case !screenFilterEnabled.Load(), math.Floor(scale) == scale:
 		op := &DrawImageOptions{}
 		op.GeoM = geoM
 		g.screen.DrawImage(g.offscreen, op)

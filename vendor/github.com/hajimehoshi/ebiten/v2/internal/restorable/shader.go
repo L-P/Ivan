@@ -28,12 +28,14 @@ import (
 type Shader struct {
 	shader *graphicscommand.Shader
 	ir     *shaderir.Program
+	name   string
 }
 
-func NewShader(ir *shaderir.Program) *Shader {
+func NewShader(ir *shaderir.Program, name string) *Shader {
 	s := &Shader{
-		shader: graphicscommand.NewShader(ir),
+		shader: graphicscommand.NewShader(ir, name),
 		ir:     ir,
+		name:   name,
 	}
 	theImages.addShader(s)
 	return s
@@ -47,7 +49,11 @@ func (s *Shader) Dispose() {
 }
 
 func (s *Shader) restore() {
-	s.shader = graphicscommand.NewShader(s.ir)
+	s.shader = graphicscommand.NewShader(s.ir, s.name)
+}
+
+func (s *Shader) Unit() shaderir.Unit {
+	return s.ir.Unit
 }
 
 var (
@@ -60,7 +66,7 @@ func init() {
 	var wg errgroup.Group
 	var nearestIR, linearIR, clearIR *shaderir.Program
 	wg.Go(func() error {
-		ir, err := graphics.CompileShader([]byte(builtinshader.Shader(builtinshader.FilterNearest, builtinshader.AddressUnsafe, false)))
+		ir, err := graphics.CompileShader([]byte(builtinshader.ShaderSource(builtinshader.FilterNearest, builtinshader.AddressUnsafe, false)))
 		if err != nil {
 			return fmt.Errorf("restorable: compiling the nearest shader failed: %w", err)
 		}
@@ -68,7 +74,7 @@ func init() {
 		return nil
 	})
 	wg.Go(func() error {
-		ir, err := graphics.CompileShader([]byte(builtinshader.Shader(builtinshader.FilterLinear, builtinshader.AddressUnsafe, false)))
+		ir, err := graphics.CompileShader([]byte(builtinshader.ShaderSource(builtinshader.FilterLinear, builtinshader.AddressUnsafe, false)))
 		if err != nil {
 			return fmt.Errorf("restorable: compiling the linear shader failed: %w", err)
 		}
@@ -76,11 +82,7 @@ func init() {
 		return nil
 	})
 	wg.Go(func() error {
-		ir, err := graphics.CompileShader([]byte(`package main
-
-func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
-	return vec4(0)
-}`))
+		ir, err := graphics.CompileShader([]byte(builtinshader.ClearShaderSource))
 		if err != nil {
 			return fmt.Errorf("restorable: compiling the clear shader failed: %w", err)
 		}
@@ -90,7 +92,7 @@ func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
 	if err := wg.Wait(); err != nil {
 		panic(err)
 	}
-	NearestFilterShader = NewShader(nearestIR)
-	LinearFilterShader = NewShader(linearIR)
-	clearShader = NewShader(clearIR)
+	NearestFilterShader = NewShader(nearestIR, "nearest")
+	LinearFilterShader = NewShader(linearIR, "linear")
+	clearShader = NewShader(clearIR, "clear")
 }

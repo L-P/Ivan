@@ -35,8 +35,6 @@ import (
 // AppendInputChars is concurrent-safe.
 //
 // On Android (ebitenmobile), EbitenView must be focusable to enable to handle keyboard keys.
-//
-// Keyboards don't work on iOS yet (#1090).
 func AppendInputChars(runes []rune) []rune {
 	return theInputState.appendInputChars(runes)
 }
@@ -56,16 +54,9 @@ func InputChars() []rune {
 // Note that a Key represents a physical key of US keyboard layout.
 // For example, KeyQ represents Q key on US keyboards and ' (quote) key on Dvorak keyboards.
 //
-// Known issue: On Edge browser, some keys don't work well:
-//
-//   - KeyKPEnter and KeyKPEqual are recognized as KeyEnter and KeyEqual.
-//   - KeyPrintScreen is only treated at keyup event.
-//
 // IsKeyPressed is concurrent-safe.
 //
 // On Android (ebitenmobile), EbitenView must be focusable to enable to handle keyboard keys.
-//
-// Keyboards don't work on iOS yet (#1090).
 func IsKeyPressed(key Key) bool {
 	return theInputState.isKeyPressed(key)
 }
@@ -80,7 +71,7 @@ func IsKeyPressed(key Key) bool {
 //
 // KeyName is concurrent-safe.
 func KeyName(key Key) string {
-	return ui.KeyName(ui.Key(key))
+	return ui.Get().KeyName(ui.Key(key))
 }
 
 // CursorPosition returns a position of a mouse cursor relative to the game screen (window). The cursor position is
@@ -88,11 +79,12 @@ func KeyName(key Key) string {
 //
 // CursorPosition returns (0, 0) before the main loop on desktops and browsers.
 //
-// CursorPosition always returns (0, 0) on mobiles.
+// CursorPosition always returns (0, 0) on mobile native applications.
 //
 // CursorPosition is concurrent-safe.
 func CursorPosition() (x, y int) {
-	return theInputState.cursorPosition()
+	cx, cy := theInputState.cursorPosition()
+	return int(cx), int(cy)
 }
 
 // Wheel returns x and y offsets of the mouse wheel or touchpad scroll.
@@ -183,18 +175,18 @@ func GamepadAxisNum(id GamepadID) int {
 // GamepadAxisValue returns a float value [-1.0 - 1.0] of the given gamepad (id)'s axis (axis).
 //
 // GamepadAxisValue is concurrent-safe.
-func GamepadAxisValue(id GamepadID, axis int) float64 {
+func GamepadAxisValue(id GamepadID, axis GamepadAxisType) float64 {
 	g := gamepad.Get(id)
 	if g == nil {
 		return 0
 	}
-	return g.Axis(axis)
+	return g.Axis(int(axis))
 }
 
 // GamepadAxis returns a float value [-1.0 - 1.0] of the given gamepad (id)'s axis (axis).
 //
 // Deprecated: as of v2.2. Use GamepadAxisValue instead.
-func GamepadAxis(id GamepadID, axis int) float64 {
+func GamepadAxis(id GamepadID, axis GamepadAxisType) float64 {
 	return GamepadAxisValue(id, axis)
 }
 
@@ -358,7 +350,7 @@ func UpdateStandardGamepadLayoutMappings(mappings string) (bool, error) {
 }
 
 // TouchID represents a touch's identifier.
-type TouchID = ui.TouchID
+type TouchID int
 
 // AppendTouchIDs appends the current touch states to touches, and returns the extended buffer.
 // Giving a slice that already has enough capacity works efficiently.
@@ -431,7 +423,7 @@ func (i *inputState) isKeyPressed(key Key) bool {
 	}
 }
 
-func (i *inputState) cursorPosition() (int, int) {
+func (i *inputState) cursorPosition() (float64, float64) {
 	i.m.Lock()
 	defer i.m.Unlock()
 	return i.state.CursorX, i.state.CursorY
@@ -454,7 +446,7 @@ func (i *inputState) appendTouchIDs(touches []TouchID) []TouchID {
 	defer i.m.Unlock()
 
 	for _, t := range i.state.Touches {
-		touches = append(touches, t.ID)
+		touches = append(touches, TouchID(t.ID))
 	}
 	return touches
 }
@@ -464,7 +456,7 @@ func (i *inputState) touchPosition(id TouchID) (int, int) {
 	defer i.m.Unlock()
 
 	for _, t := range i.state.Touches {
-		if id != t.ID {
+		if id != TouchID(t.ID) {
 			continue
 		}
 		return t.X, t.Y

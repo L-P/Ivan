@@ -22,35 +22,52 @@ import (
 )
 
 type Shader struct {
+	ir     *shaderir.Program
 	shader *restorable.Shader
+	name   string
 }
 
-func NewShader(ir *shaderir.Program) *Shader {
+func NewShader(ir *shaderir.Program, name string) *Shader {
+	// A shader is initialized lazily, and the lock is not needed.
+	return &Shader{
+		ir:   ir,
+		name: name,
+	}
+}
+
+func (s *Shader) finalize() {
+	// A function from finalizer must not be blocked, but disposing operation can be blocked.
+	// Defer this operation until it becomes safe. (#913)
+	appendDeferred(func() {
+		s.deallocate()
+	})
+}
+
+func (s *Shader) ensureShader() *restorable.Shader {
+	if s.shader != nil {
+		return s.shader
+	}
+	s.shader = restorable.NewShader(s.ir, s.name)
+	runtime.SetFinalizer(s, (*Shader).finalize)
+	return s.shader
+}
+
+// Deallocate deallocates the internal state.
+func (s *Shader) Deallocate() {
 	backendsM.Lock()
 	defer backendsM.Unlock()
 
-	s := &Shader{
-		shader: restorable.NewShader(ir),
+	if !inFrame {
+		appendDeferred(func() {
+			s.deallocate()
+		})
+		return
 	}
-	runtime.SetFinalizer(s, (*Shader).MarkDisposed)
-	return s
+
+	s.deallocate()
 }
 
-// MarkDisposed marks the shader as disposed. The actual operation is deferred.
-// MarkDisposed can be called from finalizers.
-//
-// A function from finalizer must not be blocked, but disposing operation can be blocked.
-// Defer this operation until it becomes safe. (#913)
-func (s *Shader) MarkDisposed() {
-	// As MarkDisposed can be invoked from finalizers, backendsM should not be used.
-	deferredM.Lock()
-	deferred = append(deferred, func() {
-		s.dispose()
-	})
-	deferredM.Unlock()
-}
-
-func (s *Shader) dispose() {
+func (s *Shader) deallocate() {
 	runtime.SetFinalizer(s, nil)
 	if s.shader == nil {
 		return

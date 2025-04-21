@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !nintendosdk
-
 package vibrate
 
 import (
 	"time"
 
-	"golang.org/x/mobile/app"
+	"github.com/ebitengine/gomobile/app"
 )
 
 /*

@@ -12,12 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package gl
+
+//go:generate go run gen.go
+//go:generate gofmt -s -w .
 
 // Context is a context for OpenGL (ES) functions.
 //
 // Context is basically the same as gomobile's gl.Context.
-// See https://pkg.go.dev/golang.org/x/mobile/gl#Context
+// See https://pkg.go.dev/github.com/ebitengine/gomobile/gl#Context
 type Context interface {
 	LoadFunctions() error
 	IsES() bool
@@ -29,6 +34,7 @@ type Context interface {
 	BindFramebuffer(target uint32, framebuffer uint32)
 	BindRenderbuffer(target uint32, renderbuffer uint32)
 	BindTexture(target uint32, texture uint32)
+	BindVertexArray(array uint32)
 	BlendEquationSeparate(modeRGB uint32, modeAlpha uint32)
 	BlendFuncSeparate(srcRGB uint32, dstRGB uint32, srcAlpha uint32, dstAlpha uint32)
 	BufferInit(target uint32, size int, usage uint32)
@@ -43,12 +49,14 @@ type Context interface {
 	CreateRenderbuffer() uint32
 	CreateShader(xtype uint32) uint32
 	CreateTexture() uint32
+	CreateVertexArray() uint32
 	DeleteBuffer(buffer uint32)
 	DeleteFramebuffer(framebuffer uint32)
 	DeleteProgram(program uint32)
 	DeleteRenderbuffer(renderbuffer uint32)
 	DeleteShader(shader uint32)
-	DeleteTexture(textures uint32)
+	DeleteTexture(texture uint32)
+	DeleteVertexArray(array uint32)
 	Disable(cap uint32)
 	DisableVertexAttribArray(index uint32)
 	DrawElements(mode uint32, count int32, xtype uint32, offset int)
@@ -64,10 +72,7 @@ type Context interface {
 	GetShaderInfoLog(shader uint32) string
 	GetShaderi(shader uint32, pname uint32) int
 	GetUniformLocation(program uint32, name string) int32
-	IsFramebuffer(framebuffer uint32) bool
 	IsProgram(program uint32) bool
-	IsRenderbuffer(renderbuffer uint32) bool
-	IsTexture(texture uint32) bool
 	LinkProgram(program uint32)
 	PixelStorei(pname uint32, param int32)
 	ReadPixels(dst []byte, x int32, y int32, width int32, height int32, format uint32, xtype uint32)
@@ -75,7 +80,7 @@ type Context interface {
 	Scissor(x, y, width, height int32)
 	ShaderSource(shader uint32, xstring string)
 	StencilFunc(func_ uint32, ref int32, mask uint32)
-	StencilOp(sfail, dpfail, dppass uint32)
+	StencilOpSeparate(face, sfail, dpfail, dppass uint32)
 	TexImage2D(target uint32, level int32, internalformat int32, width int32, height int32, format uint32, xtype uint32, pixels []byte)
 	TexParameteri(target uint32, pname uint32, param int32)
 	TexSubImage2D(target uint32, level int32, xoffset int32, yoffset int32, width int32, height int32, format uint32, xtype uint32, pixels []byte)

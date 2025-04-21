@@ -1,35 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2022 The Ebitengine Authors
 
-//go:build darwin || (!cgo && linux && (amd64 || arm64))
+//go:build darwin || freebsd || (linux && (amd64 || arm64))
 
 package purego
 
 import (
-	"math"
 	"reflect"
 	"runtime"
 	"sync"
 	"unsafe"
 )
 
-var syscall9XABI0 uintptr
-
-type syscall9Args struct {
-	fn, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr
-	f1, f2, f3, f4, f5, f6, f7, f8         float64
-	r1, r2, err                            uintptr
-}
+var syscall15XABI0 uintptr
 
 //go:nosplit
-func syscall_syscall9X(fn, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, r2, err uintptr) {
-	args := syscall9Args{fn, a1, a2, a3, a4, a5, a6, a7, a8, a9,
-		math.Float64frombits(uint64(a1)), math.Float64frombits(uint64(a2)), math.Float64frombits(uint64(a3)),
-		math.Float64frombits(uint64(a4)), math.Float64frombits(uint64(a5)), math.Float64frombits(uint64(a6)),
-		math.Float64frombits(uint64(a7)), math.Float64frombits(uint64(a8)),
-		r1, r2, err}
-	runtime_cgocall(syscall9XABI0, unsafe.Pointer(&args))
-	return args.r1, args.r2, args.err
+func syscall_syscall15X(fn, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15 uintptr) (r1, r2, err uintptr) {
+	args := syscall15Args{
+		fn, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15,
+		a1, a2, a3, a4, a5, a6, a7, a8,
+		0,
+	}
+	runtime_cgocall(syscall15XABI0, unsafe.Pointer(&args))
+	return args.a1, args.a2, 0
 }
 
 // NewCallback converts a Go function to a function pointer conforming to the C calling convention.
@@ -38,11 +31,16 @@ func syscall_syscall9X(fn, a1, a2, a3, a4, a5, a6, a7, a8, a9 uintptr) (r1, r2, 
 // of uintptr. Only a limited number of callbacks may be created in a single Go process, and any memory allocated
 // for these callbacks is never released. At least 2000 callbacks can always be created. Although this function
 // provides similar functionality to windows.NewCallback it is distinct.
-//
-// NOTE: Linux is currently not supported and will panic if called.
 func NewCallback(fn interface{}) uintptr {
-	if runtime.GOOS == "linux" {
-		panic("purego: NewCallback not supported")
+	ty := reflect.TypeOf(fn)
+	for i := 0; i < ty.NumIn(); i++ {
+		in := ty.In(i)
+		if !in.AssignableTo(reflect.TypeOf(CDecl{})) {
+			continue
+		}
+		if i != 0 {
+			panic("purego: CDecl must be the first argument")
+		}
 	}
 	return compileCallback(fn)
 }
@@ -61,15 +59,13 @@ type callbackArgs struct {
 	index uintptr
 	// args points to the argument block.
 	//
-	// For cdecl and stdcall, all arguments are on the stack.
+	// The structure of the arguments goes
+	// float registers followed by the
+	// integer registers followed by the stack.
 	//
-	// For fastcall, the trampoline spills register arguments to
-	// the reserved spill slots below the stack arguments,
-	// resulting in a layout equivalent to stdcall.
-	//
-	// For arm, the trampoline stores the register arguments just
-	// below the stack arguments, so again we can treat it as one
-	// big stack arguments frame.
+	// This variable is treated as a continuous
+	// block of memory containing all of the arguments
+	// for this callback.
 	args unsafe.Pointer
 	// Below are out-args from callbackWrap
 	result uintptr
@@ -78,14 +74,21 @@ type callbackArgs struct {
 func compileCallback(fn interface{}) uintptr {
 	val := reflect.ValueOf(fn)
 	if val.Kind() != reflect.Func {
-		panic("purego: type is not a function")
+		panic("purego: the type must be a function but was not")
+	}
+	if val.IsNil() {
+		panic("purego: function must not be nil")
 	}
 	ty := val.Type()
 	for i := 0; i < ty.NumIn(); i++ {
 		in := ty.In(i)
 		switch in.Kind() {
-		case reflect.Struct, reflect.Float32, reflect.Float64,
-			reflect.Interface, reflect.Func, reflect.Slice,
+		case reflect.Struct:
+			if i == 0 && in.AssignableTo(reflect.TypeOf(CDecl{})) {
+				continue
+			}
+			fallthrough
+		case reflect.Interface, reflect.Func, reflect.Slice,
 			reflect.Chan, reflect.Complex64, reflect.Complex128,
 			reflect.String, reflect.Map, reflect.Invalid:
 			panic("purego: unsupported argument type: " + in.Kind().String())
@@ -118,8 +121,11 @@ const ptrSize = unsafe.Sizeof((*int)(nil))
 
 const callbackMaxFrame = 64 * ptrSize
 
-// callbackasmABI0 is implemented in zcallback_GOOS_GOARCH.s
-var callbackasmABI0 uintptr
+// callbackasm is implemented in zcallback_GOOS_GOARCH.s
+//
+//go:linkname __callbackasm callbackasm
+var __callbackasm byte
+var callbackasmABI0 = uintptr(unsafe.Pointer(&__callbackasm))
 
 // callbackWrap_call allows the calling of the ABIInternal wrapper
 // which is required for runtime.cgocallback without the
@@ -136,9 +142,38 @@ func callbackWrap(a *callbackArgs) {
 	fnType := fn.Type()
 	args := make([]reflect.Value, fnType.NumIn())
 	frame := (*[callbackMaxFrame]uintptr)(a.args)
+	var floatsN int // floatsN represents the number of float arguments processed
+	var intsN int   // intsN represents the number of integer arguments processed
+	// stack points to the index into frame of the current stack element.
+	// The stack begins after the float and integer registers.
+	stack := numOfIntegerRegisters() + numOfFloats
 	for i := range args {
-		//TODO: support float32 and float64
-		args[i] = reflect.NewAt(fnType.In(i), unsafe.Pointer(&frame[i])).Elem()
+		var pos int
+		switch fnType.In(i).Kind() {
+		case reflect.Float32, reflect.Float64:
+			if floatsN >= numOfFloats {
+				pos = stack
+				stack++
+			} else {
+				pos = floatsN
+			}
+			floatsN++
+		case reflect.Struct:
+			// This is the CDecl field
+			args[i] = reflect.Zero(fnType.In(i))
+			continue
+		default:
+
+			if intsN >= numOfIntegerRegisters() {
+				pos = stack
+				stack++
+			} else {
+				// the integers begin after the floats in frame
+				pos = intsN + numOfFloats
+			}
+			intsN++
+		}
+		args[i] = reflect.NewAt(fnType.In(i), unsafe.Pointer(&frame[pos])).Elem()
 	}
 	ret := fn.Call(args)
 	if len(ret) > 0 {

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package opengl
 
 import (
@@ -35,18 +37,13 @@ type Image struct {
 
 // framebuffer is a wrapper of OpenGL's framebuffer.
 type framebuffer struct {
-	graphics *Graphics
-	native   framebufferNative
-	width    int
-	height   int
+	native         framebufferNative
+	viewportWidth  int
+	viewportHeight int
 }
 
 func (i *Image) ID() graphicsdriver.ImageID {
 	return i.id
-}
-
-func (i *Image) IsInvalidated() bool {
-	return !i.graphics.context.ctx.IsTexture(uint32(i.texture))
 }
 
 func (i *Image) Dispose() {
@@ -71,17 +68,19 @@ func (i *Image) setViewport() error {
 	return nil
 }
 
-func (i *Image) ReadPixels(buf []byte, x, y, width, height int) error {
+func (i *Image) ReadPixels(args []graphicsdriver.PixelsArgs) error {
 	if err := i.ensureFramebuffer(); err != nil {
 		return err
 	}
-	if err := i.graphics.context.framebufferPixels(buf, i.framebuffer, x, y, width, height); err != nil {
-		return err
+	for _, arg := range args {
+		if err := i.graphics.context.framebufferPixels(arg.Pixels, i.framebuffer, arg.Region); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (i *Image) framebufferSize() (int, int) {
+func (i *Image) viewportSize() (int, int) {
 	if i.screen {
 		// The (default) framebuffer size can't be converted to a power of 2.
 		// On browsers, i.width and i.height are used as viewport size and
@@ -96,11 +95,12 @@ func (i *Image) ensureFramebuffer() error {
 		return nil
 	}
 
-	w, h := i.framebufferSize()
+	w, h := i.viewportSize()
 	if i.screen {
 		i.framebuffer = i.graphics.context.newScreenFramebuffer(w, h)
 		return nil
 	}
+
 	f, err := i.graphics.context.newFramebuffer(i.texture, w, h)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (i *Image) ensureStencilBuffer() error {
 		return err
 	}
 
-	r, err := i.graphics.context.newRenderbuffer(i.framebufferSize())
+	r, err := i.graphics.context.newRenderbuffer(i.viewportSize())
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (i *Image) ensureStencilBuffer() error {
 	return nil
 }
 
-func (i *Image) WritePixels(args []*graphicsdriver.WritePixelsArgs) error {
+func (i *Image) WritePixels(args []graphicsdriver.PixelsArgs) error {
 	if i.screen {
 		return errors.New("opengl: WritePixels cannot be called on the screen")
 	}
@@ -147,7 +147,11 @@ func (i *Image) WritePixels(args []*graphicsdriver.WritePixelsArgs) error {
 
 	i.graphics.context.bindTexture(i.texture)
 	for _, a := range args {
-		i.graphics.context.ctx.TexSubImage2D(gl.TEXTURE_2D, 0, int32(a.X), int32(a.Y), int32(a.Width), int32(a.Height), gl.RGBA, gl.UNSIGNED_BYTE, a.Pixels)
+		x := int32(a.Region.Min.X)
+		y := int32(a.Region.Min.Y)
+		width := int32(a.Region.Dx())
+		height := int32(a.Region.Dy())
+		i.graphics.context.ctx.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, a.Pixels)
 	}
 
 	return nil

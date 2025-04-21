@@ -17,6 +17,7 @@ package metal
 import (
 	"sync"
 
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal/ca"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal/mtl"
 )
@@ -58,10 +59,10 @@ func (v *view) colorPixelFormat() mtl.PixelFormat {
 	return v.ml.PixelFormat()
 }
 
-func (v *view) initialize(device mtl.Device) error {
+func (v *view) initialize(device mtl.Device, colorSpace graphicsdriver.ColorSpace) error {
 	v.device = device
 
-	ml, err := ca.MakeMetalLayer()
+	ml, err := ca.NewMetalLayer(colorSpace)
 	if err != nil {
 		return err
 	}
@@ -82,7 +83,8 @@ func (v *view) initialize(device mtl.Device) error {
 	// presentsWithTransaction doesn't work with vsync off (#1196).
 	// nextDrawable took more than one second if the window has other controls like NSTextView (#1029).
 	v.ml.SetPresentsWithTransaction(false)
-	v.ml.SetMaximumDrawableCount(3)
+
+	v.ml.SetMaximumDrawableCount(v.maximumDrawableCount())
 
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"sync/atomic"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/clock"
+	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/ui"
 )
 
@@ -64,7 +65,8 @@ type Game interface {
 	Draw(screen *Image)
 
 	// Layout accepts a native outside size in device-independent pixels and returns the game's logical screen
-	// size.
+	// size in pixels. The logical size is used for 1) the screen size given at Draw and 2) calculation of the
+	// scale from the screen to the final screen size.
 	//
 	// On desktops, the outside is a window or a monitor (fullscreen mode). On browsers, the outside is a body
 	// element. On mobiles, the outside is the view's size.
@@ -90,6 +92,11 @@ type LayoutFer interface {
 	// LayoutF is the float version of Game.Layout.
 	//
 	// If the game implements this interface, Layout is never called and LayoutF is called instead.
+	//
+	// LayoutF accepts a native outside size in device-independent pixels and returns the game's logical screen
+	// size in pixels. The logical size is used for 1) the screen size given at Draw and 2) calculation of the
+	// scale from the screen to the final screen size. For 1), the actual screen size is a rounded up of the
+	// logical size.
 	LayoutF(outsideWidth, outsideHeight float64) (screenWidth, screenHeight float64)
 }
 
@@ -149,7 +156,7 @@ func CurrentFPS() float64 {
 }
 
 var (
-	isRunGameEnded_ = int32(0)
+	isRunGameEnded_ atomic.Bool
 )
 
 // SetScreenClearedEveryFrame enables or disables the clearing of the screen at the beginning of each frame.
@@ -157,14 +164,14 @@ var (
 //
 // SetScreenClearedEveryFrame is concurrent-safe.
 func SetScreenClearedEveryFrame(cleared bool) {
-	ui.SetScreenClearedEveryFrame(cleared)
+	ui.Get().SetScreenClearedEveryFrame(cleared)
 }
 
 // IsScreenClearedEveryFrame returns true if the frame isn't cleared at the beginning.
 //
 // IsScreenClearedEveryFrame is concurrent-safe.
 func IsScreenClearedEveryFrame() bool {
-	return ui.IsScreenClearedEveryFrame()
+	return ui.Get().IsScreenClearedEveryFrame()
 }
 
 // SetScreenFilterEnabled enables/disables the use of the "screen" filter Ebitengine uses.
@@ -179,7 +186,7 @@ func IsScreenClearedEveryFrame() bool {
 //
 // Deprecated: as of v2.5. Use FinalScreenDrawer instead.
 func SetScreenFilterEnabled(enabled bool) {
-	setScreenFilterEnabled(enabled)
+	screenFilterEnabled.Store(enabled)
 }
 
 // IsScreenFilterEnabled returns true if Ebitengine's "screen" filter is enabled.
@@ -188,7 +195,7 @@ func SetScreenFilterEnabled(enabled bool) {
 //
 // Deprecated: as of v2.5.
 func IsScreenFilterEnabled() bool {
-	return isScreenFilterEnabled()
+	return screenFilterEnabled.Load()
 }
 
 // Termination is a special error which indicates Game termination without error.
@@ -253,6 +260,43 @@ type RunGameOptions struct {
 	//
 	// The default (zero) value is false, which means that an icon is shown on a taskbar.
 	SkipTaskbar bool
+
+	// SingleThread indicates whether the single thread mode is used explicitly or not.
+	// The single thread mode disables Ebitengine's thread safety to unlock maximum performance.
+	// If you use this you will have to manage threads yourself.
+	// Functions like `SetWindowSize` will no longer be concurrent-safe with this build tag.
+	// They must be called from the main thread or the same goroutine as the given game's callback functions like Update.
+	//
+	// SingleThread works only with desktops and consoles.
+	//
+	// If SingleThread is false, and if the build tag `ebitenginesinglethread` is specified,
+	// the single thread mode is used.
+	//
+	// The default (zero) value is false, which means that the single thread mode is disabled.
+	SingleThread bool
+
+	// DisableHiDPI indicates whether the rendering for HiDPI is disabled or not.
+	// If HiDPI is disabled, the device scale factor is always 1 i.e. Monitor's DeviceScaleFactor always returns 1.
+	// This is useful to get a better performance on HiDPI displays, in the expense of rendering quality.
+	//
+	// DisableHiDPI is available only on browsers.
+	//
+	// The default (zero) value is false, which means that HiDPI is enabled.
+	DisableHiDPI bool
+
+	// ColorSpace indicates the color space of the screen.
+	//
+	// ColorSpace is available only with some graphics libraries (macOS Metal and WebGL so far).
+	// Otherwise, ColorSpace is ignored.
+	//
+	// The default (zero) value is ColorSpaceDefault, which means that color space depends on the environment.
+	ColorSpace ColorSpace
+
+	// X11DisplayName is a class name in the ICCCM WM_CLASS window property.
+	X11ClassName string
+
+	// X11InstanceName is an instance name in the ICCCM WM_CLASS window property.
+	X11InstanceName string
 }
 
 // RunGameWithOptions starts the main loop and runs the game with the specified options.
@@ -289,17 +333,13 @@ type RunGameOptions struct {
 //
 // Don't call RunGame or RunGameWithOptions twice or more in one process.
 func RunGameWithOptions(game Game, options *RunGameOptions) error {
-	defer atomic.StoreInt32(&isRunGameEnded_, 1)
+	defer isRunGameEnded_.Store(true)
 
 	initializeWindowPositionIfNeeded(WindowSize())
 
 	op := toUIRunOptions(options)
 	// This is necessary to change the result of IsScreenTransparent.
-	if op.ScreenTransparent {
-		atomic.StoreInt32(&screenTransparent, 1)
-	} else {
-		atomic.StoreInt32(&screenTransparent, 0)
-	}
+	screenTransparent.Store(op.ScreenTransparent)
 	g := newGameForUI(game, op.ScreenTransparent)
 
 	if err := ui.Get().Run(g, op); err != nil {
@@ -313,7 +353,7 @@ func RunGameWithOptions(game Game, options *RunGameOptions) error {
 }
 
 func isRunGameEnded() bool {
-	return atomic.LoadInt32(&isRunGameEnded_) != 0
+	return isRunGameEnded_.Load()
 }
 
 // ScreenSizeInFullscreen returns the size in device-independent pixels when the game is fullscreen.
@@ -332,6 +372,8 @@ func isRunGameEnded() bool {
 //
 // ScreenSizeInFullscreen must be called on the main thread before ebiten.RunGame, and is concurrent-safe after
 // ebiten.RunGame.
+//
+// Deprecated: as of v2.6. Use Monitor().Size() instead.
 func ScreenSizeInFullscreen() (int, int) {
 	return ui.Get().ScreenSizeInFullscreen()
 }
@@ -342,7 +384,7 @@ func ScreenSizeInFullscreen() (int, int) {
 //
 // CursorMode is concurrent-safe.
 func CursorMode() CursorModeType {
-	return ui.Get().CursorMode()
+	return CursorModeType(ui.Get().CursorMode())
 }
 
 // SetCursorMode sets the render and capture mode of the mouse cursor.
@@ -354,27 +396,17 @@ func CursorMode() CursorModeType {
 // When the user exits the captured mode not by SetCursorMode but by the UI (e.g., pressing ESC),
 // the previous cursor mode is set automatically.
 //
+// On browsers, setting CursorModeCaptured might be delayed especially just after escaping from a capture.
+//
+// On browsers, capturing a cursor requires a user gesture, otherwise SetCursorMode does nothing but leave an error message in console.
+// This behavior varies across browser implementations.
+// Check a user interaction before calling capturing a cursor e.g. by IsMouseButtonPressed or IsKeyPressed.
+//
 // SetCursorMode does nothing on mobiles.
 //
 // SetCursorMode is concurrent-safe.
 func SetCursorMode(mode CursorModeType) {
-	ui.Get().SetCursorMode(mode)
-}
-
-// CursorShape returns the current cursor shape.
-//
-// CursorShape returns CursorShapeDefault on mobiles.
-//
-// CursorShape is concurrent-safe.
-func CursorShape() CursorShapeType {
-	return ui.Get().CursorShape()
-}
-
-// SetCursorShape sets the cursor shape.
-//
-// SetCursorShape is concurrent-safe.
-func SetCursorShape(shape CursorShapeType) {
-	ui.Get().SetCursorShape(shape)
+	ui.Get().SetCursorMode(ui.CursorMode(mode))
 }
 
 // IsFullscreen reports whether the current mode is fullscreen or not.
@@ -394,8 +426,9 @@ func IsFullscreen() bool {
 // On desktops, Ebitengine uses 'windowed' fullscreen mode, which doesn't change
 // your monitor's resolution.
 //
-// On browsers, triggering fullscreen requires a user gesture otherwise SetFullscreen does nothing but leave an error message in console.
-// This behaviour varies across browser implementations, your mileage may vary.
+// On browsers, triggering fullscreen requires a user gesture, otherwise SetFullscreen does nothing but leave an error message in console.
+// This behavior varies across browser implementations.
+// Check a user interaction before triggering fullscreen e.g. by IsMouseButtonPressed or IsKeyPressed.
 //
 // SetFullscreen does nothing on mobiles.
 //
@@ -451,40 +484,40 @@ func SetRunnableOnUnfocused(runnableOnUnfocused bool) {
 // DeviceScaleFactor must be called on the main thread before the main loop, and is concurrent-safe after the main
 // loop.
 //
-// DeviceScaleFactor is concurrent-safe.
-//
 // BUG: DeviceScaleFactor value is not affected by SetWindowPosition before RunGame (#1575).
+//
+// Deprecated: as of v2.6. Use Monitor().DeviceScaleFactor() instead.
 func DeviceScaleFactor() float64 {
-	return ui.Get().DeviceScaleFactor()
+	return Monitor().DeviceScaleFactor()
 }
 
 // IsVsyncEnabled returns a boolean value indicating whether
 // the game uses the display's vsync.
 func IsVsyncEnabled() bool {
-	return ui.FPSMode() == ui.FPSModeVsyncOn
+	return ui.Get().FPSMode() == ui.FPSModeVsyncOn
 }
 
 // SetVsyncEnabled sets a boolean value indicating whether
 // the game uses the display's vsync.
 func SetVsyncEnabled(enabled bool) {
 	if enabled {
-		ui.SetFPSMode(ui.FPSModeVsyncOn)
+		ui.Get().SetFPSMode(ui.FPSModeVsyncOn)
 	} else {
-		ui.SetFPSMode(ui.FPSModeVsyncOffMaximum)
+		ui.Get().SetFPSMode(ui.FPSModeVsyncOffMaximum)
 	}
 }
 
 // FPSModeType is a type of FPS modes.
 //
 // Deprecated: as of v2.5. Use SetVsyncEnabled instead.
-type FPSModeType = ui.FPSModeType
+type FPSModeType int
 
 const (
 	// FPSModeVsyncOn indicates that the game tries to sync the display's refresh rate.
 	// FPSModeVsyncOn is the default mode.
 	//
 	// Deprecated: as of v2.5. Use SetVsyncEnabled(true) instead.
-	FPSModeVsyncOn FPSModeType = ui.FPSModeVsyncOn
+	FPSModeVsyncOn FPSModeType = FPSModeType(ui.FPSModeVsyncOn)
 
 	// FPSModeVsyncOffMaximum indicates that the game doesn't sync with vsync, and
 	// the game is updated whenever possible.
@@ -495,7 +528,7 @@ const (
 	// The game's Update is called based on the specified TPS.
 	//
 	// Deprecated: as of v2.5. Use SetVsyncEnabled(false) instead.
-	FPSModeVsyncOffMaximum FPSModeType = ui.FPSModeVsyncOffMaximum
+	FPSModeVsyncOffMaximum FPSModeType = FPSModeType(ui.FPSModeVsyncOffMaximum)
 
 	// FPSModeVsyncOffMinimum indicates that the game doesn't sync with vsync, and
 	// the game is updated only when necessary.
@@ -508,7 +541,7 @@ const (
 	//
 	// Deprecated: as of v2.5. Use SetScreenClearedEveryFrame(false) instead.
 	// See examples/skipdraw for GPU optimization with SetScreenClearedEveryFrame(false).
-	FPSModeVsyncOffMinimum FPSModeType = ui.FPSModeVsyncOffMinimum
+	FPSModeVsyncOffMinimum FPSModeType = FPSModeType(ui.FPSModeVsyncOffMinimum)
 )
 
 // FPSMode returns the current FPS mode.
@@ -517,7 +550,7 @@ const (
 //
 // Deprecated: as of v2.5. Use SetVsyncEnabled instead.
 func FPSMode() FPSModeType {
-	return ui.FPSMode()
+	return FPSModeType(ui.Get().FPSMode())
 }
 
 // SetFPSMode sets the FPS mode.
@@ -527,7 +560,7 @@ func FPSMode() FPSModeType {
 //
 // Deprecated: as of v2.5. Use SetVsyncEnabled instead.
 func SetFPSMode(mode FPSModeType) {
-	ui.SetFPSMode(mode)
+	ui.Get().SetFPSMode(ui.FPSModeType(mode))
 }
 
 // ScheduleFrame schedules a next frame when the current FPS mode is FPSModeVsyncOffMinimum.
@@ -555,7 +588,7 @@ func MaxTPS() int {
 }
 
 // ActualTPS returns the current TPS (ticks per second),
-// that represents how many Update function is called in a second.
+// that represents how many times Update function is called in a second.
 //
 // This value is for measurement and/or debug, and your game logic should not rely on this value.
 //
@@ -565,7 +598,7 @@ func ActualTPS() float64 {
 }
 
 // CurrentTPS returns the current TPS (ticks per second),
-// that represents how many Update function is called in a second.
+// that represents how many times Update function is called in a second.
 //
 // Deprecated: as of v2.4. Use ActualTPS instead.
 func CurrentTPS() float64 {
@@ -581,7 +614,7 @@ const SyncWithFPS = clock.SyncWithFPS
 const UncappedTPS = SyncWithFPS
 
 // SetTPS sets the maximum TPS (ticks per second),
-// that represents how many updating function is called per second.
+// that represents how many times updating function is called per second.
 // The initial value is 60.
 //
 // If tps is SyncWithFPS, TPS is uncapped and the game is updated per frame.
@@ -593,7 +626,7 @@ func SetTPS(tps int) {
 }
 
 // SetMaxTPS sets the maximum TPS (ticks per second),
-// that represents how many updating function is called per second.
+// that represents how many times updating function is called per second.
 //
 // Deprecated: as of v2.4. Use SetTPS instead.
 func SetMaxTPS(tps int) {
@@ -609,7 +642,7 @@ func IsScreenTransparent() bool {
 	if !ui.IsScreenTransparentAvailable() {
 		return false
 	}
-	return atomic.LoadInt32(&screenTransparent) != 0
+	return screenTransparent.Load()
 }
 
 // SetScreenTransparent sets the state if the window is transparent.
@@ -622,14 +655,10 @@ func IsScreenTransparent() bool {
 //
 // Deprecated: as of v2.5. Use RunGameWithOptions instead.
 func SetScreenTransparent(transparent bool) {
-	if transparent {
-		atomic.StoreInt32(&screenTransparent, 1)
-	} else {
-		atomic.StoreInt32(&screenTransparent, 0)
-	}
+	screenTransparent.Store(transparent)
 }
 
-var screenTransparent int32 = 0
+var screenTransparent atomic.Bool
 
 // SetInitFocused sets whether the application is focused on show.
 // The default value is true, i.e., the application is focused.
@@ -642,27 +671,65 @@ var screenTransparent int32 = 0
 //
 // Deprecated: as of v2.5. Use RunGameWithOptions instead.
 func SetInitFocused(focused bool) {
-	if focused {
-		atomic.StoreInt32(&initUnfocused, 0)
-	} else {
-		atomic.StoreInt32(&initUnfocused, 1)
-	}
+	initUnfocused.Store(!focused)
 }
 
-var initUnfocused int32 = 0
+var initUnfocused atomic.Bool
 
 func toUIRunOptions(options *RunGameOptions) *ui.RunOptions {
+	const (
+		defaultX11ClassName    = "Ebitengine-Application"
+		defaultX11InstanceName = "ebitengine-application"
+	)
+
 	if options == nil {
 		return &ui.RunOptions{
-			InitUnfocused:     atomic.LoadInt32(&initUnfocused) != 0,
-			ScreenTransparent: atomic.LoadInt32(&screenTransparent) != 0,
+			InitUnfocused:     initUnfocused.Load(),
+			ScreenTransparent: screenTransparent.Load(),
+			X11ClassName:      defaultX11ClassName,
+			X11InstanceName:   defaultX11InstanceName,
 		}
 	}
+
+	if options.X11ClassName == "" {
+		options.X11ClassName = defaultX11ClassName
+	}
+	if options.X11InstanceName == "" {
+		options.X11InstanceName = defaultX11InstanceName
+	}
+
+	// ui.RunOptions.StrictContextRestoration is not used so far (#3098).
+	// This might be reused in the future.
+	// The original comment for StrictContextRestration is as follows:
+	//
+	// StrictContextRestration indicates whether the context lost should be restored strictly by Ebitengine or not.
+	//
+	// StrictContextRestration is available only on Android. Otherwise, StrictContextRestration is ignored.
+	// Thus, StrictContextRestration should be used with mobile.SetGameWithOptions, rather than RunGameWithOptions.
+	//
+	// In Android, Ebitengien uses `GLSurfaceView`'s `setPreserveEGLContextOnPause(true)`.
+	// This works in most cases, but it is still possible that the context is lost in some minor cases.
+	//
+	// When StrictContextRestration is true, Ebitengine tries to restore the context more strictly
+	// for such minor cases.
+	// However, this might cause a performance issue since Ebitengine tries to keep all the information
+	// to restore the context.
+	//
+	// When StrictContextRestration is false, Ebitengine does nothing special to restore the context and
+	// relies on the OS's behavior.
+	//
+	// The default (zero) value is false.
+
 	return &ui.RunOptions{
 		GraphicsLibrary:   ui.GraphicsLibrary(options.GraphicsLibrary),
 		InitUnfocused:     options.InitUnfocused,
 		ScreenTransparent: options.ScreenTransparent,
 		SkipTaskbar:       options.SkipTaskbar,
+		SingleThread:      options.SingleThread,
+		DisableHiDPI:      options.DisableHiDPI,
+		ColorSpace:        graphicsdriver.ColorSpace(options.ColorSpace),
+		X11ClassName:      options.X11ClassName,
+		X11InstanceName:   options.X11InstanceName,
 	}
 }
 

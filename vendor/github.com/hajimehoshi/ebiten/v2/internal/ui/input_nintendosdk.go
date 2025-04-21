@@ -25,7 +25,24 @@ package ui
 // const int kScreenHeight = 1080;
 import "C"
 
-func (u *userInterfaceImpl) updateInputState() {
+import (
+	"github.com/hajimehoshi/ebiten/v2/internal/gamepad"
+)
+
+func (u *UserInterface) updateInputState() error {
+	var err error
+	u.mainThread.Call(func() {
+		err = u.updateInputStateImpl()
+	})
+	return err
+}
+
+// updateInputStateImpl must be called from the main thread.
+func (u *UserInterface) updateInputStateImpl() error {
+	if err := gamepad.Update(); err != nil {
+		return err
+	}
+
 	C.ebitengine_UpdateTouches()
 
 	u.nativeTouches = u.nativeTouches[:0]
@@ -43,15 +60,17 @@ func (u *userInterfaceImpl) updateInputState() {
 
 	u.inputState.Touches = u.inputState.Touches[:0]
 	for _, t := range u.nativeTouches {
-		x, y := u.context.clientPositionToLogicalPosition(float64(t.x), float64(t.y), deviceScaleFactor)
+		x, y := u.context.clientPositionToLogicalPosition(float64(t.x), float64(t.y), theMonitor.DeviceScaleFactor())
 		u.inputState.Touches = append(u.inputState.Touches, Touch{
 			ID: TouchID(t.id),
 			X:  int(x),
 			Y:  int(y),
 		})
 	}
+
+	return nil
 }
 
-func KeyName(key Key) string {
+func (u *UserInterface) KeyName(key Key) string {
 	return ""
 }

@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package opengl
 
 import (
 	"fmt"
-	"runtime"
+	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
@@ -32,6 +34,7 @@ type activatedTexture struct {
 type Graphics struct {
 	state   openGLState
 	context context
+	vsync   bool
 
 	nextImageID graphicsdriver.ImageID
 	images      map[graphicsdriver.ImageID]*Image
@@ -50,6 +53,20 @@ type Graphics struct {
 	// activatedTextures is a set of activated textures.
 	// textureNative cannot be a map key unfortunately.
 	activatedTextures []activatedTexture
+
+	graphicsPlatform
+}
+
+func newGraphics(ctx gl.Context) *Graphics {
+	g := &Graphics{
+		vsync: true,
+	}
+	if isDebug {
+		g.context.ctx = &gl.DebugContext{Context: ctx}
+	} else {
+		g.context.ctx = ctx
+	}
+	return g
 }
 
 func (g *Graphics) Begin() error {
@@ -62,10 +79,14 @@ func (g *Graphics) End(present bool) error {
 	// TODO: examples/sprites worked without this. Is this really needed?
 	g.context.ctx.Flush()
 
-	// The last uniforms must be reset after swapping the buffer (#2517).
+	// The last uniforms must be reset before swapping the buffer (#2517).
 	if present {
 		g.state.resetLastUniforms()
+		if err := g.swapBuffers(); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -146,7 +167,13 @@ func (g *Graphics) removeImage(img *Image) {
 }
 
 func (g *Graphics) Initialize() error {
-	return g.state.reset(&g.context)
+	if err := g.makeContextCurrent(); err != nil {
+		return err
+	}
+	if err := g.state.reset(&g.context); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Reset resets or initializes the current OpenGL state.
@@ -154,12 +181,8 @@ func (g *Graphics) Reset() error {
 	return g.state.reset(&g.context)
 }
 
-func (g *Graphics) SetVertices(vertices []float32, indices []uint16) error {
-	// Note that the vertices passed to BufferSubData is not under GC management
-	// in opengl package due to unsafe-way.
-	// See BufferSubData in context_mobile.go.
-	g.context.arrayBufferSubData(vertices)
-	g.context.elementArrayBufferSubData(indices)
+func (g *Graphics) SetVertices(vertices []float32, indices []uint32) error {
+	g.state.setVertices(&g.context, vertices, indices)
 	return nil
 }
 
@@ -175,7 +198,7 @@ func (g *Graphics) uniformVariableName(idx int) string {
 	return name
 }
 
-func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.ShaderImageCount]graphicsdriver.ImageID, shaderID graphicsdriver.ShaderID, dstRegions []graphicsdriver.DstRegion, indexOffset int, blend graphicsdriver.Blend, uniforms []uint32, evenOdd bool) error {
+func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.ShaderSrcImageCount]graphicsdriver.ImageID, shaderID graphicsdriver.ShaderID, dstRegions []graphicsdriver.DstRegion, indexOffset int, blend graphicsdriver.Blend, uniforms []uint32, fillRule graphicsdriver.FillRule) error {
 	if shaderID == graphicsdriver.InvalidShaderID {
 		return fmt.Errorf("opengl: shader ID is invalid")
 	}
@@ -218,7 +241,7 @@ func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.
 		g.uniformVars[idx].value[13] ^= 1 << 31
 	}
 
-	var imgs [graphics.ShaderImageCount]textureVariable
+	var imgs [graphics.ShaderSrcImageCount]textureVariable
 	for i, srcID := range srcIDs {
 		if srcID == graphicsdriver.InvalidImageID {
 			continue
@@ -236,7 +259,7 @@ func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.
 	}
 	g.uniformVars = g.uniformVars[:0]
 
-	if evenOdd {
+	if fillRule != graphicsdriver.FillRuleFillAll {
 		if err := destination.ensureStencilBuffer(); err != nil {
 			return err
 		}
@@ -245,28 +268,37 @@ func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.
 
 	for _, dstRegion := range dstRegions {
 		g.context.ctx.Scissor(
-			int32(dstRegion.Region.X),
-			int32(dstRegion.Region.Y),
-			int32(dstRegion.Region.Width),
-			int32(dstRegion.Region.Height),
+			int32(dstRegion.Region.Min.X),
+			int32(dstRegion.Region.Min.Y),
+			int32(dstRegion.Region.Dx()),
+			int32(dstRegion.Region.Dy()),
 		)
-		if evenOdd {
+		switch fillRule {
+		case graphicsdriver.FillRuleNonZero:
 			g.context.ctx.Clear(gl.STENCIL_BUFFER_BIT)
 			g.context.ctx.StencilFunc(gl.ALWAYS, 0x00, 0xff)
-			g.context.ctx.StencilOp(gl.KEEP, gl.KEEP, gl.INVERT)
+			g.context.ctx.StencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP)
+			g.context.ctx.StencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP)
+			g.context.ctx.ColorMask(false, false, false, false)
+			g.context.ctx.DrawElements(gl.TRIANGLES, int32(dstRegion.IndexCount), gl.UNSIGNED_INT, indexOffset*int(unsafe.Sizeof(uint32(0))))
+		case graphicsdriver.FillRuleEvenOdd:
+			g.context.ctx.Clear(gl.STENCIL_BUFFER_BIT)
+			g.context.ctx.StencilFunc(gl.ALWAYS, 0x00, 0xff)
+			g.context.ctx.StencilOpSeparate(gl.FRONT_AND_BACK, gl.KEEP, gl.KEEP, gl.INVERT)
 			g.context.ctx.ColorMask(false, false, false, false)
 
-			g.context.ctx.DrawElements(gl.TRIANGLES, int32(dstRegion.IndexCount), gl.UNSIGNED_SHORT, indexOffset*2)
-
+			g.context.ctx.DrawElements(gl.TRIANGLES, int32(dstRegion.IndexCount), gl.UNSIGNED_INT, indexOffset*int(unsafe.Sizeof(uint32(0))))
+		}
+		if fillRule != graphicsdriver.FillRuleFillAll {
 			g.context.ctx.StencilFunc(gl.NOTEQUAL, 0x00, 0xff)
-			g.context.ctx.StencilOp(gl.KEEP, gl.KEEP, gl.KEEP)
+			g.context.ctx.StencilOpSeparate(gl.FRONT_AND_BACK, gl.KEEP, gl.KEEP, gl.KEEP)
 			g.context.ctx.ColorMask(true, true, true, true)
 		}
-		g.context.ctx.DrawElements(gl.TRIANGLES, int32(dstRegion.IndexCount), gl.UNSIGNED_SHORT, indexOffset*2) // 2 is uint16 size in bytes
+		g.context.ctx.DrawElements(gl.TRIANGLES, int32(dstRegion.IndexCount), gl.UNSIGNED_INT, indexOffset*int(unsafe.Sizeof(uint32(0))))
 		indexOffset += dstRegion.IndexCount
 	}
 
-	if evenOdd {
+	if fillRule != graphicsdriver.FillRuleFillAll {
 		g.context.ctx.Disable(gl.STENCIL_TEST)
 	}
 
@@ -274,27 +306,11 @@ func (g *Graphics) DrawTriangles(dstID graphicsdriver.ImageID, srcIDs [graphics.
 }
 
 func (g *Graphics) SetVsyncEnabled(enabled bool) {
-	// Do nothing
-}
-
-func (g *Graphics) NeedsRestoring() bool {
-	// Though it is possible to have a logic to restore the graphics data for GPU, do not use it for performance (#1603).
-	if runtime.GOOS == "js" {
-		return false
-	}
-	return g.context.ctx.IsES()
+	g.vsync = enabled
 }
 
 func (g *Graphics) NeedsClearingScreen() bool {
 	return true
-}
-
-func (g *Graphics) IsGL() bool {
-	return true
-}
-
-func (g *Graphics) IsDirectX() bool {
-	return false
 }
 
 func (g *Graphics) MaxImageSize() int {

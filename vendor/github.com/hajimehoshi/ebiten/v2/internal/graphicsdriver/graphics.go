@@ -15,20 +15,37 @@
 package graphicsdriver
 
 import (
+	"fmt"
+	"image"
+
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 )
 
-type Region struct {
-	X      float32
-	Y      float32
-	Width  float32
-	Height float32
+type DstRegion struct {
+	Region     image.Rectangle
+	IndexCount int
 }
 
-type DstRegion struct {
-	Region     Region
-	IndexCount int
+type FillRule int
+
+const (
+	FillRuleFillAll FillRule = iota
+	FillRuleNonZero
+	FillRuleEvenOdd
+)
+
+func (f FillRule) String() string {
+	switch f {
+	case FillRuleFillAll:
+		return "FillRuleFillAll"
+	case FillRuleNonZero:
+		return "FillRuleNonZero"
+	case FillRuleEvenOdd:
+		return "FillRuleEvenOdd"
+	default:
+		return fmt.Sprintf("FillRule(%d)", f)
+	}
 }
 
 const (
@@ -41,38 +58,35 @@ type Graphics interface {
 	Begin() error
 	End(present bool) error
 	SetTransparent(transparent bool)
-	SetVertices(vertices []float32, indices []uint16) error
+	SetVertices(vertices []float32, indices []uint32) error
 	NewImage(width, height int) (Image, error)
 	NewScreenFramebufferImage(width, height int) (Image, error)
 	SetVsyncEnabled(enabled bool)
-	NeedsRestoring() bool
 	NeedsClearingScreen() bool
-	IsGL() bool
-	IsDirectX() bool
 	MaxImageSize() int
 
 	NewShader(program *shaderir.Program) (Shader, error)
 
 	// DrawTriangles draws an image onto another image with the given parameters.
-	DrawTriangles(dst ImageID, srcs [graphics.ShaderImageCount]ImageID, shader ShaderID, dstRegions []DstRegion, indexOffset int, blend Blend, uniforms []uint32, evenOdd bool) error
+	DrawTriangles(dst ImageID, srcs [graphics.ShaderSrcImageCount]ImageID, shader ShaderID, dstRegions []DstRegion, indexOffset int, blend Blend, uniforms []uint32, fillRule FillRule) error
+}
+
+type Resetter interface {
+	Reset() error
 }
 
 type Image interface {
 	ID() ImageID
 	Dispose()
-	IsInvalidated() bool
-	ReadPixels(buf []byte, x, y, width, height int) error
-	WritePixels(args []*WritePixelsArgs) error
+	ReadPixels(args []PixelsArgs) error
+	WritePixels(args []PixelsArgs) error
 }
 
 type ImageID int
 
-type WritePixelsArgs struct {
+type PixelsArgs struct {
 	Pixels []byte
-	X      int
-	Y      int
-	Width  int
-	Height int
+	Region image.Rectangle
 }
 
 type Shader interface {
@@ -81,3 +95,11 @@ type Shader interface {
 }
 
 type ShaderID int
+
+type ColorSpace int
+
+const (
+	ColorSpaceDefault ColorSpace = iota
+	ColorSpaceSRGB
+	ColorSpaceDisplayP3
+)

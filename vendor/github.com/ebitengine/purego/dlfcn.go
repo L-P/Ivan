@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2022 The Ebitengine Authors
 
-//go:build darwin || linux
+//go:build (darwin || freebsd || linux) && !android && !faketime
 
 package purego
 
@@ -33,10 +33,14 @@ func init() {
 // A second call to Dlopen with the same path will return the same handle, but the internal
 // reference count for the handle will be incremented. Therefore, all
 // Dlopen calls should be balanced with a Dlclose call.
+//
+// This function is not available on Windows.
+// Use [golang.org/x/sys/windows.LoadLibrary], [golang.org/x/sys/windows.LoadLibraryEx],
+// [golang.org/x/sys/windows.NewLazyDLL], or [golang.org/x/sys/windows.NewLazySystemDLL] for Windows instead.
 func Dlopen(path string, mode int) (uintptr, error) {
 	u := fnDlopen(path, mode)
-	if errStr := fnDlerror(); errStr != "" {
-		return 0, Dlerror{errStr}
+	if u == 0 {
+		return 0, Dlerror{fnDlerror()}
 	}
 	return u, nil
 }
@@ -45,10 +49,13 @@ func Dlopen(path string, mode int) (uintptr, error) {
 // It returns the address where that symbol is loaded into memory. If the symbol is not found,
 // in the specified library or any of the libraries that were automatically loaded by Dlopen
 // when that library was loaded, Dlsym returns zero.
+//
+// This function is not available on Windows.
+// Use [golang.org/x/sys/windows.GetProcAddress] for Windows instead.
 func Dlsym(handle uintptr, name string) (uintptr, error) {
 	u := fnDlsym(handle, name)
-	if errStr := fnDlerror(); errStr != "" {
-		return 0, Dlerror{errStr}
+	if u == 0 {
+		return 0, Dlerror{fnDlerror()}
 	}
 	return u, nil
 }
@@ -56,11 +63,18 @@ func Dlsym(handle uintptr, name string) (uintptr, error) {
 // Dlclose decrements the reference count on the dynamic library handle.
 // If the reference count drops to zero and no other loaded libraries
 // use symbols in it, then the dynamic library is unloaded.
+//
+// This function is not available on Windows.
+// Use [golang.org/x/sys/windows.FreeLibrary] for Windows instead.
 func Dlclose(handle uintptr) error {
 	if fnDlclose(handle) {
 		return Dlerror{fnDlerror()}
 	}
 	return nil
+}
+
+func loadSymbol(handle uintptr, name string) (uintptr, error) {
+	return Dlsym(handle, name)
 }
 
 // these functions exist in dlfcn_stubs.s and are calling C functions linked to in dlfcn_GOOS.go

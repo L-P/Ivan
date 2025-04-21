@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (android || ios) && !nintendosdk
+//go:build android || ios
 
 package ui
 
@@ -26,7 +26,7 @@ type TouchForInput struct {
 	Y float64
 }
 
-func (u *userInterfaceImpl) updateInputState(keys map[Key]struct{}, runes []rune, touches []TouchForInput) {
+func (u *UserInterface) updateInputStateFromOutside(keys map[Key]struct{}, runes []rune, touches []TouchForInput) {
 	u.m.Lock()
 	defer u.m.Unlock()
 
@@ -37,18 +37,31 @@ func (u *userInterfaceImpl) updateInputState(keys map[Key]struct{}, runes []rune
 
 	u.inputState.Runes = append(u.inputState.Runes, runes...)
 
-	u.inputState.Touches = u.inputState.Touches[:0]
+	u.touches = u.touches[:0]
 	for _, t := range touches {
-		x, y := u.context.clientPositionToLogicalPosition(t.X, t.Y, u.DeviceScaleFactor())
+		u.touches = append(u.touches, t)
+	}
+}
+
+func (u *UserInterface) updateInputState() error {
+	u.m.Lock()
+	defer u.m.Unlock()
+
+	s := theMonitor.DeviceScaleFactor()
+
+	u.inputState.Touches = u.inputState.Touches[:0]
+	for _, t := range u.touches {
+		x, y := u.context.clientPositionToLogicalPosition(t.X, t.Y, s)
 		u.inputState.Touches = append(u.inputState.Touches, Touch{
 			ID: t.ID,
 			X:  int(x),
 			Y:  int(y),
 		})
 	}
+	return nil
 }
 
-func KeyName(key Key) string {
+func (u *UserInterface) KeyName(key Key) string {
 	// TODO: Implement this.
 	return ""
 }

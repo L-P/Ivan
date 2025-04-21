@@ -34,6 +34,7 @@ const (
 type GraphicsLibrary int
 
 const (
+	// GraphicsLibraryAuto represents the automatic choose of graphics library by Ebitengine.
 	GraphicsLibraryAuto GraphicsLibrary = GraphicsLibrary(ui.GraphicsLibraryAuto)
 
 	// GraphicsLibraryUnknown represents the state at which graphics library cannot be determined,
@@ -48,6 +49,9 @@ const (
 
 	// GraphicsLibraryMetal represents the graphics library Apple's Metal.
 	GraphicsLibraryMetal GraphicsLibrary = GraphicsLibrary(ui.GraphicsLibraryMetal)
+
+	// GraphicsLibraryMetal represents the graphics library PlayStation 5.
+	GraphicsLibraryPlayStation5 GraphicsLibrary = GraphicsLibrary(ui.GraphicsLibraryPlayStation5)
 )
 
 // String returns a string representing the graphics library.
@@ -66,5 +70,19 @@ type DebugInfo struct {
 
 // ReadDebugInfo writes debug info (e.g. current graphics library) into a provided struct.
 func ReadDebugInfo(d *DebugInfo) {
-	d.GraphicsLibrary = GraphicsLibrary(ui.GetGraphicsLibrary())
+	d.GraphicsLibrary = GraphicsLibrary(ui.Get().GraphicsLibrary())
 }
+
+// ColorSpace represents the color space of the screen.
+type ColorSpace int
+
+const (
+	// ColorSpaceDefault represents the default color space.
+	ColorSpaceDefault ColorSpace = iota
+
+	// ColorSpaceSRGB represents the sRGB color space (https://en.wikipedia.org/wiki/SRGB).
+	ColorSpaceSRGB
+
+	// ColorSpaceDisplayP3 represents the Display P3 color space (https://en.wikipedia.org/wiki/DCI-P3).
+	ColorSpaceDisplayP3
+)

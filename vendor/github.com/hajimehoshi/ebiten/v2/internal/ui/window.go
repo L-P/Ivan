@@ -23,6 +23,7 @@ type Window interface {
 	SetDecorated(decorated bool)
 	ResizingMode() WindowResizingMode
 	SetResizingMode(mode WindowResizingMode)
+	SetMonitor(*Monitor)
 	Position() (int, int)
 	SetPosition(x, y int)
 	Size() (int, int)
@@ -40,6 +41,9 @@ type Window interface {
 	Restore()
 	SetClosingHandled(handled bool)
 	IsClosingHandled() bool
+	SetMousePassthrough(enabled bool)
+	IsMousePassthrough() bool
+	RequestAttention()
 }
 
 type nullWindow struct{}
@@ -56,6 +60,9 @@ func (*nullWindow) ResizingMode() WindowResizingMode {
 }
 
 func (*nullWindow) SetResizingMode(mode WindowResizingMode) {
+}
+
+func (*nullWindow) SetMonitor(monitor *Monitor) {
 }
 
 func (*nullWindow) Position() (int, int) {
@@ -114,4 +121,14 @@ func (*nullWindow) SetClosingHandled(handled bool) {
 
 func (*nullWindow) IsClosingHandled() bool {
 	return false
+}
+
+func (*nullWindow) SetMousePassthrough(enabled bool) {
+}
+
+func (*nullWindow) IsMousePassthrough() bool {
+	return false
+}
+
+func (*nullWindow) RequestAttention() {
 }

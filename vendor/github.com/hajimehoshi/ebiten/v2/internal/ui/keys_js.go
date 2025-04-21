@@ -20,7 +20,7 @@ import (
 	"syscall/js"
 )
 
-var uiKeyToJSKey = map[Key]js.Value{
+var uiKeyToJSCode = map[Key]js.Value{
 	KeyA:              js.ValueOf("KeyA"),
 	KeyAltLeft:        js.ValueOf("AltLeft"),
 	KeyAltRight:       js.ValueOf("AltRight"),
@@ -62,7 +62,19 @@ var uiKeyToJSKey = map[Key]js.Value{
 	KeyF10:            js.ValueOf("F10"),
 	KeyF11:            js.ValueOf("F11"),
 	KeyF12:            js.ValueOf("F12"),
+	KeyF13:            js.ValueOf("F13"),
+	KeyF14:            js.ValueOf("F14"),
+	KeyF15:            js.ValueOf("F15"),
+	KeyF16:            js.ValueOf("F16"),
+	KeyF17:            js.ValueOf("F17"),
+	KeyF18:            js.ValueOf("F18"),
+	KeyF19:            js.ValueOf("F19"),
 	KeyF2:             js.ValueOf("F2"),
+	KeyF20:            js.ValueOf("F20"),
+	KeyF21:            js.ValueOf("F21"),
+	KeyF22:            js.ValueOf("F22"),
+	KeyF23:            js.ValueOf("F23"),
+	KeyF24:            js.ValueOf("F24"),
 	KeyF3:             js.ValueOf("F3"),
 	KeyF4:             js.ValueOf("F4"),
 	KeyF5:             js.ValueOf("F5"),
@@ -75,6 +87,7 @@ var uiKeyToJSKey = map[Key]js.Value{
 	KeyHome:           js.ValueOf("Home"),
 	KeyI:              js.ValueOf("KeyI"),
 	KeyInsert:         js.ValueOf("Insert"),
+	KeyIntlBackslash:  js.ValueOf("IntlBackslash"),
 	KeyJ:              js.ValueOf("KeyJ"),
 	KeyK:              js.ValueOf("KeyK"),
 	KeyL:              js.ValueOf("KeyL"),

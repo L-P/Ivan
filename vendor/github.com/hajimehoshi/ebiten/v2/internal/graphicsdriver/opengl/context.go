@@ -12,67 +12,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package opengl
 
 import (
 	"errors"
 	"fmt"
+	"image"
+	"runtime"
 	"sync"
-	"unsafe"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/opengl/gl"
 	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
+	"github.com/hajimehoshi/ebiten/v2/internal/shaderir/glsl"
 )
 
 type blendFactor int
 
-const (
-	glDstAlpha         blendFactor = 0x304
-	glDstColor         blendFactor = 0x306
-	glOne              blendFactor = 1
-	glOneMinusDstAlpha blendFactor = 0x305
-	glOneMinusDstColor blendFactor = 0x307
-	glOneMinusSrcAlpha blendFactor = 0x303
-	glOneMinusSrcColor blendFactor = 0x301
-	glSrcAlpha         blendFactor = 0x302
-	glSrcAlphaSaturate blendFactor = 0x308
-	glSrcColor         blendFactor = 0x300
-	glZero             blendFactor = 0
-)
-
 type blendOperation int
-
-const (
-	glFuncAdd             blendOperation = 0x8006
-	glFuncReverseSubtract blendOperation = 0x800b
-	glFuncSubtract        blendOperation = 0x800a
-)
 
 func convertBlendFactor(f graphicsdriver.BlendFactor) blendFactor {
 	switch f {
 	case graphicsdriver.BlendFactorZero:
-		return glZero
+		return gl.ZERO
 	case graphicsdriver.BlendFactorOne:
-		return glOne
+		return gl.ONE
 	case graphicsdriver.BlendFactorSourceColor:
-		return glSrcColor
+		return gl.SRC_COLOR
 	case graphicsdriver.BlendFactorOneMinusSourceColor:
-		return glOneMinusSrcColor
+		return gl.ONE_MINUS_SRC_COLOR
 	case graphicsdriver.BlendFactorSourceAlpha:
-		return glSrcAlpha
+		return gl.SRC_ALPHA
 	case graphicsdriver.BlendFactorOneMinusSourceAlpha:
-		return glOneMinusSrcAlpha
+		return gl.ONE_MINUS_SRC_ALPHA
 	case graphicsdriver.BlendFactorDestinationColor:
-		return glDstColor
+		return gl.DST_COLOR
 	case graphicsdriver.BlendFactorOneMinusDestinationColor:
-		return glOneMinusDstColor
+		return gl.ONE_MINUS_DST_COLOR
 	case graphicsdriver.BlendFactorDestinationAlpha:
-		return glDstAlpha
+		return gl.DST_ALPHA
 	case graphicsdriver.BlendFactorOneMinusDestinationAlpha:
-		return glOneMinusDstAlpha
+		return gl.ONE_MINUS_DST_ALPHA
 	case graphicsdriver.BlendFactorSourceAlphaSaturated:
-		return glSrcAlphaSaturate
+		return gl.SRC_ALPHA_SATURATE
 	default:
 		panic(fmt.Sprintf("opengl: invalid blend factor %d", f))
 	}
@@ -81,11 +65,15 @@ func convertBlendFactor(f graphicsdriver.BlendFactor) blendFactor {
 func convertBlendOperation(o graphicsdriver.BlendOperation) blendOperation {
 	switch o {
 	case graphicsdriver.BlendOperationAdd:
-		return glFuncAdd
+		return gl.FUNC_ADD
 	case graphicsdriver.BlendOperationSubtract:
-		return glFuncSubtract
+		return gl.FUNC_SUBTRACT
 	case graphicsdriver.BlendOperationReverseSubtract:
-		return glFuncReverseSubtract
+		return gl.FUNC_REVERSE_SUBTRACT
+	case graphicsdriver.BlendOperationMin:
+		return gl.MIN
+	case graphicsdriver.BlendOperationMax:
+		return gl.MAX
 	default:
 		panic(fmt.Sprintf("opengl: invalid blend operation %d", o))
 	}
@@ -102,7 +90,6 @@ type (
 
 type (
 	uniformLocation int32
-	attribLocation  int32
 )
 
 const (
@@ -123,11 +110,7 @@ type context struct {
 	lastBlend          graphicsdriver.Blend
 	maxTextureSize     int
 	maxTextureSizeOnce sync.Once
-	highp              bool
-	highpOnce          sync.Once
 	initOnce           sync.Once
-
-	contextPlatform
 }
 
 func (c *context) bindTexture(t textureNative) {
@@ -156,14 +139,14 @@ func (c *context) bindFramebuffer(f framebufferNative) {
 
 func (c *context) setViewport(f *framebuffer) {
 	c.bindFramebuffer(f.native)
-	if c.lastViewportWidth == f.width && c.lastViewportHeight == f.height {
+	if c.lastViewportWidth == f.viewportWidth && c.lastViewportHeight == f.viewportHeight {
 		return
 	}
 
 	// On some environments, viewport size must be within the framebuffer size.
 	// e.g. Edge (#71), Chrome on GPD Pocket (#420), macOS Mojave (#691).
 	// Use the same size of the framebuffer here.
-	c.ctx.Viewport(0, 0, int32(f.width), int32(f.height))
+	c.ctx.Viewport(0, 0, int32(f.viewportWidth), int32(f.viewportHeight))
 
 	// glViewport must be called at least at every frame on iOS.
 	// As the screen framebuffer is the last render target, next SetViewport should be
@@ -172,16 +155,16 @@ func (c *context) setViewport(f *framebuffer) {
 		c.lastViewportWidth = 0
 		c.lastViewportHeight = 0
 	} else {
-		c.lastViewportWidth = f.width
-		c.lastViewportHeight = f.height
+		c.lastViewportWidth = f.viewportWidth
+		c.lastViewportHeight = f.viewportHeight
 	}
 }
 
 func (c *context) newScreenFramebuffer(width, height int) *framebuffer {
 	return &framebuffer{
-		native: c.screenFramebuffer,
-		width:  width,
-		height: height,
+		native:         c.screenFramebuffer,
+		viewportWidth:  width,
+		viewportHeight: height,
 	}
 }
 
@@ -264,14 +247,18 @@ func (c *context) newTexture(width, height int) (textureNative, error) {
 	return textureNative(t), nil
 }
 
-func (c *context) framebufferPixels(buf []byte, f *framebuffer, x, y, width, height int) error {
-	if got, want := len(buf), 4*width*height; got != want {
+func (c *context) framebufferPixels(buf []byte, f *framebuffer, region image.Rectangle) error {
+	if got, want := len(buf), 4*region.Dx()*region.Dy(); got != want {
 		return fmt.Errorf("opengl: len(buf) must be %d but was %d at framebufferPixels", got, want)
 	}
 
 	c.ctx.Flush()
 	c.bindFramebuffer(f.native)
-	c.ctx.ReadPixels(buf, int32(x), int32(y), int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE)
+	x := int32(region.Min.X)
+	y := int32(region.Min.Y)
+	width := int32(region.Dx())
+	height := int32(region.Dy())
+	c.ctx.ReadPixels(buf, x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE)
 	return nil
 }
 
@@ -286,9 +273,6 @@ func (c *context) framebufferPixelsToBuffer(f *framebuffer, buffer buffer, width
 }
 
 func (c *context) deleteTexture(t textureNative) {
-	if !c.ctx.IsTexture(uint32(t)) {
-		return
-	}
 	if c.lastTexture == t {
 		c.lastTexture = 0
 	}
@@ -333,9 +317,6 @@ func (c *context) newRenderbuffer(width, height int) (renderbufferNative, error)
 }
 
 func (c *context) deleteRenderbuffer(r renderbufferNative) {
-	if !c.ctx.IsRenderbuffer(uint32(r)) {
-		return
-	}
 	if c.lastRenderbuffer == r {
 		c.lastRenderbuffer = 0
 	}
@@ -350,19 +331,23 @@ func (c *context) newFramebuffer(texture textureNative, width, height int) (*fra
 	c.bindFramebuffer(framebufferNative(f))
 
 	c.ctx.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, uint32(texture), 0)
-	if s := c.ctx.CheckFramebufferStatus(gl.FRAMEBUFFER); s != gl.FRAMEBUFFER_COMPLETE {
-		if s != 0 {
-			return nil, fmt.Errorf("opengl: creating framebuffer failed: %v", s)
+
+	if shouldCheckFramebufferStatus() {
+		if s := c.ctx.CheckFramebufferStatus(gl.FRAMEBUFFER); s != gl.FRAMEBUFFER_COMPLETE {
+			if s != 0 {
+				return nil, fmt.Errorf("opengl: creating framebuffer failed: %v", s)
+			}
+			if e := c.ctx.GetError(); e != gl.NO_ERROR {
+				return nil, fmt.Errorf("opengl: creating framebuffer failed: (glGetError) %d", e)
+			}
+			return nil, fmt.Errorf("opengl: creating framebuffer failed: unknown error")
 		}
-		if e := c.ctx.GetError(); e != gl.NO_ERROR {
-			return nil, fmt.Errorf("opengl: creating framebuffer failed: (glGetError) %d", e)
-		}
-		return nil, fmt.Errorf("opengl: creating framebuffer failed: unknown error")
 	}
+
 	return &framebuffer{
-		native: framebufferNative(f),
-		width:  width,
-		height: height,
+		native:         framebufferNative(f),
+		viewportWidth:  width,
+		viewportHeight: height,
 	}, nil
 }
 
@@ -370,17 +355,18 @@ func (c *context) bindStencilBuffer(f framebufferNative, r renderbufferNative) e
 	c.bindFramebuffer(f)
 
 	c.ctx.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, uint32(r))
-	if s := c.ctx.CheckFramebufferStatus(gl.FRAMEBUFFER); s != gl.FRAMEBUFFER_COMPLETE {
-		return errors.New(fmt.Sprintf("opengl: glFramebufferRenderbuffer failed: %d", s))
+
+	if shouldCheckFramebufferStatus() {
+		if s := c.ctx.CheckFramebufferStatus(gl.FRAMEBUFFER); s != gl.FRAMEBUFFER_COMPLETE {
+			return fmt.Errorf("opengl: glFramebufferRenderbuffer failed: %d", s)
+		}
 	}
+
 	return nil
 }
 
 func (c *context) deleteFramebuffer(f framebufferNative) {
 	if f == c.screenFramebuffer {
-		return
-	}
-	if !c.ctx.IsFramebuffer(uint32(f)) {
 		return
 	}
 	// If a framebuffer to be deleted is bound, a newly bound framebuffer
@@ -403,10 +389,6 @@ func (c *context) newShader(shaderType uint32, source string) (shader, error) {
 	c.ctx.ShaderSource(s, source)
 	c.ctx.CompileShader(s)
 
-	if c.ctx.GetShaderi(s, gl.COMPILE_STATUS) == gl.FALSE {
-		log := c.ctx.GetShaderInfoLog(s)
-		return 0, fmt.Errorf("opengl: shader compile failed: %s", log)
-	}
 	return shader(s), nil
 }
 
@@ -425,10 +407,6 @@ func (c *context) newProgram(shaders []shader, attributes []string) (program, er
 	}
 
 	c.ctx.LinkProgram(p)
-	if c.ctx.GetProgrami(p, gl.LINK_STATUS) == gl.FALSE {
-		info := c.ctx.GetProgramInfoLog(p)
-		return 0, fmt.Errorf("opengl: program error: %s", info)
-	}
 	return program(p), nil
 }
 
@@ -504,12 +482,17 @@ func (c *context) newElementArrayBuffer(size int) buffer {
 	return buffer(b)
 }
 
-func (c *context) arrayBufferSubData(data []float32) {
-	s := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*4)
-	c.ctx.BufferSubData(gl.ARRAY_BUFFER, 0, s)
+func (c *context) glslVersion() glsl.GLSLVersion {
+	if c.ctx.IsES() {
+		return glsl.GLSLVersionES300
+	}
+	return glsl.GLSLVersionDefault
 }
 
-func (c *context) elementArrayBufferSubData(data []uint16) {
-	s := unsafe.Slice((*byte)(unsafe.Pointer(&data[0])), len(data)*2)
-	c.ctx.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, s)
+func shouldCheckFramebufferStatus() bool {
+	// CheckFramebufferStatus is slow and should be avoided especially in browsers.
+	// See https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/WebGL_best_practices#avoid_blocking_api_calls_in_production
+	//
+	// TODO: Should this be avoided in all environments?
+	return runtime.GOOS != "js"
 }

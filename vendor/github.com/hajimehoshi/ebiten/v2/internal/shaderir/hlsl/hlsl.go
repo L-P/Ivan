@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"go/constant"
 	"go/token"
+	"math"
 	"regexp"
 	"strings"
 
@@ -31,6 +32,7 @@ const (
 type compileContext struct {
 	structNames map[string]string
 	structTypes []shaderir.Type
+	unit        shaderir.Unit
 }
 
 func (c *compileContext) structName(p *shaderir.Program, t *shaderir.Type) string {
@@ -50,13 +52,7 @@ func (c *compileContext) structName(p *shaderir.Program, t *shaderir.Type) strin
 	return n
 }
 
-const Prelude = `struct Varyings {
-	float4 Position : SV_POSITION;
-	float2 M0 : TEXCOORD0;
-	float4 M1 : COLOR;
-};
-
-float mod(float x, float y) {
+const utilFuncs = `float mod(float x, float y) {
 	return x - y * floor(x/y);
 }
 
@@ -84,13 +80,38 @@ float4x4 float4x4FromScalar(float x) {
 	return float4x4(x, 0, 0, 0, 0, x, 0, 0, 0, 0, x, 0, 0, 0, 0, x);
 }`
 
-func Compile(p *shaderir.Program) (vertexShader, pixelShader string, offsets []int) {
-	offsets = calculateMemoryOffsets(p.Uniforms)
+func Compile(p *shaderir.Program) (vertexShader, pixelShader, prelude string) {
+	offsets := CalcUniformMemoryOffsets(p)
 
-	c := &compileContext{}
+	c := &compileContext{
+		unit: p.Unit,
+	}
 
 	var lines []string
-	lines = append(lines, strings.Split(Prelude, "\n")...)
+	lines = append(lines, strings.Split(utilFuncs, "\n")...)
+
+	lines = append(lines, "", "struct Varyings {")
+	lines = append(lines, "\tfloat4 Position : SV_POSITION;")
+	if len(p.Varyings) > 0 {
+		for i, v := range p.Varyings {
+			switch i {
+			case 0:
+				lines = append(lines, fmt.Sprintf("\tfloat2 M%d : TEXCOORD;", i))
+			case 1:
+				lines = append(lines, fmt.Sprintf("\tfloat4 M%d : COLOR0;", i))
+			default:
+				// Use COLOR[n] as a general purpose varying.
+				if v.Main != shaderir.Vec4 {
+					lines = append(lines, fmt.Sprintf("\t?(unexpected type: %s) M%d : COLOR%d;", v, i, i-1))
+				} else {
+					lines = append(lines, fmt.Sprintf("\tfloat4 M%d : COLOR%d;", i, i-1))
+				}
+			}
+		}
+	}
+	lines = append(lines, "};")
+	prelude = strings.Join(lines, "\n")
+
 	lines = append(lines, "", "{{.Structs}}")
 
 	if len(p.Uniforms) > 0 {
@@ -117,7 +138,9 @@ func Compile(p *shaderir.Program) (vertexShader, pixelShader string, offsets []i
 		for i := 0; i < p.TextureCount; i++ {
 			lines = append(lines, fmt.Sprintf("Texture2D T%[1]d : register(t%[1]d);", i))
 		}
-		lines = append(lines, "SamplerState samp : register(s0);")
+		if c.unit == shaderir.Texels {
+			lines = append(lines, "SamplerState samp : register(s0);")
+		}
 	}
 
 	vslines := make([]string, len(lines))
@@ -150,7 +173,25 @@ func Compile(p *shaderir.Program) (vertexShader, pixelShader string, offsets []i
 	}
 	if p.VertexFunc.Block != nil && len(p.VertexFunc.Block.Stmts) > 0 {
 		vslines = append(vslines, "")
-		vslines = append(vslines, "Varyings VSMain(float2 A0 : POSITION, float2 A1 : TEXCOORD, float4 A2 : COLOR) {")
+		var args []string
+		for i, a := range p.Attributes {
+			switch i {
+			case 0:
+				args = append(args, fmt.Sprintf("float2 A%d : POSITION", i))
+			case 1:
+				args = append(args, fmt.Sprintf("float2 A%d : TEXCOORD", i))
+			case 2:
+				args = append(args, fmt.Sprintf("float4 A%d : COLOR0", i))
+			default:
+				// Use COLOR[n] as a general purpose varying.
+				if a.Main != shaderir.Vec4 {
+					args = append(args, fmt.Sprintf("?(unexpected type: %s) A%d : COLOR%d", a, i, i-2))
+				} else {
+					args = append(args, fmt.Sprintf("float4 A%d : COLOR%d", i, i-2))
+				}
+			}
+		}
+		vslines = append(vslines, "Varyings VSMain("+strings.Join(args, ", ")+") {")
 		vslines = append(vslines, fmt.Sprintf("\tVaryings %s;", vsOut))
 		vslines = append(vslines, c.block(p, p.VertexFunc.Block, p.VertexFunc.Block, 0)...)
 		if last := fmt.Sprintf("\treturn %s;", vsOut); vslines[len(vslines)-1] != last {
@@ -304,30 +345,22 @@ func (c *compileContext) function(p *shaderir.Program, f *shaderir.Func, prototy
 	return lines
 }
 
-func constantToNumberLiteral(t shaderir.ConstType, v constant.Value) string {
-	switch t {
-	case shaderir.ConstTypeNone:
-		if v.Kind() == constant.Bool {
-			if constant.BoolVal(v) {
-				return "true"
-			}
-			return "false"
+func constantToNumberLiteral(v constant.Value) string {
+	switch v.Kind() {
+	case constant.Bool:
+		if constant.BoolVal(v) {
+			return "true"
 		}
-		fallthrough
-	case shaderir.ConstTypeFloat:
-		if i := constant.ToInt(v); i.Kind() == constant.Int {
-			x, _ := constant.Int64Val(i)
-			return fmt.Sprintf("%d.0", x)
+		return "false"
+	case constant.Int:
+		x, _ := constant.Int64Val(v)
+		return fmt.Sprintf("%d", x)
+	case constant.Float:
+		x, _ := constant.Float64Val(v)
+		if i := math.Floor(x); i == x {
+			return fmt.Sprintf("%d.0", int64(i))
 		}
-		if i := constant.ToFloat(v); i.Kind() == constant.Float {
-			x, _ := constant.Float64Val(i)
-			return fmt.Sprintf("%.10e", x)
-		}
-	case shaderir.ConstTypeInt:
-		if i := constant.ToInt(v); i.Kind() == constant.Int {
-			x, _ := constant.Int64Val(i)
-			return fmt.Sprintf("%d", x)
-		}
+		return fmt.Sprintf("%.10e", x)
 	}
 	return fmt.Sprintf("?(unexpected literal: %s)", v)
 }
@@ -403,7 +436,7 @@ func (c *compileContext) block(p *shaderir.Program, topBlock, block *shaderir.Bl
 	expr = func(e *shaderir.Expr) string {
 		switch e.Type {
 		case shaderir.NumberExpr:
-			return constantToNumberLiteral(e.ConstType, e.Const)
+			return constantToNumberLiteral(e.Const)
 		case shaderir.UniformVariable:
 			return fmt.Sprintf("U%d", e.Index)
 		case shaderir.TextureVariable:
@@ -471,8 +504,15 @@ func (c *compileContext) block(p *shaderir.Program, topBlock, block *shaderir.Bl
 					if len(args) == 1 {
 						return fmt.Sprintf("float4x4FromScalar(%s)", args[0])
 					}
-				case shaderir.Texture2DF:
-					return fmt.Sprintf("%s.Sample(samp, %s)", args[0], strings.Join(args[1:], ", "))
+				case shaderir.TexelAt:
+					switch c.unit {
+					case shaderir.Pixels:
+						return fmt.Sprintf("%s.Load(int3(%s, 0))", args[0], strings.Join(args[1:], ", "))
+					case shaderir.Texels:
+						return fmt.Sprintf("%s.Sample(samp, %s)", args[0], strings.Join(args[1:], ", "))
+					default:
+						panic(fmt.Sprintf("hlsl: unexpected unit: %d", p.Unit))
+					}
 				}
 			}
 			return fmt.Sprintf("%s(%s)", expr(&e.Exprs[0]), strings.Join(args, ", "))
@@ -517,14 +557,6 @@ func (c *compileContext) block(p *shaderir.Program, topBlock, block *shaderir.Bl
 			}
 			lines = append(lines, fmt.Sprintf("%s}", idt))
 		case shaderir.For:
-			var ct shaderir.ConstType
-			switch s.ForVarType.Main {
-			case shaderir.Int:
-				ct = shaderir.ConstTypeInt
-			case shaderir.Float:
-				ct = shaderir.ConstTypeFloat
-			}
-
 			v := c.localVariableName(p, topBlock, s.ForVarIndex)
 			var delta string
 			switch val, _ := constant.Float64Val(s.ForDelta); val {
@@ -537,10 +569,10 @@ func (c *compileContext) block(p *shaderir.Program, topBlock, block *shaderir.Bl
 			default:
 				d := s.ForDelta
 				if val > 0 {
-					delta = fmt.Sprintf("%s += %s", v, constantToNumberLiteral(ct, d))
+					delta = fmt.Sprintf("%s += %s", v, constantToNumberLiteral(d))
 				} else {
 					d = constant.UnaryOp(token.SUB, d, 0)
-					delta = fmt.Sprintf("%s -= %s", v, constantToNumberLiteral(ct, d))
+					delta = fmt.Sprintf("%s -= %s", v, constantToNumberLiteral(d))
 				}
 			}
 			var op string
@@ -552,8 +584,8 @@ func (c *compileContext) block(p *shaderir.Program, topBlock, block *shaderir.Bl
 			}
 
 			t := s.ForVarType
-			init := constantToNumberLiteral(ct, s.ForInit)
-			end := constantToNumberLiteral(ct, s.ForEnd)
+			init := constantToNumberLiteral(s.ForInit)
+			end := constantToNumberLiteral(s.ForEnd)
 			t0, t1 := typeString(&t)
 			lines = append(lines, fmt.Sprintf("%sfor (%s %s%s = %s; %s %s %s; %s) {", idt, t0, v, t1, init, v, op, end, delta))
 			lines = append(lines, c.block(p, topBlock, s.Blocks[0], level+1)...)

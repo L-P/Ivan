@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !playstation5
+
 package opengl
 
 import (
 	"fmt"
+	"math"
 	"runtime"
 	"unsafe"
 
@@ -50,22 +53,22 @@ func (a *arrayBufferLayout) names() []string {
 	return ns
 }
 
-// totalBytes returns the size in bytes for one element of the array buffer.
-func (a *arrayBufferLayout) totalBytes() int {
+// float32Count returns the total float32 count for one element of the array buffer.
+func (a *arrayBufferLayout) float32Count() int {
 	if a.total != 0 {
 		return a.total
 	}
 	t := 0
 	for _, p := range a.parts {
-		t += floatSizeInBytes * p.num
+		t += p.num
 	}
 	a.total = t
 	return a.total
 }
 
-// newArrayBuffer creates OpenGL's buffer object for the array buffer.
-func (a *arrayBufferLayout) newArrayBuffer(context *context) buffer {
-	return context.newArrayBuffer(a.totalBytes() * graphics.IndicesCount)
+func (a *arrayBufferLayout) addPart(part arrayBufferLayoutPart) {
+	a.parts = append(a.parts, part)
+	a.total = 0
 }
 
 // enable starts using the array buffer.
@@ -73,10 +76,10 @@ func (a *arrayBufferLayout) enable(context *context) {
 	for i := range a.parts {
 		context.ctx.EnableVertexAttribArray(uint32(i))
 	}
-	total := a.totalBytes()
+	total := a.float32Count()
 	offset := 0
 	for i, p := range a.parts {
-		context.ctx.VertexAttribPointer(uint32(i), int32(p.num), gl.FLOAT, false, int32(total), offset)
+		context.ctx.VertexAttribPointer(uint32(i), int32(p.num), gl.FLOAT, false, int32(floatSizeInBytes*total), offset)
 		offset += floatSizeInBytes * p.num
 	}
 }
@@ -90,38 +93,54 @@ func (a *arrayBufferLayout) disable(context *context) {
 }
 
 // theArrayBufferLayout is the array buffer layout for Ebitengine.
-var theArrayBufferLayout = arrayBufferLayout{
-	// Note that GL_MAX_VERTEX_ATTRIBS is at least 16.
-	parts: []arrayBufferLayoutPart{
-		{
-			name: "A0",
-			num:  2,
-		},
-		{
-			name: "A1",
-			num:  2,
-		},
-		{
-			name: "A2",
-			num:  4,
-		},
-	},
-}
+var theArrayBufferLayout arrayBufferLayout
 
 func init() {
-	vertexFloatCount := theArrayBufferLayout.totalBytes() / floatSizeInBytes
-	if graphics.VertexFloatCount != vertexFloatCount {
-		panic(fmt.Sprintf("vertex float num must be %d but %d", graphics.VertexFloatCount, vertexFloatCount))
+	theArrayBufferLayout = arrayBufferLayout{
+		// Note that GL_MAX_VERTEX_ATTRIBS is at least 16.
+		parts: []arrayBufferLayoutPart{
+			{
+				name: "A0",
+				num:  2,
+			},
+			{
+				name: "A1",
+				num:  2,
+			},
+			{
+				name: "A2",
+				num:  4,
+			},
+		},
+	}
+	n := theArrayBufferLayout.float32Count()
+	diff := graphics.VertexFloatCount - n
+	if diff == 0 {
+		return
+	}
+	if diff%4 != 0 {
+		panic("opengl: unexpected attribute layout")
+	}
+	for i := 0; i < diff/4; i++ {
+		theArrayBufferLayout.addPart(arrayBufferLayoutPart{
+			name: fmt.Sprintf("A%d", i+3),
+			num:  4,
+		})
 	}
 }
 
-// openGLState is a state for
 type openGLState struct {
+	vertexArray uint32
+
 	// arrayBuffer is OpenGL's array buffer (vertices data).
 	arrayBuffer buffer
 
+	arrayBufferSizeInBytes int
+
 	// elementArrayBuffer is OpenGL's element array buffer (indices data).
 	elementArrayBuffer buffer
+
+	elementArrayBufferSizeInBytes int
 
 	lastProgram       program
 	lastUniforms      map[string][]uint32
@@ -149,16 +168,68 @@ func (s *openGLState) reset(context *context) error {
 		if s.elementArrayBuffer != 0 {
 			context.ctx.DeleteBuffer(uint32(s.elementArrayBuffer))
 		}
+		if s.vertexArray != 0 {
+			context.ctx.DeleteVertexArray(s.vertexArray)
+		}
 	}
 
-	s.arrayBuffer = theArrayBufferLayout.newArrayBuffer(context)
-
-	// Note that the indices passed to NewElementArrayBuffer is not under GC management
-	// in opengl package due to unsafe-way.
-	// See NewElementArrayBuffer in context_mobile.go.
-	s.elementArrayBuffer = context.newElementArrayBuffer(graphics.IndicesCount * 2)
+	s.arrayBuffer = 0
+	s.arrayBufferSizeInBytes = 0
+	s.elementArrayBuffer = 0
+	s.elementArrayBufferSizeInBytes = 0
+	s.vertexArray = 0
 
 	return nil
+}
+
+func pow2(x int) int {
+	if x > (math.MaxInt+1)/2 {
+		return math.MaxInt
+	}
+
+	p2 := 1
+	for p2 < x {
+		p2 *= 2
+	}
+	return p2
+}
+
+func (s *openGLState) setVertices(context *context, vertices []float32, indices []uint32) {
+	if s.vertexArray == 0 {
+		s.vertexArray = context.ctx.CreateVertexArray()
+	}
+	context.ctx.BindVertexArray(s.vertexArray)
+
+	if size := len(vertices) * int(unsafe.Sizeof(vertices[0])); s.arrayBufferSizeInBytes < size {
+		if s.arrayBuffer != 0 {
+			context.ctx.DeleteBuffer(uint32(s.arrayBuffer))
+		}
+
+		newSize := pow2(size)
+		// newArrayBuffer calls BindBuffer.
+		s.arrayBuffer = context.newArrayBuffer(newSize)
+		s.arrayBufferSizeInBytes = newSize
+
+		// Reenable the array buffer layout explicitly after resetting the array buffer.
+		theArrayBufferLayout.enable(context)
+	}
+
+	if size := len(indices) * int(unsafe.Sizeof(indices[0])); s.elementArrayBufferSizeInBytes < size {
+		if s.elementArrayBuffer != 0 {
+			context.ctx.DeleteBuffer(uint32(s.elementArrayBuffer))
+		}
+
+		newSize := pow2(size)
+		// newElementArrayBuffer calls BindBuffer.
+		s.elementArrayBuffer = context.newElementArrayBuffer(newSize)
+		s.elementArrayBufferSizeInBytes = newSize
+	}
+
+	// Note that the vertices and the indices passed to BufferSubData is not under GC management in the gl package.
+	vs := unsafe.Slice((*byte)(unsafe.Pointer(&vertices[0])), len(vertices)*int(unsafe.Sizeof(vertices[0])))
+	context.ctx.BufferSubData(gl.ARRAY_BUFFER, 0, vs)
+	is := unsafe.Slice((*byte)(unsafe.Pointer(&indices[0])), len(indices)*int(unsafe.Sizeof(indices[0])))
+	context.ctx.BufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, is)
 }
 
 func (s *openGLState) resetLastUniforms() {
@@ -204,14 +275,9 @@ func (g *Graphics) textureVariableName(idx int) string {
 }
 
 // useProgram uses the program (programTexture).
-func (g *Graphics) useProgram(program program, uniforms []uniformVariable, textures [graphics.ShaderImageCount]textureVariable) error {
+func (g *Graphics) useProgram(program program, uniforms []uniformVariable, textures [graphics.ShaderSrcImageCount]textureVariable) error {
 	if g.state.lastProgram != program {
 		g.context.ctx.UseProgram(uint32(program))
-		if g.state.lastProgram == 0 {
-			theArrayBufferLayout.enable(&g.context)
-			g.context.ctx.BindBuffer(gl.ARRAY_BUFFER, uint32(g.state.arrayBuffer))
-			g.context.ctx.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, uint32(g.state.elementArrayBuffer))
-		}
 
 		g.state.lastProgram = program
 		for k := range g.state.lastUniforms {

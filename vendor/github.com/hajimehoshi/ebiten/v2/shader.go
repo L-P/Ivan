@@ -20,6 +20,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2/internal/builtinshader"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphics"
+	"github.com/hajimehoshi/ebiten/v2/internal/shaderir"
 	"github.com/hajimehoshi/ebiten/v2/internal/ui"
 )
 
@@ -28,6 +29,7 @@ import (
 // For the details about the shader, see https://ebitengine.org/en/documents/shader.html.
 type Shader struct {
 	shader *ui.Shader
+	unit   shaderir.Unit
 }
 
 // NewShader compiles a shader program in the shading language Kage, and returns the result.
@@ -36,34 +38,55 @@ type Shader struct {
 //
 // For the details about the shader, see https://ebitengine.org/en/documents/shader.html.
 func NewShader(src []byte) (*Shader, error) {
+	return newShader(src, "")
+}
+
+func newShader(src []byte, name string) (*Shader, error) {
 	ir, err := graphics.CompileShader(src)
 	if err != nil {
 		return nil, err
 	}
 	return &Shader{
-		shader: ui.NewShader(ir),
+		shader: ui.NewShader(ir, name),
+		unit:   ir.Unit,
 	}, nil
 }
 
 // Dispose disposes the shader program.
 // After disposing, the shader is no longer available.
+//
+// Deprecated: as of v2.7. Use Deallocate instead.
 func (s *Shader) Dispose() {
-	s.shader.MarkDisposed()
+	s.shader.Deallocate()
 	s.shader = nil
+}
+
+func (s *Shader) isDisposed() bool {
+	return s.shader == nil
+}
+
+// Deallocate deallocates the internal state of the shader.
+// Even after Deallocate is called, the shader is still available.
+// In this case, the shader's internal state is allocated again.
+//
+// Usually, you don't have to call Deallocate since the internal state is automatically released by GC.
+// However, if you are sure that the shader is no longer used but not sure how this shader object is referred,
+// you can call Deallocate to make sure that the internal state is deallocated.
+//
+// If the shader is disposed, Deallocate does nothing.
+func (s *Shader) Deallocate() {
+	if s.shader == nil {
+		return
+	}
+	s.shader.Deallocate()
 }
 
 func (s *Shader) appendUniforms(dst []uint32, uniforms map[string]any) []uint32 {
 	return s.shader.AppendUniforms(dst, uniforms)
 }
 
-type builtinShaderKey struct {
-	filter    builtinshader.Filter
-	address   builtinshader.Address
-	useColorM bool
-}
-
 var (
-	builtinShaders  = map[builtinShaderKey]*Shader{}
+	builtinShaders  [builtinshader.FilterCount][builtinshader.AddressCount][2]*Shader
 	builtinShadersM sync.Mutex
 )
 
@@ -71,12 +94,11 @@ func builtinShader(filter builtinshader.Filter, address builtinshader.Address, u
 	builtinShadersM.Lock()
 	defer builtinShadersM.Unlock()
 
-	key := builtinShaderKey{
-		filter:    filter,
-		address:   address,
-		useColorM: useColorM,
+	var c int
+	if useColorM {
+		c = 1
 	}
-	if s, ok := builtinShaders[key]; ok {
+	if s := builtinShaders[filter][address][c]; s != nil {
 		return s
 	}
 
@@ -89,14 +111,30 @@ func builtinShader(filter builtinshader.Filter, address builtinshader.Address, u
 			shader = &Shader{shader: ui.LinearFilterShader}
 		}
 	} else {
-		src := builtinshader.Shader(filter, address, useColorM)
-		s, err := NewShader(src)
+		src := builtinshader.ShaderSource(filter, address, useColorM)
+		var name string
+		switch filter {
+		case builtinshader.FilterNearest:
+			name = "nearest"
+		case builtinshader.FilterLinear:
+			name = "linear"
+		}
+		switch address {
+		case builtinshader.AddressClampToZero:
+			name += "-clamptozero"
+		case builtinshader.AddressRepeat:
+			name += "-repeat"
+		}
+		if useColorM {
+			name += "-colorm"
+		}
+		s, err := newShader(src, name)
 		if err != nil {
 			panic(fmt.Sprintf("ebiten: NewShader for a built-in shader failed: %v", err))
 		}
 		shader = s
 	}
 
-	builtinShaders[key] = shader
+	builtinShaders[filter][address][c] = shader
 	return shader
 }

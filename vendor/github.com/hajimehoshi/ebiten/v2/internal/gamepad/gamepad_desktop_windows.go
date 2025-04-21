@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !nintendosdk
-
 package gamepad
 
 import (
@@ -115,7 +113,7 @@ type nativeGamepadsDesktop struct {
 	enumObjectsCallback uintptr
 
 	nativeWindow  windows.HWND
-	deviceChanged int32
+	deviceChanged atomic.Bool
 	err           error
 }
 
@@ -296,12 +294,6 @@ func (g *nativeGamepadsDesktop) dinput8EnumDevicesCallback(lpddi *_DIDEVICEINSTA
 		return _DIENUM_STOP
 	}
 
-	if gamepads.find(func(g *Gamepad) bool {
-		return g.native.(*nativeGamepadDesktop).dinputGUID == lpddi.guidInstance
-	}) != nil {
-		return _DIENUM_CONTINUE
-	}
-
 	s, err := supportsXInput(lpddi.guidProduct)
 	if err != nil {
 		g.err = err
@@ -315,6 +307,51 @@ func (g *nativeGamepadsDesktop) dinput8EnumDevicesCallback(lpddi *_DIDEVICEINSTA
 	if err := g.dinput8API.CreateDevice(&lpddi.guidInstance, &device, nil); err != nil {
 		g.err = err
 		return _DIENUM_STOP
+	}
+
+	// lpddi.guidInstance is not reliable as a unique identity when the same multiple devices are connected (#3046).
+	// Use HID Path instead.
+	getDInputPath := func(device *_IDirectInputDevice8W) (string, error) {
+		prop := _DIPROPGUIDANDPATH{
+			diph: _DIPROPHEADER{
+				dwHeaderSize: uint32(unsafe.Sizeof(_DIPROPHEADER{})),
+				dwSize:       uint32(unsafe.Sizeof(_DIPROPGUIDANDPATH{})),
+				dwHow:        _DIPH_DEVICE,
+			},
+		}
+		if err := device.GetProperty(_DIPROP_GUIDANDPATH, &prop.diph); err != nil {
+			return "", err
+		}
+		return windows.UTF16ToString(prop.wszPath[:]), nil
+	}
+	dinputPath, err := getDInputPath(device)
+	if err != nil {
+		g.err = err
+		device.Release()
+		return _DIENUM_STOP
+	}
+
+	var findErr error
+	if gamepads.find(func(g *Gamepad) bool {
+		// A DInput device can be nil when the device is an XInput device (#3047).
+		d := g.native.(*nativeGamepadDesktop).dinputDevice
+		if d == nil {
+			return false
+		}
+		path, err := getDInputPath(d)
+		if err != nil {
+			findErr = err
+			return true
+		}
+		return path == dinputPath
+	}) != nil {
+		if findErr != nil {
+			g.err = findErr
+			device.Release()
+			return _DIENUM_STOP
+		}
+		device.Release()
+		return _DIENUM_CONTINUE
 	}
 
 	dataFormat := _DIDATAFORMAT{
@@ -397,7 +434,7 @@ func (g *nativeGamepadsDesktop) dinput8EnumDevicesCallback(lpddi *_DIDEVICEINSTA
 	gp.native = &nativeGamepadDesktop{
 		dinputDevice:  device,
 		dinputObjects: ctx.objects,
-		dinputGUID:    lpddi.guidInstance,
+		dinputPath:    dinputPath,
 		dinputAxes:    make([]float64, ctx.axisCount+ctx.sliderCount),
 		dinputButtons: make([]bool, ctx.buttonCount),
 		dinputHats:    make([]int, ctx.povCount),
@@ -411,6 +448,10 @@ func supportsXInput(guid windows.GUID) (bool, error) {
 	if r, err := _GetRawInputDeviceList(nil, &count); err != nil {
 		return false, err
 	} else if r != 0 {
+		return false, nil
+	}
+
+	if count == 0 {
 		return false, nil
 	}
 
@@ -535,11 +576,11 @@ func (g *nativeGamepadsDesktop) update(gamepads *gamepads) error {
 		g.origWndProc = h
 	}
 
-	if atomic.LoadInt32(&g.deviceChanged) != 0 {
+	if g.deviceChanged.Load() {
 		if err := g.detectConnection(gamepads); err != nil {
 			g.err = err
 		}
-		atomic.StoreInt32(&g.deviceChanged, 0)
+		g.deviceChanged.Store(false)
 	}
 
 	return nil
@@ -548,7 +589,7 @@ func (g *nativeGamepadsDesktop) update(gamepads *gamepads) error {
 func (g *nativeGamepadsDesktop) wndProc(hWnd uintptr, uMsg uint32, wParam, lParam uintptr) uintptr {
 	switch uMsg {
 	case _WM_DEVICECHANGE:
-		atomic.StoreInt32(&g.deviceChanged, 1)
+		g.deviceChanged.Store(true)
 	}
 	return _CallWindowProcW(g.origWndProc, hWnd, uMsg, wParam, lParam)
 }
@@ -560,7 +601,7 @@ func (g *nativeGamepadsDesktop) setNativeWindow(nativeWindow uintptr) {
 type nativeGamepadDesktop struct {
 	dinputDevice  *_IDirectInputDevice8W
 	dinputObjects []dinputObject
-	dinputGUID    windows.GUID
+	dinputPath    string
 	dinputAxes    []float64
 	dinputButtons []bool
 	dinputHats    []int
@@ -717,6 +758,10 @@ func (g *nativeGamepadDesktop) hatCount() int {
 	return 1
 }
 
+func (g *nativeGamepadDesktop) isAxisReady(axis int) bool {
+	return axis >= 0 && axis < g.axisCount()
+}
+
 func (g *nativeGamepadDesktop) axisValue(axis int) float64 {
 	if g.usesDInput() {
 		if axis < 0 || axis >= len(g.dinputAxes) {
@@ -788,6 +833,16 @@ func (g *nativeGamepadDesktop) hatState(hat int) int {
 	if g.xinputState.Gamepad.wButtons&_XINPUT_GAMEPAD_DPAD_LEFT != 0 {
 		v |= hatLeft
 	}
+
+	// Treat invalid combinations as neither being pressed
+	// while preserving what data can be preserved
+	if (v&hatRight) != 0 && (v&hatLeft) != 0 {
+		v &^= hatRight | hatLeft
+	}
+	if (v&hatUp) != 0 && (v&hatDown) != 0 {
+		v &^= hatUp | hatDown
+	}
+
 	return v
 }
 

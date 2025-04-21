@@ -20,7 +20,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/internal/affine"
 )
 
-// ColorMDim is a dimension of a ColorM.
+// ColorMDim is the dimension of a ColorM.
 //
 // Deprecated: as of v2.5. Use the colorm package instead.
 const ColorMDim = affine.ColorMDim
@@ -72,7 +72,7 @@ func (c *ColorM) Apply(clr color.Color) color.Color {
 }
 
 // Concat multiplies a color matrix with the other color matrix.
-// This is same as muptiplying the matrix other and the matrix c in this order.
+// This is same as multiplying the matrix other and the matrix c in this order.
 //
 // Deprecated: as of v2.5. Use the colorm package instead.
 func (c *ColorM) Concat(other ColorM) {

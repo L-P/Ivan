@@ -25,7 +25,7 @@ type Type struct {
 	Length int
 }
 
-func (t *Type) Equal(rhs *Type) bool {
+func (t Type) Equal(rhs *Type) bool {
 	if t.Main != rhs.Main {
 		return false
 	}
@@ -43,7 +43,7 @@ func (t *Type) Equal(rhs *Type) bool {
 	return true
 }
 
-func (t *Type) String() string {
+func (t Type) String() string {
 	switch t.Main {
 	case None:
 		return "none"
@@ -87,7 +87,7 @@ func (t *Type) String() string {
 	}
 }
 
-func (t *Type) Uint32Count() int {
+func (t Type) Uint32Count() int {
 	switch t.Main {
 	case Int:
 		return 1
@@ -118,15 +118,23 @@ func (t *Type) Uint32Count() int {
 	}
 }
 
-func (t *Type) IsVector() bool {
+func (t Type) IsFloatVector() bool {
 	switch t.Main {
-	case Vec2, Vec3, Vec4, IVec2, IVec3, IVec4:
+	case Vec2, Vec3, Vec4:
 		return true
 	}
 	return false
 }
 
-func (t *Type) VectorElementCount() int {
+func (t Type) IsIntVector() bool {
+	switch t.Main {
+	case IVec2, IVec3, IVec4:
+		return true
+	}
+	return false
+}
+
+func (t Type) VectorElementCount() int {
 	switch t.Main {
 	case Vec2:
 		return 2
@@ -145,12 +153,25 @@ func (t *Type) VectorElementCount() int {
 	}
 }
 
-func (t *Type) IsMatrix() bool {
+func (t Type) IsMatrix() bool {
 	switch t.Main {
 	case Mat2, Mat3, Mat4:
 		return true
 	}
 	return false
+}
+
+func (t Type) MatrixSize() int {
+	switch t.Main {
+	case Mat2:
+		return 2
+	case Mat3:
+		return 3
+	case Mat4:
+		return 4
+	default:
+		return -1
+	}
 }
 
 type BasicType int

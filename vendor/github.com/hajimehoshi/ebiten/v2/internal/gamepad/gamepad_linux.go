@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !android && !nintendosdk
+//go:build !android && !nintendosdk && !playstation5
 
 package gamepad
 
@@ -52,6 +52,10 @@ func (g *nativeGamepadsImpl) init(gamepads *gamepads) error {
 	var stat unix.Stat_t
 	if err := unix.Stat(dirName, &stat); err != nil {
 		if err == unix.ENOENT {
+			return nil
+		}
+		// `/dev/input` might not be accessible in some environments (#3057).
+		if err == unix.EACCES {
 			return nil
 		}
 		return fmt.Errorf("gamepad: Stat failed: %w", err)
@@ -140,13 +144,6 @@ func (*nativeGamepadsImpl) openGamepad(gamepads *gamepads, path string) (err err
 		return fmt.Errorf("gamepad: ioctl for an ID failed: %w", err)
 	}
 
-	if !isBitSet(evBits, unix.EV_KEY) {
-		if err := unix.Close(fd); err != nil {
-			return err
-		}
-
-		return nil
-	}
 	if !isBitSet(evBits, unix.EV_ABS) {
 		if err := unix.Close(fd); err != nil {
 			return err
@@ -590,6 +587,10 @@ func (g *nativeGamepadImpl) buttonCount() int {
 
 func (g *nativeGamepadImpl) hatCount() int {
 	return g.hatCount_
+}
+
+func (g *nativeGamepadImpl) isAxisReady(axis int) bool {
+	return axis >= 0 && axis < g.axisCount()
 }
 
 func (g *nativeGamepadImpl) axisValue(axis int) float64 {

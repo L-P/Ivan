@@ -32,7 +32,7 @@ var (
 	lastNow int64
 
 	// lastSystemTime is the last system time in the previous UpdateFrame.
-	// lastSystemTime indicates the logical time in the game, so this can be bigger than the curren time.
+	// lastSystemTime indicates the logical time in the game, so this can be bigger than the current time.
 	lastSystemTime int64
 
 	actualFPS   float64
@@ -62,13 +62,6 @@ func ActualTPS() float64 {
 	m.Lock()
 	defer m.Unlock()
 	return actualTPS
-}
-
-func max(a, b int64) int64 {
-	if a < b {
-		return b
-	}
-	return a
 }
 
 func calcCountFromTPS(tps int64, now int64) int {

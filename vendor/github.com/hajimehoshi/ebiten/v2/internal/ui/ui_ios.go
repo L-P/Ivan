@@ -14,10 +14,54 @@
 
 package ui
 
-import (
-	"fmt"
+// #cgo CFLAGS: -x objective-c
+// #cgo LDFLAGS: -framework Foundation -framework UIKit
+//
+// #import <UIKit/UIKit.h>
+//
+// static void displayInfoOnMainThread(float* width, float* height, float* scale, UIView* view) {
+//   *width = 0;
+//   *height = 0;
+//   *scale = 1;
+//   UIWindow* window = view.window;
+//   if (!window) {
+//     return;
+//   }
+//   UIWindowScene* scene = window.windowScene;
+//   if (!scene) {
+//     return;
+//   }
+//   CGRect bounds = scene.screen.bounds;
+//   *width = bounds.size.width;
+//   *height = bounds.size.height;
+//   *scale = scene.screen.nativeScale;
+// }
+//
+// static void displayInfo(float* width, float* height, float* scale, uintptr_t viewPtr) {
+//   *width = 0;
+//   *height = 0;
+//   *scale = 1;
+//   if (!viewPtr) {
+//     return;
+//   }
+//   UIView* view = (__bridge UIView*)(void*)viewPtr;
+//   if ([NSThread isMainThread]) {
+//     displayInfoOnMainThread(width, height, scale, view);
+//     return;
+//   }
+//   __block float w, h, s;
+//   dispatch_sync(dispatch_get_main_queue(), ^{
+//     displayInfoOnMainThread(&w, &h, &s, view);
+//   });
+//   *width = w;
+//   *height = h;
+//   *scale = s;
+// }
+import "C"
 
-	"golang.org/x/mobile/gl"
+import (
+	"errors"
+	"fmt"
 
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver"
 	"github.com/hajimehoshi/ebiten/v2/internal/graphicsdriver/metal"
@@ -25,7 +69,7 @@ import (
 )
 
 type graphicsDriverCreatorImpl struct {
-	gomobileContext gl.Context
+	colorSpace graphicsdriver.ColorSpace
 }
 
 func (g *graphicsDriverCreatorImpl) newAuto() (graphicsdriver.Graphics, GraphicsLibrary, error) {
@@ -41,33 +85,27 @@ func (g *graphicsDriverCreatorImpl) newAuto() (graphicsdriver.Graphics, Graphics
 }
 
 func (g *graphicsDriverCreatorImpl) newOpenGL() (graphicsdriver.Graphics, error) {
-	return opengl.NewGraphics(g.gomobileContext)
+	return opengl.NewGraphics()
 }
 
 func (*graphicsDriverCreatorImpl) newDirectX() (graphicsdriver.Graphics, error) {
-	return nil, nil
+	return nil, errors.New("ui: DirectX is not supported in this environment")
 }
 
 func (g *graphicsDriverCreatorImpl) newMetal() (graphicsdriver.Graphics, error) {
-	if g.gomobileContext != nil {
-		return nil, fmt.Errorf("ui: Metal is not available with gomobile-build")
-	}
-	return metal.NewGraphics()
+	return metal.NewGraphics(g.colorSpace)
 }
 
-func SetUIView(uiview uintptr) error {
-	return theUI.setUIView(uiview)
+func (*graphicsDriverCreatorImpl) newPlayStation5() (graphicsdriver.Graphics, error) {
+	return nil, errors.New("ui: PlayStation 5 is not supported in this environment")
 }
 
-func IsGL() (bool, error) {
-	return theUI.isGL()
-}
-
-func (u *userInterfaceImpl) setUIView(uiview uintptr) error {
+func (u *UserInterface) SetUIView(uiview uintptr) error {
+	u.uiView.Store(uiview)
 	select {
 	case err := <-u.errCh:
 		return err
-	case <-u.graphicsDriverInitCh:
+	case <-u.graphicsLibraryInitCh:
 	}
 
 	// This function should be called only when the graphics library is Metal.
@@ -77,12 +115,34 @@ func (u *userInterfaceImpl) setUIView(uiview uintptr) error {
 	return nil
 }
 
-func (u *userInterfaceImpl) isGL() (bool, error) {
+func (u *UserInterface) IsGL() (bool, error) {
 	select {
 	case err := <-u.errCh:
 		return false, err
-	case <-u.graphicsDriverInitCh:
+	case <-u.graphicsLibraryInitCh:
 	}
 
-	return u.graphicsDriver.IsGL(), nil
+	return u.GraphicsLibrary() == GraphicsLibraryOpenGL, nil
+}
+
+func dipToNativePixels(x float64, scale float64) float64 {
+	return x
+}
+
+func dipFromNativePixels(x float64, scale float64) float64 {
+	return x
+}
+
+func (u *UserInterface) displayInfo() (int, int, float64, bool) {
+	view := u.uiView.Load()
+	if view == 0 {
+		return 0, 0, 1, false
+	}
+
+	var cWidth, cHeight, cScale C.float
+	C.displayInfo(&cWidth, &cHeight, &cScale, C.uintptr_t(view))
+	scale := float64(cScale)
+	width := int(dipFromNativePixels(float64(cWidth), scale))
+	height := int(dipFromNativePixels(float64(cHeight), scale))
+	return width, height, scale, true
 }
