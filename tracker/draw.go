@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
@@ -89,18 +89,26 @@ func (tracker *Tracker) drawActiveItemSlot(screen *ebiten.Image, slot int) {
 }
 
 func (tracker *Tracker) drawDungeons(screen *ebiten.Image) {
+	var op = &text.DrawOptions{}
+	op.ColorScale.ScaleWithColor(color.White)
+
 	for k := range tracker.items {
 		if !tracker.items[k].IsMedallion {
 			continue
 		}
 
 		rect := tracker.items[k].Rect()
-		x, y := rect.Min.X, rect.Max.Y
-		text.Draw(screen, tracker.items[k].DungeonText(), tracker.fontSmall, x, y, color.White)
+
+		op.GeoM.Reset()
+		op.GeoM.Translate(float64(rect.Min.X), float64(rect.Max.Y-trackerSmallFontSize))
+		text.Draw(screen, tracker.items[k].DungeonText(), tracker.fontSmall, op)
 	}
 }
 
 func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
+	var op = &text.DrawOptions{}
+	op.ColorScale.ScaleWithColor(color.White)
+
 	for k := range tracker.items {
 		var count int
 		switch {
@@ -130,7 +138,9 @@ func (tracker *Tracker) drawCapacities(screen *ebiten.Image) {
 		}
 
 		str := strconv.Itoa(count)
-		text.Draw(screen, str, tracker.font, x, y, color.White)
+		op.GeoM.Reset()
+		op.GeoM.Translate(float64(x), float64(y-trackerFontSize))
+		text.Draw(screen, str, tracker.font, op)
 	}
 }
 
@@ -187,7 +197,12 @@ func (tracker *Tracker) drawInputState(screen *ebiten.Image) {
 	pos := tracker.cfg.Layout.ItemTracker.Min.Add(
 		image.Point{10, 15 + 9*gridSize},
 	)
-	text.Draw(screen, str, tracker.fontSmall, pos.X, pos.Y, color.White)
+
+	op := &text.DrawOptions{}
+	op.ColorScale.ScaleWithColor(color.White)
+	op.GeoM.Reset()
+	op.GeoM.Translate(float64(pos.X), float64(pos.Y)-trackerSmallFontSize)
+	text.Draw(screen, str, tracker.fontSmall, op)
 }
 
 func (tracker *Tracker) drawHints(screen *ebiten.Image) {
@@ -197,8 +212,10 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 		size        = tracker.cfg.Layout.HintTracker.Size()
 		pos         = tracker.cfg.Layout.HintTracker.Min.Add(margins)
 		lineHeight  = size.Y / maxHintsPerRow
+		op          = ebiten.DrawImageOptions{}
+		textOp      = &text.DrawOptions{}
 	)
-	op := ebiten.DrawImageOptions{}
+	textOp.ColorScale.ScaleWithColor(color.Black)
 
 	for k, v := range tracker.getDrawableHintList() {
 		if k > 0 && k%maxHintsPerRow == 0 {
@@ -214,6 +231,9 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 			false,
 		)
 
+		textOp.GeoM.Reset()
+		textOp.GeoM.Translate(float64(pos.X), float64(pos.Y)-trackerSmallFontSize)
+
 		if v.gfx != nil {
 			op.GeoM.Reset()
 			op.GeoM.Translate(
@@ -222,10 +242,10 @@ func (tracker *Tracker) drawHints(screen *ebiten.Image) {
 			)
 
 			screen.DrawImage(tracker.sheetEnabled.SubImage(*v.gfx).(*ebiten.Image), &op)
-			text.Draw(screen, v.text, tracker.fontSmall, pos.X+25, pos.Y, color.Black)
-		} else {
-			text.Draw(screen, v.text, tracker.fontSmall, pos.X, pos.Y, color.Black)
+			textOp.GeoM.Translate(25, 0)
 		}
+
+		text.Draw(screen, v.text, tracker.fontSmall, textOp)
 
 		pos.Y += lineHeight
 	}

@@ -1,6 +1,7 @@
 package timer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -10,10 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text"
-	"golang.org/x/image/font"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/gomono"
 )
 
@@ -31,28 +30,30 @@ type Timer struct {
 	startedAt, pausedAt time.Time
 	state               timerState
 
-	font     font.Face
+	font     text.Face
 	pos      image.Point
 	size     image.Point
 	timeSize image.Point
 }
 
 func New(dimensions image.Rectangle) (*Timer, error) {
-	ttf, err := truetype.Parse(gomono.TTF)
+	ttf, err := text.NewGoTextFaceSource(bytes.NewReader(gomono.TTF))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to load font: %w", err)
 	}
 
-	font := truetype.NewFace(ttf, &truetype.Options{
-		Size:    timeFontSize,
-		Hinting: font.HintingFull,
-	})
+	font := &text.GoTextFace{
+		Source: ttf,
+		Size:   timeFontSize,
+	}
+
+	w, h := text.Measure(format(time.Duration(0)), font, 0)
 
 	return &Timer{
 		font:     font,
 		pos:      dimensions.Min,
 		size:     dimensions.Size(),
-		timeSize: text.BoundString(font, format(time.Duration(0))).Size(),
+		timeSize: image.Point{int(math.Ceil(w)), int(math.Ceil(h))},
 	}, nil
 }
 
@@ -69,7 +70,7 @@ func format(d time.Duration) string {
 func (timer *Timer) Draw(screen *ebiten.Image) {
 	pos := timer.pos.Add(image.Point{
 		((timer.size.X - timer.timeSize.X) / 2),
-		timer.timeSize.Y + ((timer.size.Y - timer.timeSize.Y) / 2),
+		((timer.size.Y - timer.timeSize.Y) / 2),
 	})
 
 	var str string
@@ -89,7 +90,10 @@ func (timer *Timer) Draw(screen *ebiten.Image) {
 		textColor = color.RGBA{0xDC, 0xAC, 0x26, 0xFF}
 	}
 
-	text.Draw(screen, str, timer.font, pos.X, pos.Y, textColor)
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(pos.X), float64(pos.Y))
+	op.ColorScale.ScaleWithColor(textColor)
+	text.Draw(screen, str, timer.font, op)
 }
 
 func (timer *Timer) Toggle() {

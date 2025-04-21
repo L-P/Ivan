@@ -1,6 +1,7 @@
 package tracker
 
 import (
+	"bytes"
 	"encoding/json"
 	"image"
 	"io"
@@ -8,10 +9,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/golang/freetype/truetype"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"golang.org/x/image/font"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -21,7 +21,7 @@ type Tracker struct {
 
 	background, backgroundHelp  *ebiten.Image
 	sheetDisabled, sheetEnabled *ebiten.Image
-	font, fontSmall             font.Face
+	font, fontSmall             text.Face
 
 	items                            []Item
 	woths, goals, barrens, sometimes []string
@@ -49,8 +49,8 @@ func (tracker *Tracker) resetItems() {
 }
 
 const (
-	capacityFontSize = 20
-	dungeonFrontSize = 13
+	trackerFontSize      = 20
+	trackerSmallFontSize = 13
 )
 
 func (tracker *Tracker) loadResources() (err error) {
@@ -71,19 +71,19 @@ func (tracker *Tracker) loadResources() (err error) {
 		}
 	}
 
-	ttf, err := truetype.Parse(goregular.TTF)
+	ttf, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
 	if err != nil {
 		return err
 	}
 
-	tracker.font = truetype.NewFace(ttf, &truetype.Options{
-		Size:    capacityFontSize,
-		Hinting: font.HintingFull,
-	})
-	tracker.fontSmall = truetype.NewFace(ttf, &truetype.Options{
-		Size:    dungeonFrontSize,
-		Hinting: font.HintingFull,
-	})
+	tracker.font = &text.GoTextFace{
+		Source: ttf,
+		Size:   trackerFontSize,
+	}
+	tracker.fontSmall = &text.GoTextFace{
+		Source: ttf,
+		Size:   trackerSmallFontSize,
+	}
 
 	return nil
 }
