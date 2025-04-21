@@ -15,10 +15,14 @@ import (
 	"golang.org/x/image/font/gofont/goregular"
 )
 
+const (
+	capacityFontSize = 20
+	templeFontSize   = 13
+)
+
 type Tracker struct {
 	cfg   Config
 	input kbInput
-	hints hintTrackerConfig
 
 	background, backgroundHelp  *ebiten.Image
 	sheetDisabled, sheetEnabled *ebiten.Image
@@ -49,11 +53,6 @@ func (tracker *Tracker) resetItems() {
 	copy(tracker.items, tracker.cfg.Items)
 }
 
-const (
-	capacityFontSize = 20
-	dungeonFrontSize = 13
-)
-
 func (tracker *Tracker) loadResources() (err error) {
 	images := []struct {
 		img  **ebiten.Image
@@ -82,7 +81,7 @@ func (tracker *Tracker) loadResources() (err error) {
 		Hinting: font.HintingFull,
 	})
 	tracker.fontSmall = truetype.NewFace(ttf, &truetype.Options{
-		Size:    dungeonFrontSize,
+		Size:    templeFontSize,
 		Hinting: font.HintingFull,
 	})
 
